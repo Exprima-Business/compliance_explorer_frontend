@@ -1,0 +1,944 @@
+import { useEffect, useRef, useMemo, useState } from 'react'
+import * as d3 from 'd3'
+import { Box, IconButton, Paper, Typography } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import RemoveIcon from '@mui/icons-material/Remove'
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import type { Clause } from '../types/clause'
+
+interface ClauseGraphProps {
+  clauses: Clause[]
+  onNodeClick?: (clause: Clause) => void
+}
+
+interface NodeDatum extends d3.SimulationNodeDatum {
+  id: string
+  family: string
+  clause: Clause
+  x?: number
+  y?: number
+  fx?: number | null
+  fy?: number | null
+  label: string
+}
+
+interface LinkDatum extends d3.SimulationLinkDatum<NodeDatum> {
+  source: string | NodeDatum
+  target: string | NodeDatum
+}
+
+// Family color mapping and type
+const familyColors = {
+  DFARS: '#1976D2',    // Primary Blue
+  FIPS: '#D32F2F',    // Primary Red
+  NIST: '#388E3C',    // Primary Green
+  FAR: '#FBC02D',     // Primary Yellow/Gold
+  OMB: '#0288D1',     // Bright Blue
+  PRIVACY: '#F57C00', // Primary Orange
+  HSPD: '#7B1FA2',    // Primary Purple
+};
+type FamilyKey = keyof typeof familyColors;
+
+export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }) => {
+  const svgRef = useRef<SVGSVGElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const simulationRef = useRef<d3.Simulation<NodeDatum, undefined> | null>(null)
+  const nodesRef = useRef<NodeDatum[]>([])
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
+  const [legendPosition, setLegendPosition] = useState({ x: 16, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartPos = useRef({ x: 0, y: 0 })
+
+  console.log('ClauseGraph received clauses:', clauses?.length || 0, 'clauses');
+  if (clauses?.length > 0) {
+    console.log('Sample clause:', JSON.stringify(clauses[0], null, 2));
+  }
+
+  // Memoize the nodes and links to prevent unnecessary recalculations
+  const { nodes, links } = useMemo(() => {
+    if (!clauses || !Array.isArray(clauses)) {
+      console.warn('ClauseGraph: clauses is undefined or not an array');
+      return { nodes: [], links: [] };
+    }
+
+    console.log('Calculating nodes and links for', clauses.length, 'clauses');
+    
+    const nodes: NodeDatum[] = clauses.map(clause => {
+      // Try to find existing node position
+      const existingNode = nodesRef.current.find(n => n.id === clause.id)
+      return {
+        id: clause.id,
+        label: clause.clauseId,
+        family: clause.family,
+        clause,
+        x: existingNode?.x,
+        y: existingNode?.y,
+        fx: existingNode?.fx,
+        fy: existingNode?.fy
+      }
+    })
+
+    const validNodeIds = new Set(nodes.map(node => node.id))
+    const links: LinkDatum[] = clauses.flatMap(clause =>
+      (clause.relationships || [])
+        .filter(rel => validNodeIds.has(rel.clauseId))
+        .map(rel => ({
+          source: clause.id,
+          target: rel.clauseId
+        }))
+    )
+
+    console.log('Generated nodes:', nodes.length);
+    console.log('Generated links:', links.length);
+    if (nodes.length > 0) {
+      console.log('Sample node:', JSON.stringify(nodes[0], null, 2));
+    }
+    if (links.length > 0) {
+      console.log('Sample link:', JSON.stringify(links[0], null, 2));
+    }
+
+    nodesRef.current = nodes
+    return { nodes, links }
+  }, [clauses])
+
+  useEffect(() => {
+    if (!svgRef.current || !containerRef.current || nodes.length === 0) {
+      console.log('Skipping graph initialization:', {
+        hasSvgRef: !!svgRef.current,
+        hasContainerRef: !!containerRef.current,
+        nodesLength: nodes.length
+      });
+      return;
+    }
+
+    console.log('Initializing graph with', nodes.length, 'nodes and', links.length, 'links');
+
+    // Clear previous graph
+    d3.select(svgRef.current).selectAll('*').remove()
+
+    // Get container dimensions with fallback
+    const width = containerRef.current.clientWidth || window.innerWidth
+    const height = containerRef.current.clientHeight || window.innerHeight * 0.8
+
+    // Create the SVG container with explicit dimensions
+    const svg = d3.select<SVGSVGElement, unknown>(svgRef.current)
+      .attr('width', '100%')
+      .attr('height', '100%')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+
+    // Define radial gradients for each family
+    const defs = svg.append('defs');
+    // Neon glow filter
+    defs.append('filter')
+      .attr('id', 'neon-glow')
+      .attr('x', '-40%')
+      .attr('y', '-40%')
+      .attr('width', '180%')
+      .attr('height', '180%')
+      .html(`
+        <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#7F39FB" flood-opacity="0.85"/>
+        <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#00B8D9" flood-opacity="0.45"/>
+      `);
+    Object.entries(familyColors).forEach(([family, color]) => {
+      const grad = defs.append('radialGradient')
+        .attr('id', `radial-${family}`)
+        .attr('cx', '50%')
+        .attr('cy', '50%')
+        .attr('r', '70%');
+      grad.append('stop')
+        .attr('offset', '0%')
+        .attr('stop-color', '#fff')
+        .attr('stop-opacity', 0.95);
+      grad.append('stop')
+        .attr('offset', '100%')
+        .attr('stop-color', color)
+        .attr('stop-opacity', 1);
+    });
+
+    // Create a group for zooming that will contain all elements
+    const zoomGroup = svg.append('g')
+      .attr('class', 'zoom-group')
+
+    // Add zoom behavior
+    const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .extent([[0, 0], [width, height]])
+      .scaleExtent([0.1, 4])
+      .on('zoom', (event) => {
+        console.log('Zoom event:', event.transform)
+        zoomGroup.attr('transform', event.transform)
+      })
+
+    // Apply zoom behavior to SVG
+    svg.call(zoom)
+    // Set initial zoom to 0.85 (slightly zoomed out)
+    svg.call(zoom.transform, d3.zoomIdentity.scale(0.85))
+    zoomRef.current = zoom
+
+    // Set up the simulation with adjusted forces
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links)
+        .id((d: any) => d.id)
+        .distance(200) // Increased distance
+        .strength(0.5)) // Reduced strength
+      .force('charge', d3.forceManyBody()
+        .strength(-400) // Increased repulsion
+        .distanceMax(500)) // Increased max distance
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide()
+        .radius(60) // Increased collision radius
+        .strength(0.9)) // Increased collision strength
+      .force('x', d3.forceX((d: any) => {
+        const families = Array.from(new Set(nodes.map(n => n.family)))
+        const familyIndex = families.indexOf(d.family)
+        const columnWidth = width / (families.length + 1)
+        return columnWidth * (familyIndex + 1)
+      }).strength(0.3)) // Reduced x-force strength
+      .force('y', d3.forceY(height / 2).strength(0.2)) // Reduced y-force strength
+      .force('boundary', () => {
+        nodes.forEach(node => {
+          const padding = 60 // Increased padding
+          if (node.x! < padding) node.x = padding
+          if (node.x! > width - padding) node.x = width - padding
+          if (node.y! < padding) node.y = padding
+          if (node.y! > height - padding) node.y = height - padding
+        })
+      })
+
+    // Store simulation reference
+    simulationRef.current = simulation
+
+    // Force more simulation ticks with cooling
+    for (let i = 0; i < 500; ++i) {
+      simulation.tick()
+      // Gradually reduce alpha for smoother convergence
+      if (i > 300) {
+        simulation.alpha(simulation.alpha() * 0.99)
+      }
+    }
+
+    // Draw links within the zoom group
+    const link = zoomGroup.append('g')
+      .attr('class', 'links')
+      .selectAll('line')
+      .data(links)
+      .join('line')
+      .attr('stroke', (d: any) => {
+        const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
+        const targetId = typeof d.target === 'string' ? d.target : d.target.id;
+        const sourceClause = clauses.find(c => c.id === sourceId);
+        const targetClause = clauses.find(c => c.id === targetId);
+        
+        // Check if this is a parent relationship
+        if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
+          return '#1976d2'; // Primary blue for parent relationships
+        }
+        return '#bbb'; // Grey for sibling relationships
+      })
+      .attr('stroke-opacity', 0.7)
+      .attr('stroke-width', (d: any) => {
+        const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
+        const targetId = typeof d.target === 'string' ? d.target : d.target.id;
+        const sourceClause = clauses.find(c => c.id === sourceId);
+        const targetClause = clauses.find(c => c.id === targetId);
+        
+        // Thicker line for parent relationships
+        if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
+          return 2;
+        }
+        return 1;
+      })
+      .attr('stroke-dasharray', (d: any) => {
+        const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
+        const targetId = typeof d.target === 'string' ? d.target : d.target.id;
+        const sourceClause = clauses.find(c => c.id === sourceId);
+        const targetClause = clauses.find(c => c.id === targetId);
+        
+        // Solid line for parent relationships, dashed for siblings
+        if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
+          return 'none';
+        }
+        return '5,5';
+      });
+
+    // Draw nodes within the zoom group
+    const nodeGroup = zoomGroup.append('g')
+      .attr('class', 'nodes')
+      .selectAll('g')
+      .data(nodes)
+      .join('g')
+      .style('cursor', 'pointer')
+      .on('click', (event, d) => {
+        event.stopPropagation()  // Prevent click from bubbling to SVG
+        // Hide tooltip
+        tooltip.style('opacity', 0);
+        // Reset node size and style
+        d3.select(event.currentTarget)
+          .select('circle')
+          .transition()
+          .duration(200)
+          .attr('r', 35)
+          .style('stroke-width', 2);
+        // Reset all nodes and links
+        nodeGroup
+          .transition()
+          .duration(200)
+          .style('opacity', 1)
+          .select('circle')
+          .style('stroke-width', 2);
+        link
+          .transition()
+          .duration(200)
+          .style('opacity', 0.7)
+          .style('stroke-width', 1);
+        if (onNodeClick) onNodeClick(d.clause)
+      })
+      .on('mouseover', function(event, d) {
+        // Scale up the hovered node and set radial gradient fill, bold stroke, and neon glow
+        const fam = d.family;
+        d3.select(this)
+          .select('circle')
+          .transition()
+          .duration(200)
+          .attr('r', 40)
+          .style('stroke-width', 4)
+          .style('stroke', '#7F39FB')
+          .attr('fill', fam && Object.prototype.hasOwnProperty.call(familyColors, fam) ? `url(#radial-${fam})` : '#E0E0E0')
+          .attr('filter', 'url(#neon-glow)');
+
+        // Calculate tooltip position
+        const tooltipWidth = 200;  // Match the width set in tooltip style
+        const tooltipHeight = 100; // Approximate height
+        const padding = 16;        // Increased padding from screen edge
+        const nodeOffset = 32;     // Increased offset from node
+
+        // Get viewport dimensions
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Calculate initial position
+        let left = event.pageX + nodeOffset;
+        let top = event.pageY - tooltipHeight / 2;
+
+        // Check if tooltip would clip right edge
+        if (left + tooltipWidth + padding > viewportWidth) {
+          left = event.pageX - tooltipWidth - nodeOffset;
+        }
+
+        // Check if tooltip would clip bottom edge
+        if (top + tooltipHeight + padding > viewportHeight) {
+          top = event.pageY - tooltipHeight - nodeOffset;
+        }
+
+        // Ensure tooltip doesn't go off left edge
+        left = Math.max(padding, left);
+
+        // Ensure tooltip doesn't go off top edge
+        top = Math.max(padding, top);
+
+        // Show tooltip with updated styling
+        tooltip
+          .style('opacity', 1)
+          .html(`
+            <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px; color: #1976d2;">${d.clause.clauseId}</div>
+            <div style="color: #666; font-size: 14px; line-height: 1.4; margin-bottom: 12px;">${d.clause.title}</div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="color: #1976d2; font-weight: 500;">${d.clause.family}</span>
+              <span style="color: ${d.clause.riskClassification === 'HIGH' ? '#d32f2f' : '#ed6c02'}; font-weight: 500;">
+                ${d.clause.riskClassification}
+              </span>
+            </div>
+          `)
+          .style('left', left + 'px')
+          .style('top', top + 'px');
+
+        // Find connected nodes and links
+        const connectedNodes = new Set<string>();
+        const connectedLinks = new Set<LinkDatum>();
+
+        // Find connected nodes and links
+        links.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
+          const targetId = typeof link.target === 'string' ? link.target : link.target.id;
+          if (sourceId === d.id || targetId === d.id) {
+            connectedLinks.add(link);
+            connectedNodes.add(sourceId);
+            connectedNodes.add(targetId);
+          }
+        });
+
+        // Highlight all nodes, with connected nodes at full opacity
+        nodeGroup
+          .transition()
+          .duration(200)
+          .style('opacity', (nodeDatum: NodeDatum) => {
+            if (nodeDatum.id === d.id) return 1;
+            return connectedNodes.has(nodeDatum.id) ? 1 : 0.2;
+          })
+          .select('circle')
+          .attr('r', (nodeDatum: NodeDatum) => nodeDatum.id === d.id ? 40 : 35)
+          .style('stroke-width', (nodeDatum: NodeDatum) => nodeDatum.id === d.id ? 4 : 2)
+          .style('stroke', (nodeDatum: NodeDatum) => nodeDatum.id === d.id ? '#7F39FB' : '#757575')
+          .attr('fill', (nodeDatum: NodeDatum) => {
+            const fam = nodeDatum.family;
+            if (nodeDatum.id === d.id && fam && Object.prototype.hasOwnProperty.call(familyColors, fam)) {
+              return `url(#radial-${fam})`;
+            }
+            if (fam && Object.prototype.hasOwnProperty.call(familyColors, fam)) {
+              return `url(#radial-${fam})`;
+            }
+            return '#E0E0E0';
+          })
+          .attr('filter', (nodeDatum: NodeDatum) => nodeDatum.id === d.id ? 'url(#neon-glow)' : null);
+
+        // Highlight connected links with relationship-specific styling
+        link
+          .transition()
+          .duration(200)
+          .style('opacity', (link: LinkDatum) => {
+            if (!connectedLinks.has(link)) return 0.1;
+            
+            const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
+            const targetId = typeof link.target === 'string' ? link.target : link.target.id;
+            const sourceClause = clauses.find(c => c.id === sourceId);
+            const targetClause = clauses.find(c => c.id === targetId);
+            
+            // Higher opacity for parent relationships
+            if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
+              return 1;
+            }
+            return 0.7;
+          })
+          .style('stroke-width', (link: LinkDatum) => {
+            if (!connectedLinks.has(link)) return 1;
+            
+            const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
+            const targetId = typeof link.target === 'string' ? link.target : link.target.id;
+            const sourceClause = clauses.find(c => c.id === sourceId);
+            const targetClause = clauses.find(c => c.id === targetId);
+            
+            // Thicker line for parent relationships
+            if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
+              return 3;
+            }
+            return 2;
+          });
+      })
+      .on('mouseout', function() {
+        // Reset node size, stroke, fill, and remove filter
+        d3.select(this)
+          .select('circle')
+          .transition()
+          .duration(200)
+          .attr('r', 35)
+          .style('stroke-width', 2)
+          .style('stroke', '#757575')
+          .attr('fill', (d: any) => {
+            const fam = d.family;
+            if (fam && Object.prototype.hasOwnProperty.call(familyColors, fam)) {
+              return `url(#radial-${fam})`;
+            }
+            return '#E0E0E0';
+          })
+          .attr('filter', null);
+
+        // Hide tooltip
+        tooltip.style('opacity', 0);
+
+        // Reset all nodes and links
+        nodeGroup
+          .transition()
+          .duration(200)
+          .style('opacity', 1)
+          .select('circle')
+          .attr('r', 35)
+          .style('stroke-width', 2)
+          .style('stroke', '#757575')
+          .attr('fill', (nodeDatum: NodeDatum) => {
+            const fam = nodeDatum.family;
+            if (fam && Object.prototype.hasOwnProperty.call(familyColors, fam)) {
+              return `url(#radial-${fam})`;
+            }
+            return '#E0E0E0';
+          })
+          .attr('filter', null);
+
+        link
+          .transition()
+          .duration(200)
+          .style('opacity', 0.7)
+          .style('stroke-width', 1);
+      })
+      .call(d3.drag<any, any>()
+        .on('start', dragstarted)
+        .on('drag', dragged)
+        .on('end', dragended))
+
+    // Add circles to node groups
+    nodeGroup.append('circle')
+      .attr('r', 35)
+      .attr('fill', (d: any) => {
+        const fam = d.family;
+        if (fam && Object.prototype.hasOwnProperty.call(familyColors, fam)) {
+          return `url(#radial-${fam})`;
+        }
+        return '#E0E0E0';
+      })
+      .attr('stroke', '#757575')
+      .attr('stroke-width', 2);
+
+    // Add text labels to node groups
+    nodeGroup.append('text')
+      .attr('dy', '.35em')
+      .attr('text-anchor', 'middle')
+      .style('font-size', '12px')
+      .style('font-weight', 'bold')
+      .style('fill', '#000')
+      .style('pointer-events', 'none')
+      .text((d: any) => d.label);
+
+    // Calculate initial zoom to fit all nodes
+    const padding = 100
+    const xExtent = d3.extent(nodes, (d: any) => d.x) as [number, number]
+    const yExtent = d3.extent(nodes, (d: any) => d.y) as [number, number]
+    const xRange = xExtent[1] - xExtent[0]
+    const yRange = yExtent[1] - yExtent[0]
+    const scale = Math.min(
+      (width - padding) / xRange,
+      (height - padding) / yRange,
+      1.2
+    )
+
+    // Calculate center of the node group
+    const centerX = (xExtent[0] + xExtent[1]) / 2
+    const centerY = (yExtent[0] + yExtent[1]) / 2
+
+    // Create transform that centers the node group
+    const transform = d3.zoomIdentity
+      .translate(width / 2, height / 2)
+      .scale(scale)
+      .translate(-centerX, -centerY)
+
+    // Apply initial transform
+    svg.call(zoom.transform, transform)
+
+    // Add double-click to reset zoom
+    svg.on('dblclick', () => {
+      svg.transition()
+        .duration(750)
+        .call(zoom.transform, transform)
+    })
+
+    // Add mouse wheel zoom with smoother behavior
+    svg.on('wheel', (event) => {
+      event.preventDefault()
+      const currentTransform = d3.zoomTransform(svg.node()!)
+      const scale = currentTransform.k * (event.deltaY > 0 ? 0.9 : 1.1)
+      const newTransform = d3.zoomIdentity
+        .translate(currentTransform.x, currentTransform.y)
+        .scale(scale)
+      svg.transition()
+        .duration(50)
+        .call(zoom.transform, newTransform)
+    })
+
+    // Update positions on each tick with smoother transitions
+    simulation.on('tick', () => {
+      link
+        .attr('x1', (d: any) => (typeof d.source === 'object' ? d.source.x : 0))
+        .attr('y1', (d: any) => (typeof d.source === 'object' ? d.source.y : 0))
+        .attr('x2', (d: any) => (typeof d.target === 'object' ? d.target.x : 0))
+        .attr('y2', (d: any) => (typeof d.target === 'object' ? d.target.y : 0))
+
+      nodeGroup
+        .select('circle')
+        .attr('cx', (d: any) => d.x)
+        .attr('cy', (d: any) => d.y)
+
+      nodeGroup
+        .select('text')
+        .attr('x', (d: any) => d.x)
+        .attr('y', (d: any) => d.y)
+    })
+
+    function dragstarted(event: any) {
+      if (!event.active) simulation.alphaTarget(0.3).restart()
+      event.subject.fx = event.subject.x
+      event.subject.fy = event.subject.y
+    }
+
+    function dragged(event: any) {
+      event.subject.fx = event.x
+      event.subject.fy = event.y
+    }
+
+    function dragended(event: any) {
+      if (!event.active) simulation.alphaTarget(0)
+      event.subject.fx = null
+      event.subject.fy = null
+    }
+
+    // Add resize handler
+    const handleResize = () => {
+      if (!containerRef.current) return
+      
+      const newWidth = containerRef.current.clientWidth
+      const newHeight = containerRef.current.clientHeight
+      
+      svg
+        .attr('width', newWidth)
+        .attr('height', newHeight)
+        .attr('viewBox', `0 0 ${newWidth} ${newHeight}`)
+      
+      // Update simulation center
+      simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2))
+      simulation.alpha(0.3).restart()
+    }
+
+    window.addEventListener('resize', handleResize)
+
+    // Add tooltip div
+    const tooltip = d3.select('body')
+      .append('div')
+      .attr('class', 'tooltip')
+      .style('opacity', 0)
+      .style('position', 'absolute')
+      .style('background-color', 'white')
+      .style('padding', '16px')
+      .style('border-radius', '8px')
+      .style('box-shadow', '0 2px 8px rgba(0,0,0,0.15)')
+      .style('pointer-events', 'none')
+      .style('z-index', 1000)
+      .style('font-family', 'system-ui, -apple-system, sans-serif')
+      .style('font-size', '14px')
+      .style('border', '1px solid #e0e0e0')
+      .style('width', '250px')
+      .style('word-wrap', 'break-word')
+      .style('white-space', 'normal')
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      simulation.stop()
+      tooltip.remove()
+    }
+  }, [nodes, links, clauses, onNodeClick])
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    
+    // Set initial y position based on container height
+    const containerHeight = containerRef.current.clientHeight
+    const legendHeight = 100 // Approximate legend height
+    const bottomBuffer = 35 // Buffer from bottom edge
+    setLegendPosition(prev => ({
+      ...prev,
+      y: containerHeight - legendHeight - bottomBuffer
+    }))
+  }, []) // Run once on mount
+
+  const handleZoomIn = () => {
+    console.log('Zoom in clicked')
+    if (!svgRef.current || !zoomRef.current) {
+      console.log('Missing refs:', { svg: !!svgRef.current, zoom: !!zoomRef.current })
+      return
+    }
+    const svg = d3.select(svgRef.current)
+    const currentTransform = d3.zoomTransform(svgRef.current)
+    console.log('Current transform:', currentTransform)
+    const newScale = Math.min(currentTransform.k * 1.2, 4)
+    
+    svg.transition()
+      .duration(200)
+      .call(
+        zoomRef.current.transform,
+        d3.zoomIdentity
+          .translate(currentTransform.x, currentTransform.y)
+          .scale(newScale)
+      )
+  }
+
+  const handleZoomOut = () => {
+    console.log('Zoom out clicked')
+    if (!svgRef.current || !zoomRef.current) {
+      console.log('Missing refs:', { svg: !!svgRef.current, zoom: !!zoomRef.current })
+      return
+    }
+    const svg = d3.select(svgRef.current)
+    const currentTransform = d3.zoomTransform(svgRef.current)
+    console.log('Current transform:', currentTransform)
+    const newScale = Math.max(currentTransform.k * 0.8, 0.1)
+    
+    svg.transition()
+      .duration(200)
+      .call(
+        zoomRef.current.transform,
+        d3.zoomIdentity
+          .translate(currentTransform.x, currentTransform.y)
+          .scale(newScale)
+      )
+  }
+
+  const handleResetZoom = () => {
+    console.log('Reset zoom clicked')
+    if (!svgRef.current || !zoomRef.current || !containerRef.current) {
+      console.log('Missing refs:', { 
+        svg: !!svgRef.current, 
+        zoom: !!zoomRef.current,
+        container: !!containerRef.current 
+      })
+      return
+    }
+    const svg = d3.select(svgRef.current)
+    const width = containerRef.current.clientWidth
+    const height = containerRef.current.clientHeight
+    
+    // Calculate the transform to fit all nodes
+    const padding = 100
+    const xExtent = d3.extent(nodes, (d: any) => d.x) as [number, number]
+    const yExtent = d3.extent(nodes, (d: any) => d.y) as [number, number]
+    const xRange = xExtent[1] - xExtent[0]
+    const yRange = yExtent[1] - yExtent[0]
+    const scale = Math.min(
+      (width - padding) / xRange,
+      (height - padding) / yRange,
+      1.2
+    )
+    const centerX = (xExtent[0] + xExtent[1]) / 2
+    const centerY = (yExtent[0] + yExtent[1]) / 2
+    
+    const transform = d3.zoomIdentity
+      .translate(width / 2, height / 2)
+      .scale(scale)
+      .translate(-centerX, -centerY)
+    
+    console.log('Reset transform:', transform)
+    
+    svg.transition()
+      .duration(500)
+      .call(zoomRef.current.transform, transform)
+  }
+
+  const handleDragStart = (event: React.MouseEvent) => {
+    setIsDragging(true)
+    dragStartPos.current = {
+      x: event.clientX - legendPosition.x,
+      y: event.clientY - legendPosition.y
+    }
+  }
+
+  const handleDragMove = (event: React.MouseEvent) => {
+    if (!isDragging) return
+    
+    const newX = event.clientX - dragStartPos.current.x
+    const newY = event.clientY - dragStartPos.current.y
+    
+    // Get container bounds
+    const container = containerRef.current
+    if (!container) return
+    
+    const containerRect = container.getBoundingClientRect()
+    const legendWidth = 500 // Approximate legend width
+    const legendHeight = 100 // Approximate legend height
+    
+    // Constrain to container bounds
+    const constrainedX = Math.max(0, Math.min(newX, containerRect.width - legendWidth))
+    const constrainedY = Math.max(0, Math.min(newY, containerRect.height - legendHeight))
+    
+    setLegendPosition({ x: constrainedX, y: constrainedY })
+  }
+
+  const handleDragEnd = () => {
+    setIsDragging(false)
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      handleDragMove(event as unknown as React.MouseEvent)
+    }
+
+    const handleMouseUp = () => {
+      handleDragEnd()
+    }
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging])
+
+  return (
+    <Box
+      ref={containerRef}
+      sx={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        overflow: 'hidden',
+        bgcolor: 'background.paper',
+        borderRadius: 2.8,
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minWidth: 0,
+        minHeight: 0
+      }}
+    >
+      <svg
+        ref={svgRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
+          display: 'block'
+        }}
+      />
+      
+      {/* Legend */}
+      <Paper
+        elevation={3}
+        sx={{
+          position: 'absolute',
+          left: legendPosition.x,
+          top: legendPosition.y,
+          p: 1.5,
+          borderRadius: 2,
+          bgcolor: 'background.paper',
+          zIndex: 1000,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          width: 'fit-content',
+          minWidth: 500,
+          maxWidth: 800,
+          cursor: isDragging ? 'grabbing' : 'grab',
+          userSelect: 'none'
+        }}
+        onMouseDown={handleDragStart}
+      >
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 1, 
+          cursor: 'grab',
+          '&:active': { cursor: 'grabbing' }
+        }}>
+          <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            Drag to reposition
+          </Typography>
+        </Box>
+
+        {/* Families */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+            Families:
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'nowrap' }}>
+            {Object.entries(familyColors).map(([family, color]) => (
+              <Box key={family} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    bgcolor: color,
+                    border: '1px solid #757575'
+                  }}
+                />
+                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{family}</Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+
+        {/* Relationships */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+            Relationships:
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box
+                sx={{
+                  width: 40,
+                  height: 2,
+                  bgcolor: '#1976d2',
+                  borderRadius: 1
+                }}
+              />
+              <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Parent</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box
+                sx={{
+                  width: 40,
+                  height: 2,
+                  bgcolor: '#bbb',
+                  borderRadius: 1,
+                  backgroundImage: 'repeating-linear-gradient(to right, #bbb 0px, #bbb 5px, transparent 5px, transparent 10px)'
+                }}
+              />
+              <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Sibling</Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
+
+      {/* Zoom Controls */}
+      <Paper
+        elevation={3}
+        sx={{
+          position: 'absolute',
+          right: 16,
+          bottom: 16,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          p: 0.5,
+          borderRadius: 2,
+          bgcolor: 'background.paper',
+          zIndex: 1000
+        }}
+      >
+        <IconButton 
+          onClick={handleZoomIn}
+          size="small"
+          sx={{ 
+            bgcolor: 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' }
+          }}
+        >
+          <AddIcon />
+        </IconButton>
+        <IconButton 
+          onClick={handleZoomOut}
+          size="small"
+          sx={{ 
+            bgcolor: 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' }
+          }}
+        >
+          <RemoveIcon />
+        </IconButton>
+        <IconButton 
+          onClick={handleResetZoom}
+          size="small"
+          sx={{ 
+            bgcolor: 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' }
+          }}
+        >
+          <CenterFocusStrongIcon />
+        </IconButton>
+      </Paper>
+    </Box>
+  )
+} 
