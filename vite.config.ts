@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
   const apiUrl = env.VITE_API_URL || 'http://localhost:3001'
 
   return {
+    base: '/',
     plugins: [react()],
     envPrefix: 'VITE_',
     define: {
@@ -40,6 +41,33 @@ export default defineConfig(({ mode }) => {
           secure: false
         }
       }
+    },
+    build: {
+      outDir: 'dist',
+      assetsDir: 'assets',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor': [
+              'react',
+              'react-dom',
+              'react-router-dom',
+              '@supabase/supabase-js'
+            ],
+            'ui': [
+              '@mui/material',
+              '@mui/icons-material',
+              '@emotion/react',
+              '@emotion/styled'
+            ],
+            'utils': [
+              'html2canvas',
+              'dompurify'
+            ]
+          }
+        }
+      },
+      chunkSizeWarningLimit: 1000
     }
   }
 })
