@@ -4,17 +4,18 @@ import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse } from '../ty
 import environment from '../config/environment';
 
 const API_URL = environment.api.url;
+console.log('API URL:', API_URL); // Log the API URL for debugging
 
 const publicEndpoints = [
-  '/clauses',
-  '/clauses/families',
-  '/clauses/search',
-  '/clauses/family'
+  '/api/clauses',
+  '/api/families',
+  '/api/clauses/search',
+  '/api/clauses/family'
 ];
 
 const protectedEndpoints = [
-  '/clauses/bookmark',
-  '/documents'
+  '/api/clauses/bookmark',
+  '/api/documents'
 ];
 
 class ApiError extends Error {
@@ -25,11 +26,32 @@ class ApiError extends Error {
 }
 
 async function handleApiResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new ApiError(error.message || 'API request failed', response.status, error);
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    console.error('Invalid content type:', contentType);
+    console.error('Response status:', response.status);
+    console.error('Response status text:', response.statusText);
+    const text = await response.text();
+    console.error('Response body:', text);
+    throw new ApiError(`Invalid content type: ${contentType}`, response.status);
   }
-  return response.json();
+
+  if (!response.ok) {
+    try {
+      const error = await response.json();
+      throw new ApiError(error.message || 'API request failed', response.status, error);
+    } catch (e) {
+      console.error('Failed to parse error response:', e);
+      throw new ApiError(`API request failed: ${response.statusText}`, response.status);
+    }
+  }
+
+  try {
+    return await response.json();
+  } catch (e) {
+    console.error('Failed to parse response:', e);
+    throw new ApiError('Failed to parse API response', response.status);
+  }
 }
 
 async function getAuthToken(): Promise<string | null> {
@@ -49,6 +71,8 @@ async function getAuthToken(): Promise<string | null> {
 async function getCommonHeaders(requireAuth: boolean = false): Promise<HeadersInit> {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Origin': window.location.origin,
   };
 
   if (requireAuth) {
@@ -77,26 +101,25 @@ export async function apiCall<T>(
   const isProtectedEndpoint = protectedEndpoints.some(ep => endpoint.startsWith(ep));
 
   const shouldRequireAuth = requireAuth || isProtectedEndpoint;
+  const fullUrl = `${API_URL}${endpoint}`;
+  console.log(`Making ${method} request to:`, fullUrl);
 
   try {
     const headers = await getCommonHeaders(shouldRequireAuth);
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    console.log('Request headers:', headers);
+
+    const response = await fetch(fullUrl, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      credentials: 'include', // Include cookies if needed
+      mode: 'cors', // Explicitly set CORS mode
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new ApiError(
-        error.message || `API call failed: ${response.statusText}`,
-        response.status,
-        error
-      );
-    }
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
-    const data = await response.json();
-    return data as T;
+    return await handleApiResponse<T>(response);
   } catch (error) {
     console.error('API call error:', error);
     if (error instanceof ApiError) {
@@ -112,7 +135,7 @@ export async function apiCall<T>(
 // Public endpoints (no auth required)
 export async function fetchClauses(): Promise<ApiResponse<Clause[]>> {
   try {
-    return await apiCall<ApiResponse<Clause[]>>('/clauses');
+    return await apiCall<ApiResponse<Clause[]>>('/api/clauses');
   } catch (error) {
     console.error('Error fetching clauses:', error);
     throw error;
@@ -121,7 +144,7 @@ export async function fetchClauses(): Promise<ApiResponse<Clause[]>> {
 
 export async function getClausesByFamily(family: ClauseFamily): Promise<ApiResponse<Clause[]>> {
   try {
-    return await apiCall<ApiResponse<Clause[]>>(`/clauses/family/${family}`);
+    return await apiCall<ApiResponse<Clause[]>>(`/api/clauses/family/${family}`);
   } catch (error) {
     console.error(`Error fetching clauses for family ${family}:`, error);
     throw error;
@@ -130,7 +153,7 @@ export async function getClausesByFamily(family: ClauseFamily): Promise<ApiRespo
 
 export async function getClauseFamilies(): Promise<ApiResponse<ClauseFamilyGroup[]>> {
   try {
-    return await apiCall<ApiResponse<ClauseFamilyGroup[]>>('/clauses/families');
+    return await apiCall<ApiResponse<ClauseFamilyGroup[]>>('/api/families');
   } catch (error) {
     console.error('Error fetching clause families:', error);
     throw error;
@@ -139,7 +162,7 @@ export async function getClauseFamilies(): Promise<ApiResponse<ClauseFamilyGroup
 
 export async function getClauseById(id: string): Promise<ApiResponse<Clause>> {
   try {
-    return await apiCall<ApiResponse<Clause>>(`/clauses/${id}`);
+    return await apiCall<ApiResponse<Clause>>(`/api/clauses/${id}`);
   } catch (error) {
     console.error(`Error fetching clause ${id}:`, error);
     throw error;
@@ -148,7 +171,7 @@ export async function getClauseById(id: string): Promise<ApiResponse<Clause>> {
 
 export async function searchClauses(query: string): Promise<ApiResponse<Clause[]>> {
   try {
-    return await apiCall<ApiResponse<Clause[]>>(`/clauses/search?q=${encodeURIComponent(query)}`);
+    return await apiCall<ApiResponse<Clause[]>>(`/api/clauses/search?q=${encodeURIComponent(query)}`);
   } catch (error) {
     console.error('Error searching clauses:', error);
     throw error;
@@ -158,7 +181,7 @@ export async function searchClauses(query: string): Promise<ApiResponse<Clause[]
 // Protected endpoints (auth required)
 export async function bookmarkClause(clauseId: string): Promise<ApiResponse<void>> {
   try {
-    return await apiCall<ApiResponse<void>>(`/clauses/${clauseId}/bookmark`, {
+    return await apiCall<ApiResponse<void>>(`/api/clauses/${clauseId}/bookmark`, {
       method: 'POST',
       requireAuth: true
     });
@@ -173,7 +196,7 @@ export async function uploadDocument(file: File): Promise<ApiResponse<any>> {
     const formData = new FormData();
     formData.append('file', file);
     
-    return await apiCall<ApiResponse<any>>('/documents/upload', {
+    return await apiCall<ApiResponse<any>>('/api/documents/upload', {
       method: 'POST',
       body: formData,
       requireAuth: true
@@ -186,7 +209,7 @@ export async function uploadDocument(file: File): Promise<ApiResponse<any>> {
 
 export async function analyzeDocument(documentId: string): Promise<ApiResponse<any>> {
   try {
-    return await apiCall<ApiResponse<any>>(`/documents/${documentId}/analyze`, {
+    return await apiCall<ApiResponse<any>>(`/api/documents/${documentId}/analyze`, {
       method: 'POST',
       requireAuth: true
     });

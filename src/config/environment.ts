@@ -10,4 +10,10 @@ const environment: Environment = {
   }
 };
 
+console.log('Environment:', {
+  isProd: import.meta.env.PROD,
+  apiUrl: environment.api.url,
+  supabaseUrl: environment.supabase.url
+});
+
 export default environment; 
