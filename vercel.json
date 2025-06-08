@@ -8,6 +8,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/:path*", "destination": "https://api.clauseatlas.com/api/:path*" },
     { "source": "/assets/:path*", "destination": "/assets/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
