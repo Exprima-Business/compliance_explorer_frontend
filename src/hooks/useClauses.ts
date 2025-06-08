@@ -1,50 +1,24 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
-import * as api from '../services/api';
 import { clauseService } from '../services/clauseService';
 
-interface UseClausesState {
-  clauses: Clause[];
-  families: ClauseFamilyGroup[];
-  selectedFamily: ClauseFamily | null;
-  loading: boolean;
-  error: string | null;
-}
-
-interface UseClausesActions {
-  fetchAllClauses: () => Promise<void>;
-  fetchClausesByFamily: (family: ClauseFamily) => Promise<void>;
-  fetchFamilies: () => Promise<void>;
-  selectFamily: (family: ClauseFamily | null) => void;
-  bookmarkClause: (clauseId: string) => Promise<void>;
-  searchClauses: (query: string) => Promise<Clause[]>;
-}
-
-export function useClauses(): [UseClausesState, UseClausesActions] {
-  const [state, setState] = useState<UseClausesState>({
-    clauses: [],
-    families: [],
-    selectedFamily: null,
-    loading: false,
-    error: null
-  });
-
-  const setLoading = useCallback((loading: boolean) => {
-    setState(prev => ({ ...prev, loading, error: null }));
-  }, []);
-
-  const setError = useCallback((error: string) => {
-    setState(prev => ({ ...prev, error, loading: false }));
-  }, []);
+export function useClauses() {
+  const [clauses, setClauses] = useState<Clause[]>([]);
+  const [families, setFamilies] = useState<ClauseFamilyGroup[]>([]);
+  const [selectedFamily, setSelectedFamily] = useState<ClauseFamily | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchAllClauses = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await clauseService.getAllClauses();
-      setState(prev => ({ ...prev, clauses: response, loading: false }));
+      setClauses(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch clauses');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -53,9 +27,12 @@ export function useClauses(): [UseClausesState, UseClausesActions] {
       setLoading(true);
       setError(null);
       const response = await clauseService.getClausesByFamily(family);
-      setState(prev => ({ ...prev, clauses: response, selectedFamily: family, loading: false }));
+      setClauses(response);
+      setSelectedFamily(family);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch clauses by family');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -64,14 +41,16 @@ export function useClauses(): [UseClausesState, UseClausesActions] {
       setLoading(true);
       setError(null);
       const response = await clauseService.getClauseFamilies();
-      setState(prev => ({ ...prev, families: response, loading: false }));
+      setFamilies(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch families');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   const selectFamily = useCallback((family: ClauseFamily | null) => {
-    setState(prev => ({ ...prev, selectedFamily: family }));
+    setSelectedFamily(family);
     if (family) {
       fetchClausesByFamily(family);
     } else {
@@ -90,15 +69,22 @@ export function useClauses(): [UseClausesState, UseClausesActions] {
   }, [fetchAllClauses]);
 
   const searchClauses = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setClauses([]);
+      return [];
+    }
+
     try {
       setLoading(true);
       setError(null);
       const response = await clauseService.searchClauses(query);
-      setState(prev => ({ ...prev, clauses: response, loading: false }));
+      setClauses(response);
       return response;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to search clauses');
       return [];
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -108,7 +94,12 @@ export function useClauses(): [UseClausesState, UseClausesActions] {
     fetchFamilies();
   }, [fetchAllClauses, fetchFamilies]);
 
-  const actions: UseClausesActions = {
+  return {
+    clauses,
+    families,
+    selectedFamily,
+    loading,
+    error,
     fetchAllClauses,
     fetchClausesByFamily,
     fetchFamilies,
@@ -116,6 +107,4 @@ export function useClauses(): [UseClausesState, UseClausesActions] {
     bookmarkClause,
     searchClauses
   };
-
-  return [state, actions];
 } 

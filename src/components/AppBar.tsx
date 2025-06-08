@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { SignIn } from './SignIn';
+import { useNavigate } from 'react-router-dom';
 
 interface CustomAppBarProps {
   activeTab: number;
@@ -42,7 +43,8 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
   const [signUpError, setSignUpError] = useState<string | null>(null);
   const [signUpLoading, setSignUpLoading] = useState(false);
 
-  const { user, signOut, signUp } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -53,14 +55,16 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
   const handleLogout = async () => {
     await signOut();
     handleMenuClose();
+    navigate('/login');
   };
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignUpError(null);
     setSignUpLoading(true);
     try {
-      await signUp(signUpEmail, signUpPassword);
+      await signOut();
       setSignUpOpen(false);
+      navigate('/login');
     } catch (err) {
       setSignUpError(err instanceof Error ? err.message : 'Sign up failed');
     } finally {
@@ -130,15 +134,20 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
             </IconButton>
           </Tooltip>
           {user ? (
-            <Tooltip title={user.email || 'Account settings'}>
-              <IconButton
-                onClick={handleProfileMenuOpen}
-                size="small"
-                sx={{ ml: 2 }}
-              >
-                <Avatar sx={{ width: 32, height: 32 }}>{user.email?.[0]?.toUpperCase() || 'U'}</Avatar>
-              </IconButton>
-            </Tooltip>
+            <>
+              <Tooltip title={user.email || 'Account settings'}>
+                <IconButton
+                  onClick={handleProfileMenuOpen}
+                  size="small"
+                  sx={{ ml: 2 }}
+                >
+                  <Avatar sx={{ width: 32, height: 32 }}>{user.email?.[0]?.toUpperCase() || 'U'}</Avatar>
+                </IconButton>
+              </Tooltip>
+              <Button color="inherit" onClick={handleLogout}>
+                Logout
+              </Button>
+            </>
           ) : (
             <>
               <Button color="inherit" onClick={() => setLoginOpen(true)} sx={{ ml: 2 }}>
