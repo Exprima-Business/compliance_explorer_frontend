@@ -1,3 +1,4 @@
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse } from '../types/clause';
 import environment from '../config/environment';
@@ -32,19 +33,30 @@ async function handleApiResponse<T>(response: Response): Promise<T> {
 }
 
 async function getAuthToken(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token ?? null;
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('Failed to get auth session:', error.message);
+      return null;
+    }
+    return session?.access_token ?? null;
+  } catch (error) {
+    console.error('Error getting auth token:', error);
+    return null;
+  }
 }
 
-function getCommonHeaders(requireAuth: boolean = false): HeadersInit {
+async function getCommonHeaders(requireAuth: boolean = false): Promise<HeadersInit> {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
 
   if (requireAuth) {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      console.warn('Auth token not available for protected endpoint');
     }
   }
 
@@ -65,9 +77,9 @@ export async function apiCall<T>(
   const isProtectedEndpoint = protectedEndpoints.some(ep => endpoint.startsWith(ep));
 
   const shouldRequireAuth = requireAuth || isProtectedEndpoint;
-  const headers = getCommonHeaders(shouldRequireAuth);
 
   try {
+    const headers = await getCommonHeaders(shouldRequireAuth);
     const response = await fetch(`${API_URL}${endpoint}`, {
       method,
       headers,
@@ -75,60 +87,111 @@ export async function apiCall<T>(
     });
 
     if (!response.ok) {
-      throw new Error(`API call failed: ${response.statusText}`);
+      const error = await response.json().catch(() => ({}));
+      throw new ApiError(
+        error.message || `API call failed: ${response.statusText}`,
+        response.status,
+        error
+      );
     }
 
     const data = await response.json();
     return data as T;
   } catch (error) {
     console.error('API call error:', error);
-    throw error;
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(
+      error instanceof Error ? error.message : 'Unknown API error',
+      500
+    );
   }
 }
 
 // Public endpoints (no auth required)
 export async function fetchClauses(): Promise<ApiResponse<Clause[]>> {
-  return apiCall<ApiResponse<Clause[]>>('/clauses');
+  try {
+    return await apiCall<ApiResponse<Clause[]>>('/clauses');
+  } catch (error) {
+    console.error('Error fetching clauses:', error);
+    throw error;
+  }
 }
 
 export async function getClausesByFamily(family: ClauseFamily): Promise<ApiResponse<Clause[]>> {
-  return apiCall<ApiResponse<Clause[]>>(`/clauses/family/${family}`);
+  try {
+    return await apiCall<ApiResponse<Clause[]>>(`/clauses/family/${family}`);
+  } catch (error) {
+    console.error(`Error fetching clauses for family ${family}:`, error);
+    throw error;
+  }
 }
 
 export async function getClauseFamilies(): Promise<ApiResponse<ClauseFamilyGroup[]>> {
-  return apiCall<ApiResponse<ClauseFamilyGroup[]>>('/clauses/families');
+  try {
+    return await apiCall<ApiResponse<ClauseFamilyGroup[]>>('/clauses/families');
+  } catch (error) {
+    console.error('Error fetching clause families:', error);
+    throw error;
+  }
 }
 
 export async function getClauseById(id: string): Promise<ApiResponse<Clause>> {
-  return apiCall<ApiResponse<Clause>>(`/clauses/${id}`);
+  try {
+    return await apiCall<ApiResponse<Clause>>(`/clauses/${id}`);
+  } catch (error) {
+    console.error(`Error fetching clause ${id}:`, error);
+    throw error;
+  }
 }
 
 export async function searchClauses(query: string): Promise<ApiResponse<Clause[]>> {
-  return apiCall<ApiResponse<Clause[]>>(`/clauses/search?q=${encodeURIComponent(query)}`);
+  try {
+    return await apiCall<ApiResponse<Clause[]>>(`/clauses/search?q=${encodeURIComponent(query)}`);
+  } catch (error) {
+    console.error('Error searching clauses:', error);
+    throw error;
+  }
 }
 
 // Protected endpoints (auth required)
 export async function bookmarkClause(clauseId: string): Promise<ApiResponse<void>> {
-  return apiCall<ApiResponse<void>>(`/clauses/${clauseId}/bookmark`, {
-    method: 'POST',
-    requireAuth: true
-  });
+  try {
+    return await apiCall<ApiResponse<void>>(`/clauses/${clauseId}/bookmark`, {
+      method: 'POST',
+      requireAuth: true
+    });
+  } catch (error) {
+    console.error(`Error bookmarking clause ${clauseId}:`, error);
+    throw error;
+  }
 }
 
 export async function uploadDocument(file: File): Promise<ApiResponse<any>> {
-  const formData = new FormData();
-  formData.append('file', file);
-  
-  return apiCall<ApiResponse<any>>('/documents/upload', {
-    method: 'POST',
-    body: formData,
-    requireAuth: true
-  });
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return await apiCall<ApiResponse<any>>('/documents/upload', {
+      method: 'POST',
+      body: formData,
+      requireAuth: true
+    });
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    throw error;
+  }
 }
 
 export async function analyzeDocument(documentId: string): Promise<ApiResponse<any>> {
-  return apiCall<ApiResponse<any>>(`/documents/${documentId}/analyze`, {
-    method: 'POST',
-    requireAuth: true
-  });
+  try {
+    return await apiCall<ApiResponse<any>>(`/documents/${documentId}/analyze`, {
+      method: 'POST',
+      requireAuth: true
+    });
+  } catch (error) {
+    console.error(`Error analyzing document ${documentId}:`, error);
+    throw error;
+  }
 } 

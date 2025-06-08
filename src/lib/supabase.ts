@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import environment from '../config/environment';
 
 // Enhanced error checking with detailed messages
@@ -15,7 +15,34 @@ if (!environment.supabase.anonKey) {
 // Log successful initialization (without sensitive data)
 console.log('Supabase client initializing with URL:', environment.supabase.url);
 
-export const supabase = createClient(
-  environment.supabase.url,
-  environment.supabase.anonKey
-); 
+// Create the Supabase client with error handling
+let supabase: SupabaseClient;
+try {
+  supabase = createClient(
+    environment.supabase.url,
+    environment.supabase.anonKey,
+    {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    }
+  );
+
+  // Test the connection
+  supabase.auth.getSession().then(
+    ({ data: { session }, error }) => {
+      if (error) {
+        console.error('Supabase connection test failed:', error.message);
+      } else {
+        console.log('Supabase connection test successful');
+      }
+    }
+  );
+} catch (error) {
+  console.error('Failed to initialize Supabase client:', error);
+  throw error;
+}
+
+export { supabase }; 
