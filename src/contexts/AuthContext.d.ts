@@ -1,3 +1,4 @@
+/// <reference types="react" />
 import type { User } from '@supabase/supabase-js';
 interface AuthContextType {
     user: User | null;

@@ -1,3 +1,4 @@
+/// <reference types="react" />
 import type { Clause } from '../types/clause';
 interface ClauseGraphProps {
     clauses: Clause[];

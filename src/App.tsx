@@ -3,10 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { theme } from './theme';
-import { Layout } from './components/Layout';
-import { Home } from './pages/Home';
-import { Login } from './pages/Login';
-import { DocumentScanner } from './pages/DocumentScanner';
+import Layout from './components/Layout';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import DocumentScanner from './pages/DocumentScanner';
 import { AuthProvider } from './contexts/AuthContext';
 import { ClauseProvider } from './contexts/ClauseContext';
 import { useAuth } from './hooks/useAuth';

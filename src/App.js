@@ -19,8 +19,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 var __generator = (this && this.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
-    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
     function verb(n) { return function (v) { return step([n, v]); }; }
     function step(op) {
         if (f) throw new TypeError("Generator is already executing.");
@@ -56,7 +56,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 };
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState, useEffect } from 'react';
-import { Box, CssBaseline, ThemeProvider, createTheme, AppBar, Toolbar, Select, MenuItem, FormControl, InputLabel, alpha, useMediaQuery, Tabs, Tab, Button, IconButton } from '@mui/material';
+import { Box, CssBaseline, ThemeProvider, createTheme, Select, MenuItem, FormControl, InputLabel, alpha, Button } from '@mui/material';
 import { ClauseGraph } from './components/ClauseGraph';
 import { SearchBar } from './components/SearchBar';
 import { ClauseCard } from './components/ClauseCard';
@@ -66,7 +66,7 @@ import { DocumentScanner } from './components/DocumentScanner';
 import { searchClauses, getClauseFamilies, getClausesByFamily } from './services/clauseService';
 import { ParentClauseDialog } from './components/ParentClauseDialog';
 import { Settings } from './components/Settings';
-import SettingsIcon from '@mui/icons-material/Settings';
+import { AppBar } from './components/AppBar';
 var theme = createTheme({
     palette: {
         mode: 'light',
@@ -187,7 +187,6 @@ var theme = createTheme({
 });
 export default function App() {
     var _this = this;
-    console.log('Current branch: feature/AI-Document-Scanning');
     var _a = useState(''), selectedFamily = _a[0], setSelectedFamily = _a[1];
     var _b = useState([]), families = _b[0], setFamilies = _b[1];
     var _c = useState([]), clauses = _c[0], setClauses = _c[1];
@@ -195,7 +194,6 @@ export default function App() {
     var _e = useState(null), selectedClause = _e[0], setSelectedClause = _e[1];
     var _f = useState(false), showSettings = _f[0], setShowSettings = _f[1];
     var _g = useState(''), searchQuery = _g[0], setSearchQuery = _g[1];
-    var isMobile = useState(useMediaQuery(theme.breakpoints.down('sm')))[0];
     var _h = useState([]), bookmarkedClauses = _h[0], setBookmarkedClauses = _h[1];
     var _j = useState(false), loading = _j[0], setLoading = _j[1];
     var _k = useState(false), parentClauseDialogOpen = _k[0], setParentClauseDialogOpen = _k[1];
@@ -322,29 +320,24 @@ export default function App() {
                 return prev.filter(function (c) { return c.id !== clause.id; });
             }
             else {
-                // When bookmarking, we need to check for parent clause
-                var parentClause_2 = findParentClause(clause);
-                var newBookmarks = __spreadArray(__spreadArray([], prev, true), [clause], false);
-                // If there's a parent clause and it's not already bookmarked, add it
-                if (parentClause_2 && !prev.some(function (c) { return c.id === parentClause_2.id; })) {
-                    newBookmarks.push(parentClause_2);
-                }
-                return newBookmarks;
+                // When bookmarking, add the clause
+                return __spreadArray(__spreadArray([], prev, true), [clause], false);
             }
         });
     };
     var handleParentClauseDialogConfirm = function (removeParent, rememberChoice) {
-        if (rememberChoice) {
-            handlePreferenceChange('removeParentWithChild', removeParent);
-        }
         if (pendingUnbookmark) {
             setBookmarkedClauses(function (prev) {
-                var newBookmarks = prev.filter(function (c) { return c.id !== pendingUnbookmark.clause.id; });
                 if (removeParent) {
-                    return newBookmarks.filter(function (c) { return c.id !== pendingUnbookmark.parentClause.id; });
+                    return prev.filter(function (c) { return c.id !== pendingUnbookmark.clause.id && c.id !== pendingUnbookmark.parentClause.id; });
                 }
-                return newBookmarks;
+                else {
+                    return prev.filter(function (c) { return c.id !== pendingUnbookmark.clause.id; });
+                }
             });
+        }
+        if (rememberChoice) {
+            handlePreferenceChange('removeParentWithChild', removeParent);
         }
         setParentClauseDialogOpen(false);
         setPendingUnbookmark(null);
@@ -354,56 +347,60 @@ export default function App() {
     };
     var handleTabChange = function (_event, newValue) {
         setActiveTab(newValue);
-        // Close the selected clause when switching to compliance matrix tab
-        if (newValue === 1) {
-            setSelectedClause(null);
-        }
+        setSelectedClause(null);
     };
     return (_jsxs(ThemeProvider, { theme: theme, children: [_jsx(CssBaseline, {}), _jsxs(Box, { sx: {
                     display: 'flex',
                     flexDirection: 'column',
-                    height: '100vh',
+                    minHeight: '100vh',
                     width: '100vw',
                     overflow: 'hidden',
-                    bgcolor: 'background.default',
-                    backgroundImage: 'radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.05) 0px, transparent 50%)',
-                }, children: [_jsx(AppBar, { position: "static", color: "default", elevation: 0, children: _jsxs(Toolbar, { sx: { px: { xs: 2, sm: 3 }, minHeight: { xs: 64, sm: 72 } }, children: [_jsxs(Box, { sx: { display: 'flex', alignItems: 'center', flexGrow: 1 }, children: [_jsx(Box, { sx: { display: 'flex', alignItems: 'center' }, children: _jsx(Box, { component: "img", src: "/ClauseAtlasLogoSM.png", alt: "ClauseAtlas Logo", sx: {
-                                                    height: 'auto',
-                                                    width: 'auto',
-                                                    maxHeight: 57,
-                                                    mr: 2.5,
-                                                    display: 'block',
-                                                } }) }), _jsxs(Tabs, { value: activeTab, onChange: handleTabChange, sx: {
-                                                ml: 10,
-                                                minHeight: 48,
-                                                height: 48,
-                                                '.MuiTab-root': {
-                                                    fontWeight: 600,
-                                                    fontSize: '1rem',
-                                                    px: 3,
-                                                    minHeight: 48,
-                                                },
-                                                '.MuiTabs-indicator': {
-                                                    height: 3,
-                                                    borderRadius: 2,
-                                                    background: 'linear-gradient(90deg, #6366f1 0%, #0ea5e9 100%)',
-                                                },
-                                            }, indicatorColor: "secondary", textColor: "primary", "aria-label": "main navigation tabs", children: [_jsx(Tab, { label: "Clauses" }), _jsx(Tab, { label: "Matrix" }), _jsx(Tab, { label: "Document Scanner" })] })] }), _jsx(IconButton, { onClick: function () { return setShowSettings(true); }, sx: { mr: 2 }, children: _jsx(SettingsIcon, {}) })] }) }), _jsxs(Box, { sx: { display: 'flex', flex: 1, overflow: 'hidden' }, children: [_jsxs(Box, { sx: {
-                                    flexBasis: { xs: '100%', sm: '28vw', md: '22vw', lg: '18vw' },
-                                    minWidth: 280,
-                                    display: { xs: selectedClause ? 'none' : 'flex', sm: 'flex' },
-                                    borderRight: '1px solid',
-                                    borderColor: 'divider',
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0
+                }, children: [_jsx(AppBar, { activeTab: activeTab, onTabChange: handleTabChange, onSettingsClick: function () { return setShowSettings(true); } }), _jsxs(Box, { sx: {
+                            display: 'flex',
+                            flex: 1,
+                            width: '100%',
+                            mt: { xs: '64px', sm: '72px' },
+                            px: { xs: 2, sm: 3 },
+                            pb: { xs: 2, sm: 3 },
+                            gap: 3,
+                            overflow: 'hidden',
+                            minHeight: 0,
+                            pt: '1%',
+                            height: 'calc(100vh - 72px)'
+                        }, children: [_jsxs(Box, { sx: {
+                                    width: { xs: '100%', sm: 320 },
+                                    display: { xs: activeTab === 0 ? 'flex' : 'none', sm: 'flex' },
+                                    flexDirection: 'column',
+                                    gap: 2,
                                     bgcolor: 'background.paper',
-                                    height: '100%',
-                                    flexDirection: 'column'
-                                }, children: [_jsxs(Box, { sx: { p: 2, borderBottom: '1px solid', borderColor: 'divider' }, children: [_jsx(SearchBar, { onSearch: handleSearch }), _jsxs(FormControl, { fullWidth: true, sx: { mt: 2 }, children: [_jsx(InputLabel, { children: "Filter by Family" }), _jsxs(Select, { value: selectedFamily, label: "Filter by Family", onChange: handleFamilyChange, children: [_jsx(MenuItem, { value: "", children: "All Families" }), families.map(function (family) { return (_jsx(MenuItem, { value: family.name, children: family.name }, family.name)); })] })] })] }), _jsxs(Box, { sx: {
+                                    height: 'calc(100% - 1%)',
+                                    borderRadius: 2.8,
+                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                                    overflow: 'hidden',
+                                    flexShrink: 0,
+                                    transition: 'all 0.3s ease-in-out',
+                                    '&:hover': {
+                                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                                    },
+                                    mt: '1%' // Match the top margin of the node map
+                                }, children: [_jsxs(Box, { sx: {
+                                            p: 2,
+                                            borderBottom: '1px solid',
+                                            borderColor: 'divider',
+                                            bgcolor: 'background.paper'
+                                        }, children: [_jsx(SearchBar, { onSearch: handleSearch }), _jsxs(FormControl, { fullWidth: true, sx: { mt: 2 }, children: [_jsx(InputLabel, { children: "Filter by Family" }), _jsxs(Select, { value: selectedFamily, label: "Filter by Family", onChange: handleFamilyChange, children: [_jsx(MenuItem, { value: "", children: "All Families" }), families.map(function (family) { return (_jsx(MenuItem, { value: family.name, children: family.name }, family.name)); })] })] })] }), _jsxs(Box, { sx: {
                                             flex: 1,
                                             overflow: 'auto',
                                             display: 'flex',
                                             flexDirection: 'column',
                                             gap: 1,
-                                            p: 1.5
+                                            p: 1.5,
+                                            bgcolor: 'background.paper'
                                         }, children: [bookmarkedClauses.map(function (clause) { return (_jsx(ClauseCard, { clause: clause, isBookmarked: true, onBookmarkToggle: function () { return handleBookmarkToggle(clause); }, compact: true, sx: {
                                                     '& .MuiCardContent-root': {
                                                         p: 0
@@ -441,9 +438,11 @@ export default function App() {
                                     flex: 1,
                                     display: 'flex',
                                     flexDirection: 'column',
-                                    p: { xs: 2, sm: 2.5 },
-                                    bgcolor: 'background.default',
+                                    minWidth: 0,
                                     overflow: 'hidden',
+                                    width: '100%',
+                                    height: 'calc(100% - 1%)',
+                                    mt: '1%'
                                 }, children: activeTab === 0 ? (_jsx(Box, { sx: {
                                         flex: 1,
                                         width: '100%',
@@ -458,6 +457,8 @@ export default function App() {
                                         },
                                         display: 'flex',
                                         flexDirection: 'column',
+                                        minWidth: 0,
+                                        minHeight: 0
                                     }, children: _jsx(ClauseGraph, { clauses: clauses, onNodeClick: handleNodeClick }) })) : activeTab === 1 ? (_jsx(Box, { sx: {
                                         flex: 1,
                                         width: '100%',

@@ -95,12 +95,12 @@ export var ClauseGraph = function (_a) {
         // Clear previous graph
         d3.select(svgRef.current).selectAll('*').remove();
         // Get container dimensions with fallback
-        var width = containerRef.current.clientWidth || window.innerWidth * 0.8;
+        var width = containerRef.current.clientWidth || window.innerWidth;
         var height = containerRef.current.clientHeight || window.innerHeight * 0.8;
         // Create the SVG container with explicit dimensions
         var svg = d3.select(svgRef.current)
-            .attr('width', width)
-            .attr('height', height)
+            .attr('width', '100%')
+            .attr('height', '100%')
             .attr('viewBox', "0 0 ".concat(width, " ").concat(height))
             .attr('preserveAspectRatio', 'xMidYMid meet');
         // Define radial gradients for each family
@@ -142,6 +142,8 @@ export var ClauseGraph = function (_a) {
         });
         // Apply zoom behavior to SVG
         svg.call(zoom);
+        // Set initial zoom to 0.85 (slightly zoomed out)
+        svg.call(zoom.transform, d3.zoomIdentity.scale(0.85));
         zoomRef.current = zoom;
         // Set up the simulation with adjusted forces
         var simulation = d3.forceSimulation(nodes)
@@ -659,12 +661,23 @@ export var ClauseGraph = function (_a) {
     return (_jsxs(Box, { ref: containerRef, sx: {
             width: '100%',
             height: '100%',
+            position: 'relative',
             overflow: 'hidden',
-            border: '1px solid #ddd',
-            borderRadius: 2,
-            bgcolor: '#fafafa',
-            position: 'relative'
-        }, children: [_jsx("svg", { ref: svgRef, style: { width: '100%', height: '100%' } }), _jsxs(Paper, { elevation: 3, sx: {
+            bgcolor: 'background.paper',
+            borderRadius: 2.8,
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0
+        }, children: [_jsx("svg", { ref: svgRef, style: {
+                    width: '100%',
+                    height: '100%',
+                    flex: 1,
+                    minWidth: 0,
+                    minHeight: 0,
+                    display: 'block'
+                } }), _jsxs(Paper, { elevation: 3, sx: {
                     position: 'absolute',
                     left: legendPosition.x,
                     top: legendPosition.y,

@@ -35,103 +35,153 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 import environment from '../config/environment';
+import { supabase } from '../lib/supabase';
+
+// Custom error class for API errors
+class ApiError extends Error {
+  constructor(message, status, data = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
 // Helper function to handle API responses
-function handleApiResponse(response) {
-    return __awaiter(this, void 0, void 0, function () {
-        var errorData, errorMessage;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    if (!!response.ok) return [3 /*break*/, 2];
-                    return [4 /*yield*/, response.json().catch(function () { return ({}); })];
-                case 1:
-                    errorData = _a.sent();
-                    errorMessage = errorData.error || response.statusText;
-                    console.error('API Error:', {
-                        status: response.status,
-                        statusText: response.statusText,
-                        data: errorData,
-                        url: response.url
-                    });
-                    throw new Error(errorMessage);
-                case 2: return [2 /*return*/, response.json()];
-            }
-        });
+async function handleApiResponse(response) {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.error || response.statusText;
+    
+    // Handle authentication errors
+    if (response.status === 401 || response.status === 403) {
+      // Check if we're already on the login page to prevent redirect loops
+      if (!window.location.pathname.includes('/login')) {
+        // Clear any existing session
+        await supabase.auth.signOut();
+        // Redirect to login with return URL
+        window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+      }
+      throw new ApiError('Authentication required. Please log in.', response.status, errorData);
+    }
+
+    console.error('API Error:', {
+      status: response.status,
+      statusText: response.statusText,
+      data: errorData,
+      url: response.url
     });
+    
+    throw new ApiError(errorMessage, response.status, errorData);
+  }
+  return response.json();
 }
+
+// Get auth token from Supabase session
+async function getAuthToken() {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Error getting session:', error);
+      throw new ApiError('Failed to get authentication session', 401);
+    }
+    
+    if (!session) {
+      throw new ApiError('No active session found', 401);
+    }
+    
+    return session.access_token;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError('Authentication failed', 401);
+  }
+}
+
 // Common headers for all API requests
-const commonHeaders = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest'
-};
+async function getCommonHeaders() {
+  try {
+    const token = await getAuthToken();
+    return {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Authorization': `Bearer ${token}`
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    throw error;
+  }
+}
+
+// Wrapper for API calls to handle auth errors
+async function apiCall(fetchFn) {
+  try {
+    return await fetchFn();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      // If it's already an ApiError, just rethrow it
+      throw error;
+    }
+    
+    // Handle network errors
+    if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+      throw new ApiError('Network error. Please check your connection.', 0);
+    }
+    
+    // Handle other errors
+    console.error('API call failed:', error);
+    throw new ApiError('An unexpected error occurred', 500);
+  }
+}
+
 // API functions
-export function fetchClauses() {
-    return __awaiter(this, void 0, void 0, function () {
-        var response, error_1;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, fetch("".concat(environment.api.url, "/api/clauses"), {
-                            credentials: 'include',
-                            headers: commonHeaders
-                        })];
-                case 1:
-                    response = _a.sent();
-                    return [2 /*return*/, handleApiResponse(response)];
-                case 2:
-                    error_1 = _a.sent();
-                    console.error('Error fetching clauses:', error_1);
-                    throw error_1;
-                case 3: return [2 /*return*/];
-            }
-        });
+export async function fetchClauses() {
+  return apiCall(async () => {
+    const headers = await getCommonHeaders();
+    const response = await fetch(`${environment.api.url}/api/clauses`, {
+      credentials: 'include',
+      headers
     });
+    return handleApiResponse(response);
+  });
 }
-export function getClausesByFamily(familyName) {
-    return __awaiter(this, void 0, void 0, function () {
-        var response, error_2;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, fetch("".concat(environment.api.url, "/api/clauses/family/").concat(encodeURIComponent(familyName)), {
-                            credentials: 'include',
-                            headers: commonHeaders
-                        })];
-                case 1:
-                    response = _a.sent();
-                    return [2 /*return*/, handleApiResponse(response)];
-                case 2:
-                    error_2 = _a.sent();
-                    console.error('Error fetching clauses by family:', error_2);
-                    throw error_2;
-                case 3: return [2 /*return*/];
-            }
-        });
-    });
+
+export async function getClausesByFamily(familyName) {
+  return apiCall(async () => {
+    const headers = await getCommonHeaders();
+    const response = await fetch(
+      `${environment.api.url}/api/clauses/family/${encodeURIComponent(familyName)}`,
+      {
+        credentials: 'include',
+        headers
+      }
+    );
+    return handleApiResponse(response);
+  });
 }
-export function getClauseFamilies() {
-    return __awaiter(this, void 0, void 0, function () {
-        var response, error_3;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, fetch("".concat(environment.api.url, "/api/clauses/families"), {
-                            credentials: 'include',
-                            headers: commonHeaders
-                        })];
-                case 1:
-                    response = _a.sent();
-                    return [2 /*return*/, handleApiResponse(response)];
-                case 2:
-                    error_3 = _a.sent();
-                    console.error('Error fetching clause families:', error_3);
-                    throw error_3;
-                case 3: return [2 /*return*/];
-            }
-        });
+
+export async function getClauseFamilies() {
+  return apiCall(async () => {
+    const headers = await getCommonHeaders();
+    const response = await fetch(`${environment.api.url}/api/clauses/families`, {
+      credentials: 'include',
+      headers
     });
+    return handleApiResponse(response);
+  });
+}
+
+export async function bookmarkClause(clauseId) {
+  return apiCall(async () => {
+    const headers = await getCommonHeaders();
+    const response = await fetch(`${environment.api.url}/api/clauses/${clauseId}/bookmark`, {
+      method: 'POST',
+      credentials: 'include',
+      headers
+    });
+    return handleApiResponse(response);
+  });
 }

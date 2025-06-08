@@ -1,11 +1,3 @@
-interface Environment {
-    supabase: {
-        url: string;
-        anonKey: string;
-    };
-    api: {
-        url: string;
-    };
-}
+import type { Environment } from './types';
 declare const environment: Environment;
 export default environment;
