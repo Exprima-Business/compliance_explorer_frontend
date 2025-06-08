@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
   const apiUrl = env.VITE_API_URL || 'http://localhost:3001'
 
   return {
-    base: './',  // Make all asset URLs relative
+    base: '/',  // Changed to absolute path for production
     plugins: [react()],
     envPrefix: 'VITE_',
     define: {

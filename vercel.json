@@ -1,10 +1,16 @@
 {
-  "rewrites": [
-    { "source": "/assets/:path*", "destination": "/assets/:path*" },
-    { "source": "/ui-:hash.js", "destination": "/ui-:hash.js" },
-    { "source": "/index-:hash.js", "destination": "/index-:hash.js" },
-    { "source": "/vendor-:hash.js", "destination": "/vendor-:hash.js" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    }
+  ],
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/assets/(.*)", "headers": { "cache-control": "public, max-age=31536000, immutable" } },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {
@@ -31,33 +37,6 @@
         {
           "key": "Content-Type",
           "value": "text/css"
-        }
-      ]
-    },
-    {
-      "source": "/ui-:hash.js",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript"
-        }
-      ]
-    },
-    {
-      "source": "/index-:hash.js",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript"
-        }
-      ]
-    },
-    {
-      "source": "/vendor-:hash.js",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript"
         }
       ]
     }
