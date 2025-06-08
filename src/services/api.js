@@ -8,8 +8,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 var __generator = (this && this.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
-    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
     function verb(n) { return function (v) { return step([n, v]); }; }
     function step(op) {
         if (f) throw new TypeError("Generator is already executing.");
@@ -34,14 +34,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-// Standardized API base URL configuration
-var API_BASE_URL = import.meta.env.PROD
-    ? 'https://clauseatlas.com/api'
-    : 'http://localhost:3001/api';
+import environment from '../config/environment';
 // Helper function to handle API responses
 function handleApiResponse(response) {
     return __awaiter(this, void 0, void 0, function () {
-        var errorData;
+        var errorData, errorMessage;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -49,17 +46,25 @@ function handleApiResponse(response) {
                     return [4 /*yield*/, response.json().catch(function () { return ({}); })];
                 case 1:
                     errorData = _a.sent();
+                    errorMessage = errorData.error || response.statusText;
                     console.error('API Error:', {
                         status: response.status,
                         statusText: response.statusText,
-                        data: errorData
+                        data: errorData,
+                        url: response.url
                     });
-                    throw new Error(errorData.error || "API request failed: ".concat(response.statusText));
+                    throw new Error(errorMessage);
                 case 2: return [2 /*return*/, response.json()];
             }
         });
     });
 }
+// Common headers for all API requests
+const commonHeaders = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
+};
 // API functions
 export function fetchClauses() {
     return __awaiter(this, void 0, void 0, function () {
@@ -68,12 +73,9 @@ export function fetchClauses() {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, fetch("".concat(API_BASE_URL, "/clauses"), {
+                    return [4 /*yield*/, fetch("".concat(environment.api.url, "/api/clauses"), {
                             credentials: 'include',
-                            headers: {
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json'
-                            }
+                            headers: commonHeaders
                         })];
                 case 1:
                     response = _a.sent();
@@ -89,41 +91,45 @@ export function fetchClauses() {
 }
 export function getClausesByFamily(familyName) {
     return __awaiter(this, void 0, void 0, function () {
-        var response;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, fetch("".concat(API_BASE_URL, "/clauses/family/").concat(encodeURIComponent(familyName)))];
-                case 1:
-                    response = _a.sent();
-                    if (!response.ok) {
-                        throw new Error('Failed to fetch clauses by family');
-                    }
-                    return [2 /*return*/, response.json()];
-            }
-        });
-    });
-}
-export function getClauseFamilies() {
-    return __awaiter(this, void 0, void 0, function () {
         var response, error_2;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, fetch("".concat(API_BASE_URL, "/clauses/families"), {
+                    return [4 /*yield*/, fetch("".concat(environment.api.url, "/api/clauses/family/").concat(encodeURIComponent(familyName)), {
                             credentials: 'include',
-                            headers: {
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json'
-                            }
+                            headers: commonHeaders
                         })];
                 case 1:
                     response = _a.sent();
                     return [2 /*return*/, handleApiResponse(response)];
                 case 2:
                     error_2 = _a.sent();
-                    console.error('Error fetching clause families:', error_2);
+                    console.error('Error fetching clauses by family:', error_2);
                     throw error_2;
+                case 3: return [2 /*return*/];
+            }
+        });
+    });
+}
+export function getClauseFamilies() {
+    return __awaiter(this, void 0, void 0, function () {
+        var response, error_3;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, fetch("".concat(environment.api.url, "/api/clauses/families"), {
+                            credentials: 'include',
+                            headers: commonHeaders
+                        })];
+                case 1:
+                    response = _a.sent();
+                    return [2 /*return*/, handleApiResponse(response)];
+                case 2:
+                    error_3 = _a.sent();
+                    console.error('Error fetching clause families:', error_3);
+                    throw error_3;
                 case 3: return [2 /*return*/];
             }
         });
