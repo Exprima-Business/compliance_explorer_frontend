@@ -10,10 +10,17 @@ const environment: Environment = {
   }
 };
 
+// Log environment configuration for debugging
 console.log('Environment:', {
   isProd: import.meta.env.PROD,
   apiUrl: environment.api.url,
-  supabaseUrl: environment.supabase.url
+  supabaseUrl: environment.supabase.url,
+  env: {
+    VITE_API_URL: import.meta.env.VITE_API_URL,
+    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+    NODE_ENV: import.meta.env.NODE_ENV,
+    MODE: import.meta.env.MODE
+  }
 });
 
 export default environment; 
