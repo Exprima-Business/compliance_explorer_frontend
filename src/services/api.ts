@@ -4,6 +4,18 @@ import environment from '../config/environment';
 
 const API_URL = environment.api.url;
 
+const publicEndpoints = [
+  '/clauses',
+  '/clauses/families',
+  '/clauses/search',
+  '/clauses/family'
+];
+
+const protectedEndpoints = [
+  '/clauses/bookmark',
+  '/documents'
+];
+
 class ApiError extends Error {
   constructor(message: string, public status?: number, public data?: any) {
     super(message);
@@ -20,51 +32,57 @@ async function handleApiResponse<T>(response: Response): Promise<T> {
 }
 
 async function getAuthToken(): Promise<string | null> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
-  } catch (error) {
-    console.error('Error getting auth token:', error);
-    return null;
-  }
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
 }
 
-async function getCommonHeaders(requireAuth: boolean = false): Promise<HeadersInit> {
+function getCommonHeaders(requireAuth: boolean = false): HeadersInit {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
 
   if (requireAuth) {
-    const token = await getAuthToken();
-    if (!token) {
-      throw new ApiError('No active session found');
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
-    headers['Authorization'] = `Bearer ${token}`;
   }
 
   return headers;
 }
 
-async function apiCall<T>(
+export async function apiCall<T>(
   endpoint: string,
-  options: RequestInit = {},
-  requireAuth: boolean = false
+  options: {
+    method?: string;
+    body?: any;
+    requireAuth?: boolean;
+  } = {}
 ): Promise<T> {
+  const { method = 'GET', body, requireAuth = false } = options;
+
+  const isPublicEndpoint = publicEndpoints.some(ep => endpoint.startsWith(ep));
+  const isProtectedEndpoint = protectedEndpoints.some(ep => endpoint.startsWith(ep));
+
+  const shouldRequireAuth = requireAuth || isProtectedEndpoint;
+  const headers = getCommonHeaders(shouldRequireAuth);
+
   try {
-    const headers = await getCommonHeaders(requireAuth);
     const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        ...headers,
-        ...options.headers,
-      },
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
     });
-    return handleApiResponse<T>(response);
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
+
+    if (!response.ok) {
+      throw new Error(`API call failed: ${response.statusText}`);
     }
-    throw new ApiError('Network error occurred');
+
+    const data = await response.json();
+    return data as T;
+  } catch (error) {
+    console.error('API call error:', error);
+    throw error;
   }
 }
 
@@ -91,34 +109,26 @@ export async function searchClauses(query: string): Promise<ApiResponse<Clause[]
 
 // Protected endpoints (auth required)
 export async function bookmarkClause(clauseId: string): Promise<ApiResponse<void>> {
-  return apiCall<ApiResponse<void>>(
-    `/clauses/${clauseId}/bookmark`,
-    { method: 'POST' },
-    true
-  );
+  return apiCall<ApiResponse<void>>(`/clauses/${clauseId}/bookmark`, {
+    method: 'POST',
+    requireAuth: true
+  });
 }
 
 export async function uploadDocument(file: File): Promise<ApiResponse<any>> {
   const formData = new FormData();
   formData.append('file', file);
   
-  return apiCall<ApiResponse<any>>(
-    '/documents/upload',
-    {
-      method: 'POST',
-      body: formData,
-      headers: {
-        // Don't set Content-Type, let the browser set it with the boundary
-      },
-    },
-    true
-  );
+  return apiCall<ApiResponse<any>>('/documents/upload', {
+    method: 'POST',
+    body: formData,
+    requireAuth: true
+  });
 }
 
 export async function analyzeDocument(documentId: string): Promise<ApiResponse<any>> {
-  return apiCall<ApiResponse<any>>(
-    `/documents/${documentId}/analyze`,
-    { method: 'POST' },
-    true
-  );
+  return apiCall<ApiResponse<any>>(`/documents/${documentId}/analyze`, {
+    method: 'POST',
+    requireAuth: true
+  });
 } 

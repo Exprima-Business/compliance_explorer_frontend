@@ -2,7 +2,7 @@ import React, { createContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
-interface AuthContextType {
+export interface AuthContextType {
   isAuthenticated: boolean;
   user: any | null;
   signIn: (email: string, password: string) => Promise<void>;
@@ -12,6 +12,14 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+export function useAuth() {
+  const context = React.useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<any | null>(null);
@@ -20,63 +28,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-      setUser(session?.user || null);
-    } catch (error) {
-      console.error('Error checking auth:', error);
-      setError('Failed to check authentication status');
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      
+      if (session) {
+        setIsAuthenticated(true);
+        setUser(session.user);
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    } catch (err) {
+      console.error('Error checking auth:', err);
+      setIsAuthenticated(false);
+      setUser(null);
     }
   }, []);
 
   useEffect(() => {
     checkAuth();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
-      setUser(session?.user || null);
-      if (event === 'SIGNED_IN') {
+      setUser(session?.user ?? null);
+      
+      if (session) {
         navigate('/');
-      } else if (event === 'SIGNED_OUT') {
+      } else {
         navigate('/login');
       }
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [checkAuth, navigate]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = async (email: string, password: string) => {
     try {
       setError(null);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-    } catch (error) {
-      console.error('Error signing in:', error);
-      setError(error instanceof Error ? error.message : 'Failed to sign in');
-      throw error;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
     }
-  }, []);
+  };
 
-  const signOut = useCallback(async () => {
+  const signOut = async () => {
     try {
-      setError(null);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-    } catch (error) {
-      console.error('Error signing out:', error);
-      setError(error instanceof Error ? error.message : 'Failed to sign out');
-      throw error;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
     }
-  }, []);
-
-  const value = {
-    isAuthenticated,
-    user,
-    signIn,
-    signOut,
-    error
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ isAuthenticated, user, signIn, signOut, error }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse, ClauseFamilyData } from '../types/clause';
 import environment from '../config/environment';
+import { apiCall } from './api';
 
 const API_URL = environment.api.url;
 
@@ -119,4 +120,38 @@ export const getRelatedClauses = async (clauseId: string): Promise<Clause[]> => 
   ].filter(Boolean);
 
   return clauses.filter(c => relatedIds.includes(c.id));
+};
+
+export const clauseService = {
+  async getAllClauses(): Promise<Clause[]> {
+    const response = await apiCall<Clause[]>('/clauses', { requireAuth: false });
+    return response;
+  },
+
+  async getClausesByFamily(family: ClauseFamily): Promise<Clause[]> {
+    const response = await apiCall<Clause[]>(`/clauses/family/${family}`, { requireAuth: false });
+    return response;
+  },
+
+  async getClauseFamilies(): Promise<ClauseFamilyGroup[]> {
+    const response = await apiCall<ClauseFamilyGroup[]>('/clauses/families', { requireAuth: false });
+    return response;
+  },
+
+  async bookmarkClause(clauseId: string): Promise<void> {
+    await apiCall(`/clauses/${clauseId}/bookmark`, {
+      method: 'POST',
+      requireAuth: true
+    });
+  },
+
+  async getClauseById(clauseId: string): Promise<Clause> {
+    const response = await apiCall<Clause>(`/clauses/${clauseId}`, { requireAuth: false });
+    return response;
+  },
+
+  async searchClauses(query: string): Promise<Clause[]> {
+    const response = await apiCall<Clause[]>(`/clauses/search?q=${encodeURIComponent(query)}`, { requireAuth: false });
+    return response;
+  }
 }; 

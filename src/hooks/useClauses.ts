@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import * as api from '../services/api';
+import { clauseService } from '../services/clauseService';
 
 interface UseClausesState {
   clauses: Clause[];
@@ -39,32 +40,35 @@ export function useClauses(): [UseClausesState, UseClausesActions] {
   const fetchAllClauses = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.fetchClauses();
-      setState(prev => ({ ...prev, clauses: response.data, loading: false }));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to fetch clauses');
+      setError(null);
+      const response = await clauseService.getAllClauses();
+      setState(prev => ({ ...prev, clauses: response, loading: false }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch clauses');
     }
-  }, [setLoading, setError]);
+  }, []);
 
   const fetchClausesByFamily = useCallback(async (family: ClauseFamily) => {
     try {
       setLoading(true);
-      const response = await api.getClausesByFamily(family);
-      setState(prev => ({ ...prev, clauses: response.data, loading: false }));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to fetch clauses by family');
+      setError(null);
+      const response = await clauseService.getClausesByFamily(family);
+      setState(prev => ({ ...prev, clauses: response, selectedFamily: family, loading: false }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch clauses by family');
     }
-  }, [setLoading, setError]);
+  }, []);
 
   const fetchFamilies = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.getClauseFamilies();
-      setState(prev => ({ ...prev, families: response.data, loading: false }));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to fetch families');
+      setError(null);
+      const response = await clauseService.getClauseFamilies();
+      setState(prev => ({ ...prev, families: response, loading: false }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch families');
     }
-  }, [setLoading, setError]);
+  }, []);
 
   const selectFamily = useCallback((family: ClauseFamily | null) => {
     setState(prev => ({ ...prev, selectedFamily: family }));
@@ -77,33 +81,26 @@ export function useClauses(): [UseClausesState, UseClausesActions] {
 
   const bookmarkClause = useCallback(async (clauseId: string) => {
     try {
-      setLoading(true);
-      const response = await api.bookmarkClause(clauseId);
-      setState(prev => ({
-        ...prev,
-        clauses: prev.clauses.map(clause =>
-          clause.id === clauseId
-            ? { ...clause, isBookmarked: !clause.isBookmarked }
-            : clause
-        ),
-        loading: false
-      }));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to bookmark clause');
+      setError(null);
+      await clauseService.bookmarkClause(clauseId);
+      await fetchAllClauses();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to bookmark clause');
     }
-  }, [setLoading, setError]);
+  }, [fetchAllClauses]);
 
   const searchClauses = useCallback(async (query: string) => {
     try {
       setLoading(true);
-      const response = await api.searchClauses(query);
-      setState(prev => ({ ...prev, clauses: response.data.data, loading: false }));
-      return response.data.data;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to search clauses');
+      setError(null);
+      const response = await clauseService.searchClauses(query);
+      setState(prev => ({ ...prev, clauses: response, loading: false }));
+      return response;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to search clauses');
       return [];
     }
-  }, [setLoading, setError]);
+  }, []);
 
   // Initial data fetch
   useEffect(() => {
