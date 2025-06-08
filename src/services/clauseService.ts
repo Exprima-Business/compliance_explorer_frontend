@@ -1,5 +1,8 @@
-import type { Clause, ClauseData, ClauseFamily } from '../types/clause';
-import { fetchClauses as apiFetchClauses, getClausesByFamily as apiGetClausesByFamily, getClauseFamilies as apiGetClauseFamilies } from './api';
+import { supabase } from '../lib/supabase';
+import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse, ClauseFamilyData } from '../types/clause';
+import environment from '../config/environment';
+
+const API_URL = environment.api.url;
 
 interface DatabaseClause {
   id: string;
@@ -28,68 +31,92 @@ interface Relationship {
 }
 
 // Fetch all clauses from the API
-export const fetchClauses = async (): Promise<Clause[]> => {
+export async function getAllClauses(): Promise<Clause[]> {
   try {
-    console.log('Fetching clauses from API...');
-    const clauses = await apiFetchClauses();
-    console.log('Clauses fetched:', clauses.length, 'clauses');
-    return clauses;
+    const response = await fetch(`${API_URL}/clauses`);
+    const data: ApiResponse<Clause[]> = await response.json();
+    return data.data;
   } catch (error) {
-    console.error('Error loading clauses:', error);
+    console.error('Error fetching all clauses:', error);
     throw error;
   }
-};
+}
 
-export const searchClauses = async (query: string): Promise<Clause[]> => {
-  const clauses = await fetchClauses();
-  if (!query) return clauses;
-  
-  const searchTerm = query.toLowerCase();
-  return clauses.filter(clause => 
-    clause.id.toLowerCase().includes(searchTerm) ||
-    clause.title.toLowerCase().includes(searchTerm) ||
-    clause.description.toLowerCase().includes(searchTerm)
-  );
-};
+export async function getClausesByFamily(family: ClauseFamily): Promise<Clause[]> {
+  try {
+    const response = await fetch(`${API_URL}/clauses/family/${family}`);
+    const data: ApiResponse<Clause[]> = await response.json();
+    return data.data;
+  } catch (error) {
+    console.error(`Error fetching clauses for family ${family}:`, error);
+    throw error;
+  }
+}
 
-export const getClauseById = async (clauseId: string): Promise<Clause | undefined> => {
-  const clauses = await fetchClauses();
-  return clauses.find(clause => clause.id === clauseId);
-};
+export async function getClauseFamilies(): Promise<ClauseFamilyGroup[]> {
+  try {
+    const response = await fetch(`${API_URL}/clauses/families`);
+    const data: ApiResponse<ClauseFamilyGroup[]> = await response.json();
+    return data.data;
+  } catch (error) {
+    console.error('Error fetching clause families:', error);
+    throw error;
+  }
+}
+
+export async function bookmarkClause(clauseId: string): Promise<void> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('No active session');
+
+    const response = await fetch(`${API_URL}/clauses/${clauseId}/bookmark`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to bookmark clause');
+    }
+  } catch (error) {
+    console.error('Error bookmarking clause:', error);
+    throw error;
+  }
+}
+
+export async function getClauseById(id: string): Promise<Clause> {
+  try {
+    const response = await fetch(`${API_URL}/clauses/${id}`);
+    const data: ApiResponse<Clause> = await response.json();
+    return data.data;
+  } catch (error) {
+    console.error(`Error fetching clause ${id}:`, error);
+    throw error;
+  }
+}
+
+export async function searchClauses(query: string): Promise<Clause[]> {
+  try {
+    const response = await fetch(`${API_URL}/clauses/search?q=${encodeURIComponent(query)}`);
+    const data: ApiResponse<Clause[]> = await response.json();
+    return data.data;
+  } catch (error) {
+    console.error('Error searching clauses:', error);
+    throw error;
+  }
+}
 
 export const getRelatedClauses = async (clauseId: string): Promise<Clause[]> => {
-  const clauses = await fetchClauses();
+  const clauses = await getAllClauses();
   const clause = clauses.find(c => c.id === clauseId);
   if (!clause) return [];
 
   const relatedIds = [
     clause.parentClause,
-    ...clause.siblings
+    ...(clause.siblings || [])
   ].filter(Boolean);
 
   return clauses.filter(c => relatedIds.includes(c.id));
-};
-
-export const getClausesByFamily = async (family: string): Promise<Clause[]> => {
-  try {
-    console.log('Fetching clauses for family:', family);
-    const clauses = await apiGetClausesByFamily(family);
-    console.log('Clauses fetched for family:', clauses.length, 'clauses');
-    return clauses;
-  } catch (error) {
-    console.error('Error loading clauses by family:', error);
-    throw error;
-  }
-};
-
-export const getClauseFamilies = async (): Promise<ClauseFamily[]> => {
-  try {
-    console.log('Fetching clause families...');
-    const families = await apiGetClauseFamilies();
-    console.log('Families fetched:', families.length, 'families');
-    return families;
-  } catch (error) {
-    console.error('Error loading clause families:', error);
-    throw error;
-  }
 }; 

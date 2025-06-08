@@ -19,7 +19,7 @@ export interface Clause {
   category: string;
   family: ClauseFamily;
   familyId: string;
-  conditions: string[];
+  conditions: string;
   implementationGuidance: string;
   assessmentMethod: string;
   riskClassification: RiskClassification;
@@ -27,6 +27,7 @@ export interface Clause {
   metadata: Record<string, any>;
   relationships: ClauseRelationship[];
   parentClause?: string;
+  siblings?: string[];
   isBookmarked?: boolean;
 }
 
@@ -49,14 +50,30 @@ export interface PaginatedResponse<T> {
   hasMore: boolean;
 }
 
-export interface ClauseFamily {
-  name: string;
+export interface MatrixRow {
+  id: string;
+  clauseId: string;
+  title: string;
+  description: string;
+  intent: string;
+  status: string;
+  category: string;
+  family: ClauseFamily;
+  conditions: string;
+  implementationGuidance: string;
+  assessmentMethod: string;
+  riskClassification: RiskClassification;
+  referenceUrl?: string;
+}
+
+export interface ClauseFamilyData {
+  name: ClauseFamily;
   clauses: string[];
 }
 
 export interface ClauseData {
   clauses: Clause[];
-  families: ClauseFamily[];
+  families: ClauseFamilyData[];
 }
 
 export interface ClauseNode extends Clause {
