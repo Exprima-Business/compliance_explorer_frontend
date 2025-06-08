@@ -1,184 +1,124 @@
-import environment from '../config/environment';
 import { supabase } from '../lib/supabase';
-import type { 
-  Clause, 
-  ClauseFamily, 
-  ClauseFamilyGroup, 
-  ApiResponse, 
-  PaginatedResponse 
-} from '../types/clause';
+import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse } from '../types/clause';
+import environment from '../config/environment';
 
-// Custom error class for API errors
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public data: any = {}
-  ) {
+const API_URL = environment.api.url;
+
+class ApiError extends Error {
+  constructor(message: string, public status?: number, public data?: any) {
     super(message);
     this.name = 'ApiError';
   }
 }
 
-// Helper function to handle API responses
 async function handleApiResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData.error || response.statusText;
-    
-    // Handle authentication errors
-    if (response.status === 401 || response.status === 403) {
-      // Check if we're already on the login page to prevent redirect loops
-      if (!window.location.pathname.includes('/login')) {
-        // Clear any existing session
-        await supabase.auth.signOut();
-        // Redirect to login with return URL
-        window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
-      }
-      throw new ApiError('Authentication required. Please log in.', response.status, errorData);
-    }
-
-    console.error('API Error:', {
-      status: response.status,
-      statusText: response.statusText,
-      data: errorData,
-      url: response.url
-    });
-    
-    throw new ApiError(errorMessage, response.status, errorData);
+    const error = await response.json().catch(() => ({}));
+    throw new ApiError(error.message || 'API request failed', response.status, error);
   }
   return response.json();
 }
 
-// Get auth token from Supabase session
-async function getAuthToken(): Promise<string> {
+async function getAuthToken(): Promise<string | null> {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('Error getting session:', error);
-      throw new ApiError('Failed to get authentication session', 401);
-    }
-    
-    if (!session) {
-      throw new ApiError('No active session found', 401);
-    }
-    
-    return session.access_token;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
   } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError('Authentication failed', 401);
+    console.error('Error getting auth token:', error);
+    return null;
   }
 }
 
-// Common headers for all API requests
-async function getCommonHeaders(): Promise<HeadersInit> {
-  try {
+async function getCommonHeaders(requireAuth: boolean = false): Promise<HeadersInit> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (requireAuth) {
     const token = await getAuthToken();
-    return {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Authorization': `Bearer ${token}`
-    };
-  } catch (error) {
-    console.error('Error getting auth headers:', error);
-    throw error;
+    if (!token) {
+      throw new ApiError('No active session found');
+    }
+    headers['Authorization'] = `Bearer ${token}`;
   }
+
+  return headers;
 }
 
-// Wrapper for API calls to handle auth errors
-async function apiCall<T>(fetchFn: () => Promise<T>): Promise<T> {
+async function apiCall<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  requireAuth: boolean = false
+): Promise<T> {
   try {
-    return await fetchFn();
+    const headers = await getCommonHeaders(requireAuth);
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+    });
+    return handleApiResponse<T>(response);
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
     }
-    
-    // Handle network errors
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new ApiError('Network error. Please check your connection.', 0);
-    }
-    
-    // Handle other errors
-    console.error('API call failed:', error);
-    throw new ApiError('An unexpected error occurred', 500);
+    throw new ApiError('Network error occurred');
   }
 }
 
-// API functions
+// Public endpoints (no auth required)
 export async function fetchClauses(): Promise<ApiResponse<Clause[]>> {
-  return apiCall(async () => {
-    const headers = await getCommonHeaders();
-    const response = await fetch(`${environment.api.url}/api/clauses`, {
-      credentials: 'include',
-      headers
-    });
-    return handleApiResponse<ApiResponse<Clause[]>>(response);
-  });
+  return apiCall<ApiResponse<Clause[]>>('/clauses');
 }
 
-export async function getClausesByFamily(familyName: ClauseFamily): Promise<ApiResponse<Clause[]>> {
-  return apiCall(async () => {
-    const headers = await getCommonHeaders();
-    const response = await fetch(
-      `${environment.api.url}/api/clauses/family/${encodeURIComponent(familyName)}`,
-      {
-        credentials: 'include',
-        headers
-      }
-    );
-    return handleApiResponse<ApiResponse<Clause[]>>(response);
-  });
+export async function getClausesByFamily(family: ClauseFamily): Promise<ApiResponse<Clause[]>> {
+  return apiCall<ApiResponse<Clause[]>>(`/clauses/family/${family}`);
 }
 
 export async function getClauseFamilies(): Promise<ApiResponse<ClauseFamilyGroup[]>> {
-  return apiCall(async () => {
-    const headers = await getCommonHeaders();
-    const response = await fetch(`${environment.api.url}/api/clauses/families`, {
-      credentials: 'include',
-      headers
-    });
-    return handleApiResponse<ApiResponse<ClauseFamilyGroup[]>>(response);
-  });
+  return apiCall<ApiResponse<ClauseFamilyGroup[]>>('/clauses/families');
 }
 
-export async function bookmarkClause(clauseId: string): Promise<ApiResponse<Clause>> {
-  return apiCall(async () => {
-    const headers = await getCommonHeaders();
-    const response = await fetch(`${environment.api.url}/api/clauses/${clauseId}/bookmark`, {
+export async function getClauseById(id: string): Promise<ApiResponse<Clause>> {
+  return apiCall<ApiResponse<Clause>>(`/clauses/${id}`);
+}
+
+export async function searchClauses(query: string): Promise<ApiResponse<Clause[]>> {
+  return apiCall<ApiResponse<Clause[]>>(`/clauses/search?q=${encodeURIComponent(query)}`);
+}
+
+// Protected endpoints (auth required)
+export async function bookmarkClause(clauseId: string): Promise<ApiResponse<void>> {
+  return apiCall<ApiResponse<void>>(
+    `/clauses/${clauseId}/bookmark`,
+    { method: 'POST' },
+    true
+  );
+}
+
+export async function uploadDocument(file: File): Promise<ApiResponse<any>> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  return apiCall<ApiResponse<any>>(
+    '/documents/upload',
+    {
       method: 'POST',
-      credentials: 'include',
-      headers
-    });
-    return handleApiResponse<ApiResponse<Clause>>(response);
-  });
+      body: formData,
+      headers: {
+        // Don't set Content-Type, let the browser set it with the boundary
+      },
+    },
+    true
+  );
 }
 
-export async function getClauseById(clauseId: string): Promise<ApiResponse<Clause>> {
-  return apiCall(async () => {
-    const headers = await getCommonHeaders();
-    const response = await fetch(`${environment.api.url}/api/clauses/${clauseId}`, {
-      credentials: 'include',
-      headers
-    });
-    return handleApiResponse<ApiResponse<Clause>>(response);
-  });
-}
-
-export async function searchClauses(query: string): Promise<ApiResponse<PaginatedResponse<Clause>>> {
-  return apiCall(async () => {
-    const headers = await getCommonHeaders();
-    const response = await fetch(
-      `${environment.api.url}/api/clauses/search?q=${encodeURIComponent(query)}`,
-      {
-        credentials: 'include',
-        headers
-      }
-    );
-    return handleApiResponse<ApiResponse<PaginatedResponse<Clause>>>(response);
-  });
+export async function analyzeDocument(documentId: string): Promise<ApiResponse<any>> {
+  return apiCall<ApiResponse<any>>(
+    `/documents/${documentId}/analyze`,
+    { method: 'POST' },
+    true
+  );
 } 

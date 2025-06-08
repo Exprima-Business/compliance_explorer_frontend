@@ -1,29 +1,40 @@
-import React from 'react';
-import { TextField, InputAdornment } from '@mui/material';
+import React, { useState } from 'react';
+import { Paper, InputBase, IconButton } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 
-interface SearchBarProps {
+export interface SearchBarProps {
   onSearch: (query: string) => void;
 }
 
-export const SearchBar = ({ onSearch }: SearchBarProps) => {
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onSearch(event.target.value);
+export function SearchBar({ onSearch }: SearchBarProps) {
+  const [query, setQuery] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch(query);
   };
 
   return (
-    <TextField
-      fullWidth
-      variant="outlined"
-      placeholder="Search by clause ID, title, or description..."
-      onChange={handleChange}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-            <SearchIcon />
-          </InputAdornment>
-        ),
+    <Paper
+      component="form"
+      onSubmit={handleSubmit}
+      sx={{
+        p: '2px 4px',
+        display: 'flex',
+        alignItems: 'center',
+        width: '100%',
+        maxWidth: 600,
       }}
-    />
+    >
+      <InputBase
+        sx={{ ml: 1, flex: 1 }}
+        placeholder="Search clauses..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <IconButton type="submit" sx={{ p: '10px' }} aria-label="search">
+        <SearchIcon />
+      </IconButton>
+    </Paper>
   );
-}; 
+} 
