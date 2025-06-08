@@ -1,6 +1,5 @@
 import React, { createContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
 
 export interface AuthContextType {
   isAuthenticated: boolean;
@@ -24,7 +23,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   const checkAuth = useCallback(async () => {
     try {
@@ -51,18 +49,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
       setUser(session?.user ?? null);
-      
-      if (session) {
-        navigate('/');
-      } else {
-        navigate('/login');
-      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [checkAuth, navigate]);
+  }, [checkAuth]);
 
   const signIn = async (email: string, password: string) => {
     try {

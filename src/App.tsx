@@ -20,8 +20,8 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <AuthProvider>
+      <AuthProvider>
+        <Router>
           <ClauseProvider>
             <Layout>
               <Routes>
@@ -38,8 +38,8 @@ export default function App() {
               </Routes>
             </Layout>
           </ClauseProvider>
-        </AuthProvider>
-      </Router>
+        </Router>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
