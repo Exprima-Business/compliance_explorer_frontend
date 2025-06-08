@@ -117,7 +117,12 @@ export async function apiCall<T>(
     });
 
     console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    // Log headers in a TypeScript-safe way
+    const responseHeaders: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+    console.log('Response headers:', responseHeaders);
 
     return await handleApiResponse<T>(response);
   } catch (error) {
