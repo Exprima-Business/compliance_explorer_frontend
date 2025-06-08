@@ -98,11 +98,14 @@ export async function apiCall<T>(
 ): Promise<T> {
   const { method = 'GET', body, requireAuth = false } = options;
 
-  const isPublicEndpoint = publicEndpoints.some(ep => endpoint.startsWith(ep));
-  const isProtectedEndpoint = protectedEndpoints.some(ep => endpoint.startsWith(ep));
+  // Ensure endpoint starts with /api
+  const apiEndpoint = endpoint.startsWith('/api') ? endpoint : `/api${endpoint}`;
+  
+  const isPublicEndpoint = publicEndpoints.some(ep => apiEndpoint.startsWith(ep));
+  const isProtectedEndpoint = protectedEndpoints.some(ep => apiEndpoint.startsWith(ep));
 
   const shouldRequireAuth = requireAuth || isProtectedEndpoint;
-  const fullUrl = `${API_URL}${endpoint}`;
+  const fullUrl = `${API_URL}${apiEndpoint}`;
   console.log(`Making ${method} request to:`, fullUrl);
 
   try {
