@@ -3,12 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { theme } from './theme';
-import { ClauseProvider } from './contexts/ClauseContext';
+import { Layout } from './components/Layout';
+import { Home } from './pages/Home';
+import { Login } from './pages/Login';
+import { DocumentScanner } from './pages/DocumentScanner';
 import { AuthProvider } from './contexts/AuthContext';
-import Layout from './components/Layout';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import DocumentScanner from './pages/DocumentScanner';
+import { ClauseProvider } from './contexts/ClauseContext';
 import { useAuth } from './hooks/useAuth';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -16,13 +16,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 }
 
-function App() {
+export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <ClauseProvider>
-          <Router>
+      <Router>
+        <AuthProvider>
+          <ClauseProvider>
             <Layout>
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -37,11 +37,9 @@ function App() {
                 />
               </Routes>
             </Layout>
-          </Router>
-        </ClauseProvider>
-      </AuthProvider>
+          </ClauseProvider>
+        </AuthProvider>
+      </Router>
     </ThemeProvider>
   );
 }
-
-export default App;
