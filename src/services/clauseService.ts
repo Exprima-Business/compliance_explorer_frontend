@@ -141,7 +141,7 @@ export const clauseService = {
   async bookmarkClause(clauseId: string): Promise<void> {
     await apiCall(`/clauses/${clauseId}/bookmark`, {
       method: 'POST',
-      requireAuth: true
+      requireAuth: false
     });
   },
 

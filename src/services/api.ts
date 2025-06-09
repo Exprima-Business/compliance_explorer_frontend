@@ -11,11 +11,11 @@ const publicEndpoints = [
   '/api/clauses',
   '/api/families',
   '/api/clauses/search',
-  '/api/clauses/family'
+  '/api/clauses/family',
+  '/api/clauses/bookmark'
 ];
 
 const protectedEndpoints = [
-  '/api/clauses/bookmark',
   '/api/documents'
 ];
 
@@ -116,8 +116,8 @@ export async function apiCall<T>(
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
-      credentials: 'include', // Include cookies if needed
-      mode: 'cors', // Explicitly set CORS mode
+      credentials: shouldRequireAuth ? 'include' : 'omit',
+      mode: 'cors',
     });
 
     console.log('Response status:', response.status);
@@ -192,7 +192,7 @@ export async function bookmarkClause(clauseId: string): Promise<ApiResponse<void
   try {
     return await apiCall<ApiResponse<void>>(`/api/clauses/${clauseId}/bookmark`, {
       method: 'POST',
-      requireAuth: true
+      requireAuth: false
     });
   } catch (error) {
     console.error(`Error bookmarking clause ${clauseId}:`, error);
