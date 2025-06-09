@@ -44,6 +44,34 @@ export const clauseService = {
     }
   },
 
+  getClauseById: async (id: string): Promise<ApiResponse<Clause>> => {
+    try {
+      const response = await apiCall<Clause>(`/clauses/${id}`);
+      console.log('API Response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching clause:', error);
+      return {
+        data: null as unknown as Clause,
+        error: error instanceof Error ? error.message : 'Failed to fetch clause'
+      };
+    }
+  },
+
+  searchClauses: async (query: string): Promise<ApiResponse<Clause[]>> => {
+    try {
+      const response = await apiCall<Clause[]>(`/clauses/search?q=${encodeURIComponent(query)}`);
+      console.log('API Response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error searching clauses:', error);
+      return {
+        data: [],
+        error: error instanceof Error ? error.message : 'Failed to search clauses'
+      };
+    }
+  },
+
   bookmarkClause: async (clauseId: string): Promise<ApiResponse<void>> => {
     try {
       const response = await apiCall<void>(`/clauses/${clauseId}/bookmark`, {
@@ -54,34 +82,8 @@ export const clauseService = {
     } catch (error) {
       console.error('Error bookmarking clause:', error);
       return {
-        data: undefined,
+        data: null as unknown as void,
         error: error instanceof Error ? error.message : 'Failed to bookmark clause'
-      };
-    }
-  },
-
-  getClauseById: async (clauseId: string): Promise<ApiResponse<Clause>> => {
-    try {
-      const response = await apiCall<Clause>(`/clauses/${clauseId}`);
-      return response;
-    } catch (error) {
-      console.error('Error fetching clause by ID:', error);
-      return {
-        data: null as unknown as Clause,
-        error: error instanceof Error ? error.message : 'Failed to fetch clause by ID'
-      };
-    }
-  },
-
-  searchClauses: async (query: string): Promise<ApiResponse<Clause[]>> => {
-    try {
-      const response = await apiCall<Clause[]>(`/clauses/search?q=${encodeURIComponent(query)}`);
-      return response;
-    } catch (error) {
-      console.error('Error searching clauses:', error);
-      return {
-        data: [],
-        error: error instanceof Error ? error.message : 'Failed to search clauses'
       };
     }
   }

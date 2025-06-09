@@ -67,7 +67,7 @@ export interface MatrixRow {
   intent: string;
   status: string;
   category: string;
-  family: ClauseFamily;
+  family: ClauseFamily | null;
   conditions: string;
   implementationGuidance: string;
   assessmentMethod: string;

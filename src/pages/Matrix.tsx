@@ -1,17 +1,16 @@
 import React from 'react';
-import { Box, Typography, Paper, List, ListItem, ListItemText, Divider } from '@mui/material';
-import { useClauseContext } from '../contexts/ClauseContext';
+import { Box, Typography, CircularProgress, Alert } from '@mui/material';
+import { ComplianceMatrix } from '../components/ComplianceMatrix';
+import { useClause } from '../contexts/ClauseContext';
+import type { Clause } from '../types/clause';
 
-export default function Matrix() {
-  const { clauses, loading, error } = useClauseContext();
-
-  // Filter bookmarked clauses
-  const bookmarkedClauses = clauses.filter(clause => clause.isBookmarked);
+const Matrix: React.FC = () => {
+  const { clauses, loading, error } = useClause();
 
   if (loading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography>Loading bookmarked clauses...</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
       </Box>
     );
   }
@@ -19,43 +18,35 @@ export default function Matrix() {
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography color="error">Error: {error}</Typography>
+        <Alert severity="error">{error}</Alert>
       </Box>
     );
   }
 
+  const matrixData = clauses.map((clause: Clause, index: number) => ({
+    id: clause.id,
+    clauseId: clause.clauseId,
+    title: clause.title,
+    description: clause.description,
+    intent: clause.intent,
+    status: clause.status,
+    category: clause.category,
+    family: clause.family,
+    conditions: clause.conditions,
+    implementationGuidance: clause.implementationGuidance,
+    assessmentMethod: clause.assessmentMethod,
+    riskClassification: clause.riskClassification,
+    referenceUrl: clause.referenceUrl
+  }));
+
   return (
-    <Box sx={{ 
-      height: '100%', 
-      width: '100%',
-      p: 3
-    }}>
+    <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Bookmarked Clauses
+        Compliance Matrix
       </Typography>
-      {bookmarkedClauses.length === 0 ? (
-        <Paper sx={{ p: 3, mt: 2 }}>
-          <Typography>
-            No clauses have been bookmarked yet. Select clauses in the Clauses view to bookmark them.
-          </Typography>
-        </Paper>
-      ) : (
-        <Paper sx={{ mt: 2 }}>
-          <List>
-            {bookmarkedClauses.map((clause, index) => (
-              <React.Fragment key={clause.id}>
-                <ListItem>
-                  <ListItemText
-                    primary={clause.title}
-                    secondary={clause.description}
-                  />
-                </ListItem>
-                {index < bookmarkedClauses.length - 1 && <Divider />}
-              </React.Fragment>
-            ))}
-          </List>
-        </Paper>
-      )}
+      <ComplianceMatrix data={matrixData} />
     </Box>
   );
-} 
+};
+
+export default Matrix; 

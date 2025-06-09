@@ -29,7 +29,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import type { Clause, MatrixRow } from '../types/clause';
+import type { Clause, MatrixRow, ClauseFamily } from '../types/clause';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 
@@ -277,6 +277,10 @@ export function ComplianceMatrix({ clauses, onClose }: ComplianceMatrixProps) {
     }));
     setMatrixRows(rows);
   }, [clauses]);
+
+  const getFamilyName = (family: ClauseFamily | null): string => {
+    return family?.name || 'Uncategorized';
+  };
 
   if (loading) {
     return (

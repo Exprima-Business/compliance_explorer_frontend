@@ -18,58 +18,36 @@ const familyColors: { [key: string]: string } = {
 
 interface ClauseGraphProps {
   graphData: GraphData
-  onNodeClick: (node: GraphNode) => void
+  onNodeClick?: (node: GraphNode) => void
 }
 
 export const ClauseGraph: React.FC<ClauseGraphProps> = ({ graphData, onNodeClick }) => {
   const handleNodeClick = useCallback((node: GraphNode) => {
-    onNodeClick(node)
+    if (onNodeClick) {
+      onNodeClick(node)
+    }
   }, [onNodeClick])
 
-  const graphDataMemo = useMemo(() => ({
-    nodes: graphData.nodes.map(node => ({
-      ...node,
-      x: Math.random() * 1000,
-      y: Math.random() * 1000,
-      fx: undefined,
-      fy: undefined
-    })),
+  const transformedData = useMemo(() => ({
+    nodes: graphData.nodes,
     links: graphData.edges.map(edge => ({
-      source: edge.from,
-      target: edge.to,
-      type: edge.type,
-      arrows: edge.arrows,
-      smooth: edge.smooth
+      source: edge.source,
+      target: edge.target,
+      value: edge.value
     }))
   }), [graphData])
 
   return (
     <ForceGraph2D
-      graphData={graphDataMemo}
-      nodeLabel="title"
-      nodeColor={node => {
-        if (node.isBookmarked) return '#ffd700';
-        switch (node.group) {
-          case 'DFARS': return '#1976D2';
-          case 'FIPS': return '#D32F2F';
-          case 'PRIVACY': return '#F57C00';
-          case 'FAR': return '#FBC02D';
-          case 'OMB': return '#0288D1';
-          case 'HSPD': return '#7B1FA2';
-          case 'NIST': return '#388E3C';
-          default: return '#33b5e5';
-        }
-      }}
-      nodeRelSize={6}
+      graphData={transformedData}
+      nodeLabel="name"
+      nodeColor={(node: GraphNode) => node.color || '#33b5e5'}
       linkColor={() => '#999'}
       linkWidth={1}
       linkDirectionalParticles={2}
-      linkDirectionalParticleSpeed={0.005}
       onNodeClick={handleNodeClick}
       cooldownTicks={100}
-      onEngineStop={() => {
-        // Optional: Add any cleanup or final positioning logic here
-      }}
+      onEngineStop={() => console.log('Graph layout complete')}
     />
   )
 } 

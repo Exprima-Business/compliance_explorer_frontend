@@ -109,13 +109,23 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json();
-    return { data, error: null };
+    const responseData = await response.json();
+    
+    // If the response is already in ApiResponse format, return it directly
+    if (responseData && typeof responseData === 'object' && 'data' in responseData && 'error' in responseData) {
+      return responseData as ApiResponse<T>;
+    }
+
+    // Otherwise, wrap the response in ApiResponse format
+    return {
+      data: responseData as T,
+      error: null
+    };
   } catch (error) {
     console.error('API call failed:', error);
     return {
       data: null as unknown as T,
-      error: error instanceof Error ? error.message : 'An unknown error occurred'
+      error: error instanceof Error ? error.message : 'An error occurred'
     };
   }
 };
