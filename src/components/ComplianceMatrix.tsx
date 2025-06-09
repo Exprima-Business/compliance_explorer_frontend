@@ -50,8 +50,6 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('PDF');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [matrixRows, setMatrixRows] = useState<MatrixRow[]>([]);
 
   // Define the default column widths
   const DEFAULT_COL_WIDTHS: Record<string, number> = {
@@ -157,7 +155,7 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
   const exportToPDF = () => {
     const doc = new jsPDF('l', 'mm', 'a4'); // Landscape orientation
     const tableColumn = columns.map(col => col.headerName);
-    const tableRows = matrixRows.map(row => 
+    const tableRows = rows.map(row => 
       columns.map(col => ensureString(row[col.field as keyof MatrixRow]))
     );
 
@@ -190,7 +188,7 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
       worksheet.addRow(headers);
 
       // Add data with proper type handling
-      matrixRows.forEach(row => {
+      rows.forEach(row => {
         const rowData = columns.map(col => 
           ensureString(row[col.field as keyof MatrixRow])
         );
@@ -225,7 +223,7 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
   const exportToCSV = () => {
     const csvContent = [
       columns.map(col => col.headerName).join(','),
-      ...matrixRows.map(row => 
+      ...rows.map(row => 
         columns.map(col => 
           `"${ensureString(row[col.field as keyof MatrixRow]).replace(/"/g, '""')}"`
         ).join(',')
@@ -257,37 +255,9 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
     setAllExpanded(!allExpanded);
   };
 
-  useEffect(() => {
-    // Convert Clause[] to MatrixRow[]
-    const rows: MatrixRow[] = rows.map(clause => ({
-      id: clause.id,
-      clauseId: clause.clauseId,
-      title: clause.title,
-      description: clause.description,
-      intent: clause.intent,
-      status: clause.status,
-      category: clause.category,
-      family: clause.family,
-      conditions: clause.conditions,
-      implementationGuidance: clause.implementationGuidance,
-      assessmentMethod: clause.assessmentMethod,
-      riskClassification: clause.riskClassification,
-      referenceUrl: clause.referenceUrl
-    }));
-    setMatrixRows(rows);
-  }, [rows]);
-
   const getFamilyName = (family: ClauseFamily | null): string => {
     return family?.name || 'Uncategorized';
   };
-
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -446,7 +416,7 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {matrixRows.map((row) => {
+              {rows.map((row) => {
                 const isExpanded = expandedRows.has(row.id.toString());
                 const hasLongContent = columns.some(column => {
                   const value = column.field === 'parentClause' 

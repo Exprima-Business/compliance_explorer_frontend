@@ -133,7 +133,7 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
 // Public endpoints (no auth required)
 export async function fetchClauses(): Promise<ApiResponse<Clause[]>> {
   try {
-    return await apiCall<ApiResponse<Clause[]>>('/api/clauses');
+    return await apiCall<Clause[]>('/api/clauses');
   } catch (error) {
     console.error('Error fetching clauses:', error);
     throw error;
@@ -142,7 +142,7 @@ export async function fetchClauses(): Promise<ApiResponse<Clause[]>> {
 
 export async function getClausesByFamily(family: ClauseFamily): Promise<ApiResponse<Clause[]>> {
   try {
-    return await apiCall<ApiResponse<Clause[]>>(`/api/clauses/family/${family}`);
+    return await apiCall<Clause[]>(`/api/clauses/family/${family}`);
   } catch (error) {
     console.error(`Error fetching clauses for family ${family}:`, error);
     throw error;
@@ -151,7 +151,7 @@ export async function getClausesByFamily(family: ClauseFamily): Promise<ApiRespo
 
 export async function getClauseFamilies(): Promise<ApiResponse<ClauseFamilyGroup[]>> {
   try {
-    return await apiCall<ApiResponse<ClauseFamilyGroup[]>>('/api/families');
+    return await apiCall<ClauseFamilyGroup[]>('/api/families');
   } catch (error) {
     console.error('Error fetching clause families:', error);
     throw error;
@@ -160,7 +160,7 @@ export async function getClauseFamilies(): Promise<ApiResponse<ClauseFamilyGroup
 
 export async function getClauseById(id: string): Promise<ApiResponse<Clause>> {
   try {
-    return await apiCall<ApiResponse<Clause>>(`/api/clauses/${id}`);
+    return await apiCall<Clause>(`/api/clauses/${id}`);
   } catch (error) {
     console.error(`Error fetching clause ${id}:`, error);
     throw error;
@@ -169,7 +169,7 @@ export async function getClauseById(id: string): Promise<ApiResponse<Clause>> {
 
 export async function searchClauses(query: string): Promise<ApiResponse<Clause[]>> {
   try {
-    return await apiCall<ApiResponse<Clause[]>>(`/api/clauses/search?q=${encodeURIComponent(query)}`);
+    return await apiCall<Clause[]>(`/api/clauses/search?q=${encodeURIComponent(query)}`);
   } catch (error) {
     console.error('Error searching clauses:', error);
     throw error;
@@ -179,7 +179,7 @@ export async function searchClauses(query: string): Promise<ApiResponse<Clause[]
 // Protected endpoints (auth required)
 export async function bookmarkClause(clauseId: string): Promise<ApiResponse<void>> {
   try {
-    return await apiCall<ApiResponse<void>>(`/api/clauses/${clauseId}/bookmark`, {
+    return await apiCall<void>(`/api/clauses/${clauseId}/bookmark`, {
       method: 'POST',
       requireAuth: false
     });
