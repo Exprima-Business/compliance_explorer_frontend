@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState } from 'react'
+import React, { useEffect, useRef, useMemo, useState } from 'react'
 import * as d3 from 'd3'
 import { Box, IconButton, Paper, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -29,16 +29,15 @@ interface LinkDatum extends d3.SimulationLinkDatum<NodeDatum> {
 }
 
 // Family color mapping and type
-const familyColors = {
-  DFARS: '#1976D2',    // Primary Blue
-  FIPS: '#D32F2F',    // Primary Red
-  NIST: '#388E3C',    // Primary Green
-  FAR: '#FBC02D',     // Primary Yellow/Gold
-  OMB: '#0288D1',     // Bright Blue
-  PRIVACY: '#F57C00', // Primary Orange
-  HSPD: '#7B1FA2',    // Primary Purple
+const familyColors: Record<string, string> = {
+  'DFARS': '#1976d2',
+  'FIPS': '#2e7d32',
+  'NIST': '#ed6c02',
+  'FAR': '#9c27b0',
+  'OMB': '#d32f2f',
+  'PRIVACY': '#0288d1',
+  'HSPD': '#7b1fa2'
 };
-type FamilyKey = keyof typeof familyColors;
 
 export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }) => {
   const svgRef = useRef<SVGSVGElement>(null)
@@ -50,10 +49,13 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
   const [isDragging, setIsDragging] = useState(false)
   const dragStartPos = useRef({ x: 0, y: 0 })
 
+  // Debug logging - commented out but preserved for future use
+  /*
   console.log('ClauseGraph received clauses:', clauses?.length || 0, 'clauses');
   if (clauses?.length > 0) {
     console.log('Sample clause:', JSON.stringify(clauses[0], null, 2));
   }
+  */
 
   // Memoize the nodes and links to prevent unnecessary recalculations
   const { nodes, links } = useMemo(() => {
@@ -62,11 +64,14 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
       return { nodes: [], links: [] };
     }
 
+    // Debug logging - commented out but preserved for future use
+    /*
     console.log('Calculating nodes and links for', clauses.length, 'clauses');
-    
+    */
+
     const nodes: NodeDatum[] = clauses.map(clause => {
       // Try to find existing node position
-      const existingNode = nodesRef.current.find(n => n.id === clause.id)
+      const existingNode = nodesRef.current.find(n => n.id === clause.id);
       return {
         id: clause.id,
         label: clause.clauseId,
@@ -76,10 +81,10 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
         y: existingNode?.y,
         fx: existingNode?.fx,
         fy: existingNode?.fy
-      }
-    })
+      };
+    });
 
-    const validNodeIds = new Set(nodes.map(node => node.id))
+    const validNodeIds = new Set(nodes.map(node => node.id));
     const links: LinkDatum[] = clauses.flatMap(clause =>
       (clause.relationships || [])
         .filter(rel => validNodeIds.has(rel.clauseId))
@@ -87,8 +92,10 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
           source: clause.id,
           target: rel.clauseId
         }))
-    )
+    );
 
+    // Debug logging - commented out but preserved for future use
+    /*
     console.log('Generated nodes:', nodes.length);
     console.log('Generated links:', links.length);
     if (nodes.length > 0) {
@@ -97,10 +104,11 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
     if (links.length > 0) {
       console.log('Sample link:', JSON.stringify(links[0], null, 2));
     }
+    */
 
-    nodesRef.current = nodes
-    return { nodes, links }
-  }, [clauses])
+    nodesRef.current = nodes;
+    return { nodes, links };
+  }, [clauses]);
 
   useEffect(() => {
     if (!svgRef.current || !containerRef.current || nodes.length === 0) {
@@ -128,42 +136,8 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
       .attr('viewBox', `0 0 ${width} ${height}`)
       .attr('preserveAspectRatio', 'xMidYMid meet')
 
-    // Define radial gradients for each family
-    const defs = svg.append('defs');
-    // Neon glow filter
-    defs.append('filter')
-      .attr('id', 'neon-glow')
-      .attr('x', '-40%')
-      .attr('y', '-40%')
-      .attr('width', '180%')
-      .attr('height', '180%')
-      .html(`
-        <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#7F39FB" flood-opacity="0.85"/>
-        <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#00B8D9" flood-opacity="0.45"/>
-      `);
-    Object.entries(familyColors).forEach(([family, color]) => {
-      const grad = defs.append('radialGradient')
-        .attr('id', `radial-${family}`)
-        .attr('cx', '50%')
-        .attr('cy', '50%')
-        .attr('r', '70%');
-      grad.append('stop')
-        .attr('offset', '0%')
-        .attr('stop-color', '#fff')
-        .attr('stop-opacity', 0.95);
-      grad.append('stop')
-        .attr('offset', '100%')
-        .attr('stop-color', color)
-        .attr('stop-opacity', 1);
-    });
-
-    // Create a group for zooming that will contain all elements
-    const zoomGroup = svg.append('g')
-      .attr('class', 'zoom-group')
-
-    // Add zoom behavior
+    // Create zoom behavior
     const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .extent([[0, 0], [width, height]])
       .scaleExtent([0.1, 4])
       .on('zoom', (event) => {
         console.log('Zoom event:', event.transform)
@@ -176,9 +150,13 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
     svg.call(zoom.transform, d3.zoomIdentity.scale(0.85))
     zoomRef.current = zoom
 
-    // Set up the simulation with adjusted forces
-    const simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(links)
+    // Create zoom group
+    const zoomGroup = svg.append('g')
+      .attr('class', 'zoom-group')
+
+    // Create simulation
+    const simulation = d3.forceSimulation<NodeDatum>()
+      .force('link', d3.forceLink<NodeDatum, LinkDatum>(links)
         .id((d: any) => d.id)
         .distance(200) // Increased distance
         .strength(0.5)) // Reduced strength
@@ -294,70 +272,34 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
           .style('stroke-width', 1);
         if (onNodeClick) onNodeClick(d.clause)
       })
-      .on('mouseover', function(event, d) {
-        // Scale up the hovered node and set radial gradient fill, bold stroke, and neon glow
-        const fam = d.family;
-        d3.select(this)
-          .select('circle')
-          .transition()
-          .duration(200)
-          .attr('r', 40)
-          .style('stroke-width', 4)
-          .style('stroke', '#7F39FB')
-          .attr('fill', fam && Object.prototype.hasOwnProperty.call(familyColors, fam) ? `url(#radial-${fam})` : '#E0E0E0')
-          .attr('filter', 'url(#neon-glow)');
-
-        // Calculate tooltip position
-        const tooltipWidth = 200;  // Match the width set in tooltip style
-        const tooltipHeight = 100; // Approximate height
-        const padding = 16;        // Increased padding from screen edge
-        const nodeOffset = 32;     // Increased offset from node
-
-        // Get viewport dimensions
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        // Calculate initial position
-        let left = event.pageX + nodeOffset;
-        let top = event.pageY - tooltipHeight / 2;
-
-        // Check if tooltip would clip right edge
-        if (left + tooltipWidth + padding > viewportWidth) {
-          left = event.pageX - tooltipWidth - nodeOffset;
-        }
-
-        // Check if tooltip would clip bottom edge
-        if (top + tooltipHeight + padding > viewportHeight) {
-          top = event.pageY - tooltipHeight - nodeOffset;
-        }
-
-        // Ensure tooltip doesn't go off left edge
-        left = Math.max(padding, left);
-
-        // Ensure tooltip doesn't go off top edge
-        top = Math.max(padding, top);
-
-        // Show tooltip with updated styling
+      .on('mouseover', (event, d) => {
+        // Show tooltip
+        const [left, top] = d3.pointer(event);
         tooltip
           .style('opacity', 1)
           .html(`
-            <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px; color: #1976d2;">${d.clause.clauseId}</div>
-            <div style="color: #666; font-size: 14px; line-height: 1.4; margin-bottom: 12px;">${d.clause.title}</div>
+            <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px; color: #1976d2;">
+              ${d.clause.clauseId || 'N/A'}
+            </div>
+            <div style="color: #666; font-size: 14px; line-height: 1.4; margin-bottom: 12px;">
+              ${d.clause.title}
+            </div>
             <div style="display: flex; gap: 8px; align-items: center;">
-              <span style="color: #1976d2; font-weight: 500;">${d.clause.family}</span>
+              <span style="color: #1976d2; font-weight: 500;">
+                ${d.clause.family || 'N/A'}
+              </span>
               <span style="color: ${d.clause.riskClassification === 'HIGH' ? '#d32f2f' : '#ed6c02'}; font-weight: 500;">
-                ${d.clause.riskClassification}
+                ${d.clause.riskClassification || 'N/A'}
               </span>
             </div>
           `)
-          .style('left', left + 'px')
-          .style('top', top + 'px');
+          .style('left', (event.pageX + 10) + 'px')
+          .style('top', (event.pageY - 28) + 'px');
 
-        // Find connected nodes and links
-        const connectedNodes = new Set<string>();
-        const connectedLinks = new Set<LinkDatum>();
+        // Highlight connected nodes and links
+        const connectedNodes = new Set();
+        const connectedLinks = new Set();
 
-        // Find connected nodes and links
         links.forEach(link => {
           const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
           const targetId = typeof link.target === 'string' ? link.target : link.target.id;
@@ -368,125 +310,53 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
           }
         });
 
-        // Highlight all nodes, with connected nodes at full opacity
+        // Fade out unconnected nodes and links
         nodeGroup
           .transition()
           .duration(200)
-          .style('opacity', (nodeDatum: NodeDatum) => {
-            if (nodeDatum.id === d.id) return 1;
-            return connectedNodes.has(nodeDatum.id) ? 1 : 0.2;
-          })
+          .style('opacity', node => connectedNodes.has(node.id) ? 1 : 0.1)
           .select('circle')
-          .attr('r', (nodeDatum: NodeDatum) => nodeDatum.id === d.id ? 40 : 35)
-          .style('stroke-width', (nodeDatum: NodeDatum) => nodeDatum.id === d.id ? 4 : 2)
-          .style('stroke', (nodeDatum: NodeDatum) => nodeDatum.id === d.id ? '#7F39FB' : '#757575')
-          .attr('fill', (nodeDatum: NodeDatum) => {
-            const fam = nodeDatum.family;
-            if (nodeDatum.id === d.id && fam && Object.prototype.hasOwnProperty.call(familyColors, fam)) {
-              return `url(#radial-${fam})`;
-            }
-            if (fam && Object.prototype.hasOwnProperty.call(familyColors, fam)) {
-              return `url(#radial-${fam})`;
-            }
-            return '#E0E0E0';
-          })
-          .attr('filter', (nodeDatum: NodeDatum) => nodeDatum.id === d.id ? 'url(#neon-glow)' : null);
+          .transition()
+          .duration(200)
+          .attr('r', node => connectedNodes.has(node.id) ? 40 : 35)
+          .style('stroke-width', node => connectedNodes.has(node.id) ? 3 : 2);
 
-        // Highlight connected links with relationship-specific styling
+        // Highlight connected links
         link
           .transition()
           .duration(200)
-          .style('opacity', (link: LinkDatum) => {
-            if (!connectedLinks.has(link)) return 0.1;
-            
-            const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
-            const targetId = typeof link.target === 'string' ? link.target : link.target.id;
-            const sourceClause = clauses.find(c => c.id === sourceId);
-            const targetClause = clauses.find(c => c.id === targetId);
-            
-            // Higher opacity for parent relationships
-            if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
-              return 1;
-            }
-            return 0.7;
-          })
-          .style('stroke-width', (link: LinkDatum) => {
-            if (!connectedLinks.has(link)) return 1;
-            
-            const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
-            const targetId = typeof link.target === 'string' ? link.target : link.target.id;
-            const sourceClause = clauses.find(c => c.id === sourceId);
-            const targetClause = clauses.find(c => c.id === targetId);
-            
-            // Thicker line for parent relationships
-            if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
-              return 3;
-            }
-            return 2;
-          });
+          .style('opacity', link => connectedLinks.has(link) ? 1 : 0.1)
+          .style('stroke-width', link => connectedLinks.has(link) ? 2 : 1);
       })
-      .on('mouseout', function() {
-        // Reset node size, stroke, fill, and remove filter
-        d3.select(this)
-          .select('circle')
-          .transition()
-          .duration(200)
-          .attr('r', 35)
-          .style('stroke-width', 2)
-          .style('stroke', '#757575')
-          .attr('fill', (d: any) => {
-            const fam = d.family;
-            if (fam && Object.prototype.hasOwnProperty.call(familyColors, fam)) {
-              return `url(#radial-${fam})`;
-            }
-            return '#E0E0E0';
-          })
-          .attr('filter', null);
-
+      .on('mouseout', () => {
         // Hide tooltip
         tooltip.style('opacity', 0);
-
         // Reset all nodes and links
         nodeGroup
           .transition()
           .duration(200)
           .style('opacity', 1)
           .select('circle')
+          .transition()
+          .duration(200)
           .attr('r', 35)
-          .style('stroke-width', 2)
-          .style('stroke', '#757575')
-          .attr('fill', (nodeDatum: NodeDatum) => {
-            const fam = nodeDatum.family;
-            if (fam && Object.prototype.hasOwnProperty.call(familyColors, fam)) {
-              return `url(#radial-${fam})`;
-            }
-            return '#E0E0E0';
-          })
-          .attr('filter', null);
-
+          .style('stroke-width', 2);
         link
           .transition()
           .duration(200)
           .style('opacity', 0.7)
           .style('stroke-width', 1);
-      })
-      .call(d3.drag<any, any>()
-        .on('start', dragstarted)
-        .on('drag', dragged)
-        .on('end', dragended))
+      });
 
     // Add circles to node groups
     nodeGroup.append('circle')
       .attr('r', 35)
-      .attr('fill', (d: any) => {
-        const fam = d.family;
-        if (fam && Object.prototype.hasOwnProperty.call(familyColors, fam)) {
-          return `url(#radial-${fam})`;
-        }
-        return '#E0E0E0';
+      .style('fill', d => {
+        const family = d.clause.family;
+        return familyColors[family] || '#757575';
       })
-      .attr('stroke', '#757575')
-      .attr('stroke-width', 2);
+      .style('stroke', '#fff')
+      .style('stroke-width', 2);
 
     // Add text labels to node groups
     nodeGroup.append('text')
@@ -494,9 +364,9 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
       .attr('text-anchor', 'middle')
       .style('font-size', '12px')
       .style('font-weight', 'bold')
-      .style('fill', '#000')
+      .style('fill', '#fff')
       .style('pointer-events', 'none')
-      .text((d: any) => d.label);
+      .text(d => d.clause.clauseId || 'N/A');
 
     // Calculate initial zoom to fit all nodes
     const padding = 100
