@@ -142,16 +142,16 @@ export async function fetchClauses(): Promise<ApiResponse<Clause[]>> {
 
 export async function getClausesByFamily(family: ClauseFamily): Promise<ApiResponse<Clause[]>> {
   try {
-    return await apiCall<Clause[]>(`/api/clauses/family/${family}`);
+    return await apiCall<Clause[]>(`/api/clauses/family/${encodeURIComponent(family.id)}`);
   } catch (error) {
-    console.error(`Error fetching clauses for family ${family}:`, error);
+    console.error('Error fetching clauses by family:', error);
     throw error;
   }
 }
 
 export async function getClauseFamilies(): Promise<ApiResponse<ClauseFamilyGroup[]>> {
   try {
-    return await apiCall<ClauseFamilyGroup[]>('/api/families');
+    return await apiCall<ClauseFamilyGroup[]>('/api/clauses/families');
   } catch (error) {
     console.error('Error fetching clause families:', error);
     throw error;
@@ -177,14 +177,14 @@ export async function searchClauses(query: string): Promise<ApiResponse<Clause[]
 }
 
 // Protected endpoints (auth required)
-export async function bookmarkClause(clauseId: string): Promise<ApiResponse<void>> {
+export async function bookmarkClause(clauseId: string): Promise<ApiResponse<Clause>> {
   try {
-    return await apiCall<void>(`/api/clauses/${clauseId}/bookmark`, {
+    return await apiCall<Clause>(`/api/clauses/bookmark/${clauseId}`, {
       method: 'POST',
-      requireAuth: false
+      requireAuth: true
     });
   } catch (error) {
-    console.error(`Error bookmarking clause ${clauseId}:`, error);
+    console.error('Error bookmarking clause:', error);
     throw error;
   }
 }
