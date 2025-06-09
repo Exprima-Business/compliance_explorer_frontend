@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react'
-import { ForceGraph2D } from 'react-force-graph'
+import ForceGraph2D from 'react-force-graph-2d'
 import type { GraphData, GraphNode, GraphEdge } from '../types/clause'
 
 // Define a color palette for different families
