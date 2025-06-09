@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, CssBaseline } from '@mui/material';
 import { AppBar } from './AppBar';
 import { Sidebar } from './Sidebar';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,9 +11,30 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Update active tab based on current route
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/') setActiveTab(0);
+    else if (path === '/matrix') setActiveTab(1);
+    else if (path === '/document-scanner') setActiveTab(2);
+  }, [location]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
+    switch (newValue) {
+      case 0:
+        navigate('/');
+        break;
+      case 1:
+        navigate('/matrix');
+        break;
+      case 2:
+        navigate('/document-scanner');
+        break;
+    }
   };
 
   const handleSettingsClick = () => {
@@ -41,8 +63,8 @@ export default function Layout({ children }: LayoutProps) {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { sm: `calc(100% - 240px)` },
-          ml: { sm: '240px' },
+          width: { sm: `calc(100% - 320px)` },
+          ml: { sm: '320px' },
           mt: '64px', // Height of AppBar
           height: 'calc(100vh - 64px)',
           overflow: 'auto'

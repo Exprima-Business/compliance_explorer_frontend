@@ -1,36 +1,20 @@
 import React from 'react';
 import {
   Drawer,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  ListItemButton,
-  Divider,
   Box,
-  Typography,
-  Collapse,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
-import {
-  Dashboard as DashboardIcon,
-  Assessment as AssessmentIcon,
-  Settings as SettingsIcon,
-  ExpandLess,
-  ExpandMore,
-  Security as SecurityIcon,
-  Business as BusinessIcon,
-  Gavel as GavelIcon,
-} from '@mui/icons-material';
+import { Search as SearchIcon } from '@mui/icons-material';
+import { useClause } from '../contexts/ClauseContext';
 
-const drawerWidth = 240;
+const drawerWidth = 320;
 
 export const Sidebar = () => {
-  const [open, setOpen] = React.useState(true);
-  const [complianceOpen, setComplianceOpen] = React.useState(true);
-
-  const handleComplianceClick = () => {
-    setComplianceOpen(!complianceOpen);
-  };
+  const { searchQuery, setSearchQuery, selectedFamily, setSelectedFamily, families } = useClause();
 
   return (
     <Drawer
@@ -42,84 +26,38 @@ export const Sidebar = () => {
           width: drawerWidth,
           boxSizing: 'border-box',
           marginTop: '64px', // Height of AppBar
+          backgroundColor: 'background.paper',
+          borderRight: '1px solid rgba(148, 163, 184, 0.1)',
+          padding: 2,
         },
       }}
     >
-      <Box sx={{ overflow: 'auto' }}>
-        <List>
-          <ListItem disablePadding>
-            <ListItemButton>
-              <ListItemIcon>
-                <DashboardIcon />
-              </ListItemIcon>
-              <ListItemText primary="Dashboard" />
-            </ListItemButton>
-          </ListItem>
-
-          <ListItem disablePadding>
-            <ListItemButton onClick={handleComplianceClick}>
-              <ListItemIcon>
-                <SecurityIcon />
-              </ListItemIcon>
-              <ListItemText primary="Compliance" />
-              {complianceOpen ? <ExpandLess /> : <ExpandMore />}
-            </ListItemButton>
-          </ListItem>
-          <Collapse in={complianceOpen} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding>
-              <ListItemButton sx={{ pl: 4 }}>
-                <ListItemIcon>
-                  <BusinessIcon />
-                </ListItemIcon>
-                <ListItemText primary="Business Rules" />
-              </ListItemButton>
-              <ListItemButton sx={{ pl: 4 }}>
-                <ListItemIcon>
-                  <GavelIcon />
-                </ListItemIcon>
-                <ListItemText primary="Legal Requirements" />
-              </ListItemButton>
-            </List>
-          </Collapse>
-
-          <ListItem disablePadding>
-            <ListItemButton>
-              <ListItemIcon>
-                <AssessmentIcon />
-              </ListItemIcon>
-              <ListItemText primary="Reports" />
-            </ListItemButton>
-          </ListItem>
-
-          <ListItem disablePadding>
-            <ListItemButton>
-              <ListItemIcon>
-                <SettingsIcon />
-              </ListItemIcon>
-              <ListItemText primary="Settings" />
-            </ListItemButton>
-          </ListItem>
-        </List>
-
-        <Divider />
-        
-        <Box sx={{ p: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary">
-            Quick Links
-          </Typography>
-          <List>
-            <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemText primary="Recent Items" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemText primary="Favorites" />
-              </ListItemButton>
-            </ListItem>
-          </List>
-        </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder="Search clauses..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />,
+          }}
+        />
+        <FormControl fullWidth>
+          <InputLabel>Filter by Family</InputLabel>
+          <Select
+            value={selectedFamily}
+            label="Filter by Family"
+            onChange={(e) => setSelectedFamily(e.target.value)}
+          >
+            <MenuItem value="">All Families</MenuItem>
+            {families.map((family) => (
+              <MenuItem key={family.id} value={family.id}>
+                {family.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
     </Drawer>
   );

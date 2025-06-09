@@ -1,12 +1,17 @@
 export type RiskClassification = 'HIGH' | 'MEDIUM' | 'LOW';
 
-export type ClauseFamily = 'DFARS' | 'FIPS' | 'NIST' | 'FAR' | 'OMB' | 'PRIVACY' | 'HSPD';
+export interface ClauseFamily {
+  id: string;
+  name: string;
+  description?: string;
+}
 
 export interface ClauseRelationship {
   id: string;
-  clauseId: string;
-  relatedClauseId: string;
-  relationshipType: 'PARENT' | 'SIBLING';
+  sourceClauseId: string;
+  targetClauseId: string;
+  type: string;
+  description: string;
 }
 
 export interface Clause {
@@ -39,7 +44,6 @@ export interface ClauseFamilyGroup {
 export interface ApiResponse<T> {
   data: T;
   error?: string;
-  message?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -81,4 +85,31 @@ export interface ClauseNode extends Clause {
   y?: number;
   children?: ClauseNode[];
   parent?: ClauseNode;
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  title: string;
+  group: string;
+  category: string;
+  riskLevel: RiskClassification;
+  isBookmarked: boolean;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+  type: string;
+  arrows: string;
+  smooth: {
+    type: string;
+    roundness: number;
+  };
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  clauses: Clause[];
 } 
