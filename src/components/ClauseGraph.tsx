@@ -131,6 +131,41 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
         .attr('viewBox', `0 0 ${width} ${height}`)
         .attr('preserveAspectRatio', 'xMidYMid meet');
 
+      // Define radial gradients for each family
+      const defs = svg.append('defs');
+      
+      // Neon glow filter
+      defs.append('filter')
+        .attr('id', 'neon-glow')
+        .attr('x', '-40%')
+        .attr('y', '-40%')
+        .attr('width', '180%')
+        .attr('height', '180%')
+        .html(`
+          <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#7F39FB" flood-opacity="0.85"/>
+          <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#00B8D9" flood-opacity="0.45"/>
+        `);
+
+      // Create radial gradients for each family
+      Object.entries(familyColors).forEach(([family, color]) => {
+        const gradient = defs.append('radialGradient')
+          .attr('id', `radial-${family}`)
+          .attr('cx', '50%')
+          .attr('cy', '50%')
+          .attr('r', '50%');
+
+        const d3Color = d3.color(color);
+        if (d3Color) {
+          gradient.append('stop')
+            .attr('offset', '0%')
+            .attr('stop-color', d3Color.brighter(0.5).toString());
+
+          gradient.append('stop')
+            .attr('offset', '100%')
+            .attr('stop-color', color);
+        }
+      });
+
       // Create zoom group first
       const zoomGroup = svg.append('g')
         .attr('class', 'zoom-group');
@@ -158,6 +193,25 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
       // Apply zoom behavior to SVG
       svg.call(zoom);
       zoomRef.current = zoom;
+
+      // Add tooltip div
+      const tooltip = d3.select('body')
+        .append('div')
+        .attr('class', 'tooltip')
+        .style('opacity', 0)
+        .style('position', 'absolute')
+        .style('background-color', 'white')
+        .style('padding', '16px')
+        .style('border-radius', '8px')
+        .style('box-shadow', '0 2px 8px rgba(0,0,0,0.15)')
+        .style('pointer-events', 'none')
+        .style('z-index', 1000)
+        .style('font-family', 'system-ui, -apple-system, sans-serif')
+        .style('font-size', '14px')
+        .style('border', '1px solid #e0e0e0')
+        .style('width', '250px')
+        .style('word-wrap', 'break-word')
+        .style('white-space', 'normal');
 
       // Draw links within the zoom group
       const link = zoomGroup.append('g')
@@ -206,7 +260,141 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
         .selectAll<SVGGElement, NodeDatum>('g')
         .data(nodes)
         .join('g')
-        .style('cursor', 'pointer');
+        .style('cursor', 'pointer')
+        .on('click', (event, d) => {
+          event.stopPropagation();
+          tooltip.style('opacity', 0);
+          
+          // Reset node size and style
+          d3.select(event.currentTarget)
+            .select('circle')
+            .transition()
+            .duration(200)
+            .attr('r', 35)
+            .style('stroke-width', 2);
+
+          // Reset all nodes and links
+          nodeGroup
+            .transition()
+            .duration(200)
+            .style('opacity', 1)
+            .select('circle')
+            .style('stroke-width', 2);
+
+          link
+            .transition()
+            .duration(200)
+            .style('opacity', 0.7)
+            .style('stroke-width', 1);
+
+          if (onNodeClick) onNodeClick(d.clause);
+        })
+        .on('mouseover', (event, d) => {
+          const [left, top] = d3.pointer(event);
+          
+          // Show tooltip with updated styling
+          tooltip
+            .style('opacity', 1)
+            .html(`
+              <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px; color: #1976d2;">${d.clause.clauseId}</div>
+              <div style="color: #666; font-size: 14px; line-height: 1.4; margin-bottom: 12px;">${d.clause.title}</div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <span style="color: #1976d2; font-weight: 500;">${d.clause.family}</span>
+                <span style="color: ${d.clause.riskClassification === 'HIGH' ? '#d32f2f' : '#ed6c02'}; font-weight: 500;">
+                  ${d.clause.riskClassification}
+                </span>
+              </div>
+            `)
+            .style('left', left + 'px')
+            .style('top', top + 'px');
+
+          // Find connected nodes and links
+          const connectedNodes = new Set();
+          const connectedLinks = new Set();
+
+          links.forEach(link => {
+            const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
+            const targetId = typeof link.target === 'string' ? link.target : link.target.id;
+            if (sourceId === d.id || targetId === d.id) {
+              connectedLinks.add(link);
+              connectedNodes.add(sourceId);
+              connectedNodes.add(targetId);
+            }
+          });
+
+          // Highlight all nodes, with connected nodes at full opacity
+          nodeGroup
+            .transition()
+            .duration(200)
+            .style('opacity', nodeDatum => {
+              if (nodeDatum.id === d.id) return 1;
+              return connectedNodes.has(nodeDatum.id) ? 1 : 0.2;
+            })
+            .select('circle')
+            .attr('r', nodeDatum => nodeDatum.id === d.id ? 40 : 35)
+            .style('stroke-width', nodeDatum => nodeDatum.id === d.id ? 4 : 2)
+            .style('stroke', nodeDatum => nodeDatum.id === d.id ? '#7F39FB' : '#757575')
+            .attr('fill', nodeDatum => {
+              const fam = nodeDatum.family;
+              if (nodeDatum.id === d.id && fam && familyColors[fam]) {
+                return `url(#radial-${fam})`;
+              }
+              if (fam && familyColors[fam]) {
+                return `url(#radial-${fam})`;
+              }
+              return '#E0E0E0';
+            })
+            .attr('filter', nodeDatum => nodeDatum.id === d.id ? 'url(#neon-glow)' : null);
+
+          // Highlight connected links with relationship-specific styling
+          link
+            .transition()
+            .duration(200)
+            .style('opacity', link => {
+              if (!connectedLinks.has(link)) return 0.1;
+              const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
+              const targetId = typeof link.target === 'string' ? link.target : link.target.id;
+              const sourceClause = clauses.find(c => c.id === sourceId);
+              const targetClause = clauses.find(c => c.id === targetId);
+              
+              if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
+                return 1;
+              }
+              return 0.7;
+            })
+            .style('stroke-width', link => {
+              if (!connectedLinks.has(link)) return 1;
+              const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
+              const targetId = typeof link.target === 'string' ? link.target : link.target.id;
+              const sourceClause = clauses.find(c => c.id === sourceId);
+              const targetClause = clauses.find(c => c.id === targetId);
+              
+              if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
+                return 3;
+              }
+              return 2;
+            });
+        })
+        .on('mouseout', () => {
+          tooltip.style('opacity', 0);
+          
+          // Reset all nodes and links
+          nodeGroup
+            .transition()
+            .duration(200)
+            .style('opacity', 1)
+            .select('circle')
+            .attr('r', 35)
+            .style('stroke-width', 2)
+            .style('stroke', '#757575')
+            .attr('filter', null);
+
+          link
+            .transition()
+            .duration(200)
+            .style('opacity', 0.7)
+            .style('stroke-width', 1);
+        });
 
       // Add drag behavior
       const drag = d3.drag<SVGGElement, NodeDatum>()
@@ -230,12 +418,15 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
       // Add circles to node groups
       nodeGroup.append('circle')
         .attr('r', 35)
-        .style('fill', d => {
-          const family = d.clause.family;
-          return familyColors[family] || '#757575';
+        .attr('fill', d => {
+          const fam = d.family;
+          if (fam && familyColors[fam]) {
+            return `url(#radial-${fam})`;
+          }
+          return '#E0E0E0';
         })
-        .style('stroke', '#fff')
-        .style('stroke-width', 2);
+        .attr('stroke', '#757575')
+        .attr('stroke-width', 2);
 
       // Add text labels to node groups
       nodeGroup.append('text')
@@ -245,7 +436,7 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
         .style('font-weight', 'bold')
         .style('fill', '#fff')
         .style('pointer-events', 'none')
-        .text(d => d.clause.clauseId || 'N/A');
+        .text(d => d.label);
 
       // Calculate initial zoom to fit all nodes
       const padding = 100;
@@ -315,6 +506,7 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
       return () => {
         window.removeEventListener('resize', handleResize);
         simulation.stop();
+        tooltip.remove();
       };
     } catch (error) {
       console.error('Error initializing graph:', error);
