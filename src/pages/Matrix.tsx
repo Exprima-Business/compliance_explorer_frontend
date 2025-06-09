@@ -23,7 +23,7 @@ const Matrix: React.FC = () => {
     );
   }
 
-  const matrixData = clauses.map((clause: Clause, index: number) => ({
+  const matrixData = clauses.map((clause: Clause) => ({
     id: clause.id,
     clauseId: clause.clauseId,
     title: clause.title,
@@ -44,7 +44,7 @@ const Matrix: React.FC = () => {
       <Typography variant="h4" gutterBottom>
         Compliance Matrix
       </Typography>
-      <ComplianceMatrix data={matrixData} />
+      <ComplianceMatrix rows={matrixData} />
     </Box>
   );
 };

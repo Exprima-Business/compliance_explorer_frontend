@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Box, Typography, Button, Paper, CircularProgress, Alert } from '@mui/material';
-import { useAuth } from '../hooks/useAuth';
-import type { AuthContextType } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import * as api from '../services/api';
 
 const DocumentScanner: React.FC = () => {
-  const auth = useAuth() as AuthContextType;
+  const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -38,34 +37,12 @@ const DocumentScanner: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
+      <Typography variant="h4" gutterBottom>
         Document Scanner
       </Typography>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        {!auth.isAuthenticated ? (
-          <Box>
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Please sign in to use the document scanner.
-            </Alert>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              The document scanner allows you to:
-            </Typography>
-            <ul>
-              <li>Upload and analyze legal documents</li>
-              <li>Extract relevant clauses and requirements</li>
-              <li>Compare documents against compliance standards</li>
-            </ul>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => window.location.href = '/login'}
-              sx={{ mt: 2 }}
-            >
-              Sign In to Continue
-            </Button>
-          </Box>
-        ) : (
-          <>
+      {user ? (
+        <>
+          <Paper sx={{ p: 3, mb: 3 }}>
             <input
               accept=".pdf,.doc,.docx"
               style={{ display: 'none' }}
@@ -108,9 +85,11 @@ const DocumentScanner: React.FC = () => {
                 )}
               </Button>
             </Box>
-          </>
-        )}
-      </Paper>
+          </Paper>
+        </>
+      ) : (
+        <Typography>Please log in to use the document scanner.</Typography>
+      )}
     </Box>
   );
 };

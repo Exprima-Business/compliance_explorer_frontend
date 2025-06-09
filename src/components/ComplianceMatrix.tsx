@@ -34,8 +34,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 
 interface ComplianceMatrixProps {
-  clauses: Clause[];
-  onClose: () => void;
+  rows: MatrixRow[];
 }
 
 type ExportFormat = 'PDF' | 'XLSX' | 'CSV';
@@ -46,7 +45,7 @@ const ensureString = (value: any): string => {
   return String(value);
 };
 
-export function ComplianceMatrix({ clauses, onClose }: ComplianceMatrixProps) {
+export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('PDF');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -120,7 +119,7 @@ export function ComplianceMatrix({ clauses, onClose }: ComplianceMatrixProps) {
   // Function to find parent clause's clauseId
   const getParentClauseId = (clause: Clause): string => {
     if (!clause.parentClause) return '';
-    const parent = clauses.find(c => c.id === clause.parentClause);
+    const parent = rows.find(c => c.id === clause.parentClause);
     return parent ? parent.clauseId : '';
   };
 
@@ -253,14 +252,14 @@ export function ComplianceMatrix({ clauses, onClose }: ComplianceMatrixProps) {
     if (allExpanded) {
       setExpandedRows(new Set());
     } else {
-      setExpandedRows(new Set(clauses.map(clause => clause.id)));
+      setExpandedRows(new Set(rows.map(clause => clause.id)));
     }
     setAllExpanded(!allExpanded);
   };
 
   useEffect(() => {
     // Convert Clause[] to MatrixRow[]
-    const rows: MatrixRow[] = clauses.map(clause => ({
+    const rows: MatrixRow[] = rows.map(clause => ({
       id: clause.id,
       clauseId: clause.clauseId,
       title: clause.title,
@@ -276,7 +275,7 @@ export function ComplianceMatrix({ clauses, onClose }: ComplianceMatrixProps) {
       referenceUrl: clause.referenceUrl
     }));
     setMatrixRows(rows);
-  }, [clauses]);
+  }, [rows]);
 
   const getFamilyName = (family: ClauseFamily | null): string => {
     return family?.name || 'Uncategorized';
@@ -451,7 +450,7 @@ export function ComplianceMatrix({ clauses, onClose }: ComplianceMatrixProps) {
                 const isExpanded = expandedRows.has(row.id.toString());
                 const hasLongContent = columns.some(column => {
                   const value = column.field === 'parentClause' 
-                    ? getParentClauseId(clauses.find(c => c.id === row.id) as Clause)
+                    ? getParentClauseId(rows.find(c => c.id === row.id) as Clause)
                     : formatCellValue(row[column.field as keyof MatrixRow]);
                   return typeof value === 'string' && value.length > 100;
                 });
@@ -472,7 +471,7 @@ export function ComplianceMatrix({ clauses, onClose }: ComplianceMatrixProps) {
                   >
                     {columns.map((column) => {
                       const value = column.field === 'parentClause'
-                        ? getParentClauseId(clauses.find(c => c.id === row.id) as Clause)
+                        ? getParentClauseId(rows.find(c => c.id === row.id) as Clause)
                         : formatCellValue(row[column.field as keyof MatrixRow]);
                       const isLong = typeof value === 'string' && value.length > 100;
                       const showExpandButton = isLong && !isExpanded;
@@ -629,4 +628,4 @@ export function ComplianceMatrix({ clauses, onClose }: ComplianceMatrixProps) {
       </Dialog>
     </Box>
   );
-} 
+}; 

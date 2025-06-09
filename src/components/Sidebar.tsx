@@ -17,14 +17,14 @@ import {
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { useClause } from '../contexts/ClauseContext';
-import type { ClauseFamily } from '../types/clause';
+import type { ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 
 const drawerWidth = 320;
 
-export const Sidebar = () => {
+export const Sidebar: React.FC = () => {
   const { searchQuery, setSearchQuery, selectedFamily, setSelectedFamily, families } = useClause();
 
-  const handleFamilyClick = (family: ClauseFamily) => {
+  const handleFamilyClick = (family: ClauseFamily | null) => {
     setSelectedFamily(family);
   };
 
@@ -58,14 +58,22 @@ export const Sidebar = () => {
         <FormControl fullWidth>
           <InputLabel>Filter by Family</InputLabel>
           <Select
-            value={selectedFamily}
+            value={selectedFamily?.id || ''}
             label="Filter by Family"
-            onChange={(e) => setSelectedFamily(e.target.value)}
+            onChange={(e) => {
+              const familyId = e.target.value;
+              if (!familyId) {
+                handleFamilyClick(null);
+                return;
+              }
+              const familyGroup = families.find(f => f.family.id === familyId);
+              handleFamilyClick(familyGroup?.family || null);
+            }}
           >
             <MenuItem value="">All Families</MenuItem>
-            {families.map((family) => (
-              <MenuItem key={family.id} value={family.id}>
-                {family.name}
+            {families.map((familyGroup) => (
+              <MenuItem key={familyGroup.family.id} value={familyGroup.family.id}>
+                {familyGroup.family.name}
               </MenuItem>
             ))}
           </Select>
