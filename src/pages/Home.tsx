@@ -1,11 +1,11 @@
 import React from 'react';
-import { Box, Typography, CircularProgress, Snackbar, Alert } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import { ClauseGraph } from '../components/ClauseGraph';
-import { useClauseContext } from '../contexts/ClauseContext';
-import type { GraphData, GraphNode, GraphEdge, Clause } from '../types/clause';
+import { useClause } from '../contexts/ClauseContext';
+import type { GraphData, GraphNode, GraphEdge, Clause, ClauseRelationship } from '../types/clause';
 
 const Home: React.FC = () => {
-  const { clauses, loading, error, bookmarkClause } = useClauseContext();
+  const { clauses, loading, error, bookmarkClause } = useClause();
   const [snackbar, setSnackbar] = React.useState<{
     open: boolean;
     message: string;
@@ -17,34 +17,22 @@ const Home: React.FC = () => {
   });
 
   const graphData: GraphData = React.useMemo(() => {
-    const nodes: GraphNode[] = clauses.map(clause => ({
+    const nodes: GraphNode[] = clauses.map((clause: Clause) => ({
       id: clause.id,
-      label: clause.title,
-      title: clause.description,
-      group: clause.family?.name || 'Uncategorized',
-      category: clause.category,
-      riskLevel: clause.riskClassification,
-      isBookmarked: Boolean(clause.isBookmarked)
+      name: clause.title,
+      val: 1,
+      color: clause.is_bookmarked ? '#FFD700' : undefined
     }));
 
-    const edges: GraphEdge[] = clauses.flatMap(clause =>
-      clause.relationships.map(rel => ({
-        from: rel.sourceClauseId,
-        to: rel.targetClauseId,
-        type: rel.type,
-        arrows: 'to',
-        smooth: {
-          type: 'curvedCW',
-          roundness: 0.2
-        }
+    const edges: GraphEdge[] = clauses.flatMap((clause: Clause) =>
+      clause.relationships.map((rel: ClauseRelationship) => ({
+        source: rel.sourceClauseId,
+        target: rel.targetClauseId,
+        value: 1
       }))
     );
 
-    return {
-      nodes,
-      edges,
-      clauses
-    };
+    return { nodes, edges };
   }, [clauses]);
 
   const handleNodeClick = async (node: GraphNode) => {
@@ -64,13 +52,9 @@ const Home: React.FC = () => {
     }
   };
 
-  const handleSnackbarClose = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
-
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
       </Box>
     );
@@ -78,28 +62,18 @@ const Home: React.FC = () => {
 
   if (error) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
-        <Typography color="error">{error}</Typography>
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ height: '100vh', width: '100%', position: 'relative' }}>
+    <Box sx={{ height: 'calc(100vh - 64px)', position: 'relative' }}>
       <ClauseGraph
         graphData={graphData}
         onNodeClick={handleNodeClick}
       />
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 };

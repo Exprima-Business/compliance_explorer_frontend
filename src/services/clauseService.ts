@@ -18,14 +18,8 @@ export const clauseService = {
 
   getClausesByFamily: async (family: ClauseFamily): Promise<ApiResponse<Clause[]>> => {
     try {
-      const response = await apiCall<Clause[]>(`/clauses/family/${family}`);
-      console.log('API Response - getClausesByFamily:', {
-        requestedFamily: family,
-        totalClauses: response.length,
-        sampleClause: response[0],
-        relationships: response[0]?.relationships,
-        familyInfo: response[0]?.family
-      });
+      const response = await apiCall<Clause[]>(`/clauses/family/${family.id}`);
+      console.log('API Response:', response);
       return response;
     } catch (error) {
       console.error('Error fetching clauses by family:', error);
@@ -73,7 +67,7 @@ export const clauseService = {
     } catch (error) {
       console.error('Error fetching clause by ID:', error);
       return {
-        data: undefined,
+        data: null as unknown as Clause,
         error: error instanceof Error ? error.message : 'Failed to fetch clause by ID'
       };
     }

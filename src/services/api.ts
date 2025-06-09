@@ -88,13 +88,19 @@ async function getCommonHeaders(requireAuth: boolean = false): Promise<HeadersIn
   return headers;
 }
 
-export const apiCall = async <T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> => {
+interface ApiOptions extends RequestInit {
+  requireAuth?: boolean;
+}
+
+export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Promise<ApiResponse<T>> => {
+  const { requireAuth = false, ...fetchOptions } = options;
+
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
+      ...fetchOptions,
       headers: {
         'Content-Type': 'application/json',
-        ...options.headers,
+        ...fetchOptions.headers,
       },
     });
 
