@@ -19,21 +19,12 @@ export interface Clause {
   clauseId: string;
   title: string;
   description: string;
-  intent: string;
-  status: string;
-  category: string;
-  family: ClauseFamily;
-  familyId: string;
-  conditions: string;
-  implementationGuidance: string;
-  assessmentMethod: string;
-  riskClassification: RiskClassification;
-  referenceUrl?: string;
-  metadata: Record<string, any>;
+  content: string;
+  family: ClauseFamily | null;
   relationships: ClauseRelationship[];
-  parentClause?: string;
-  siblings?: string[];
-  isBookmarked?: boolean;
+  is_bookmarked: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ClauseFamilyGroup {

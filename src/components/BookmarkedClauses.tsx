@@ -80,8 +80,8 @@ export const BookmarkedClauses = ({
                   {clause.title}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {clause.family}
+                  <Typography variant="body2" color="text.secondary">
+                    {clause.family?.name || 'No Family'}
                   </Typography>
                   <Typography 
                     variant="caption" 

@@ -88,58 +88,31 @@ async function getCommonHeaders(requireAuth: boolean = false): Promise<HeadersIn
   return headers;
 }
 
-export async function apiCall<T>(
-  endpoint: string,
-  options: {
-    method?: string;
-    body?: any;
-    requireAuth?: boolean;
-  } = {}
-): Promise<T> {
-  const { method = 'GET', body, requireAuth = false } = options;
-
-  // Ensure endpoint starts with /api
-  const apiEndpoint = endpoint.startsWith('/api') ? endpoint : `/api${endpoint}`;
-  
-  const isPublicEndpoint = publicEndpoints.some(ep => apiEndpoint.startsWith(ep));
-  const isProtectedEndpoint = protectedEndpoints.some(ep => apiEndpoint.startsWith(ep));
-
-  const shouldRequireAuth = requireAuth || isProtectedEndpoint;
-  const fullUrl = `${API_URL}${apiEndpoint}`;
-  console.log(`Making ${method} request to:`, fullUrl);
-
+export const apiCall = async <T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> => {
   try {
-    const headers = await getCommonHeaders(shouldRequireAuth);
-    console.log('Request headers:', headers);
-
-    const response = await fetch(fullUrl, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      credentials: shouldRequireAuth ? 'include' : 'omit',
-      mode: 'cors',
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
     });
 
-    console.log('Response status:', response.status);
-    // Log headers in a TypeScript-safe way
-    const responseHeaders: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      responseHeaders[key] = value;
-    });
-    console.log('Response headers:', responseHeaders);
-
-    return await handleApiResponse<T>(response);
-  } catch (error) {
-    console.error('API call error:', error);
-    if (error instanceof ApiError) {
-      throw error;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
-    throw new ApiError(
-      error instanceof Error ? error.message : 'Unknown API error',
-      500
-    );
+
+    const data = await response.json();
+    return { data, error: null };
+  } catch (error) {
+    console.error('API call failed:', error);
+    return {
+      data: null as unknown as T,
+      error: error instanceof Error ? error.message : 'An unknown error occurred'
+    };
   }
-}
+};
 
 // Public endpoints (no auth required)
 export async function fetchClauses(): Promise<ApiResponse<Clause[]>> {

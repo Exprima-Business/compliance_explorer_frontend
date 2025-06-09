@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Box, Typography, Button, Paper, CircularProgress, Alert } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
+import type { AuthContextType } from '../contexts/AuthContext';
 import * as api from '../services/api';
 
-export default function DocumentScanner() {
+const DocumentScanner: React.FC = () => {
+  const auth = useAuth() as AuthContextType;
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated } = useAuth();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -41,7 +42,7 @@ export default function DocumentScanner() {
         Document Scanner
       </Typography>
       <Paper sx={{ p: 3, mb: 3 }}>
-        {!isAuthenticated ? (
+        {!auth.isAuthenticated ? (
           <Box>
             <Alert severity="info" sx={{ mb: 2 }}>
               Please sign in to use the document scanner.
@@ -112,4 +113,6 @@ export default function DocumentScanner() {
       </Paper>
     </Box>
   );
-} 
+};
+
+export default DocumentScanner; 

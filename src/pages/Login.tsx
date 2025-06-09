@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 import { Box, Paper, Typography, TextField, Button, Alert } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import type { AuthContextValue } from '../contexts/AuthContext';
 
-export default function Login() {
+const Login: React.FC = () => {
+  const navigate = useNavigate();
+  const auth = useAuth() as AuthContextValue;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn, error } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await signIn(email, password);
+      await auth.signIn(email, password);
+      navigate('/');
     } catch (error) {
       // Error is handled by the auth context
     }
@@ -19,10 +23,11 @@ export default function Login() {
   return (
     <Box
       sx={{
+        minHeight: '100vh',
         display: 'flex',
-        justifyContent: 'center',
         alignItems: 'center',
-        minHeight: 'calc(100vh - 64px)',
+        justifyContent: 'center',
+        bgcolor: 'background.default',
       }}
     >
       <Paper
@@ -31,14 +36,17 @@ export default function Login() {
           p: 4,
           width: '100%',
           maxWidth: 400,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
         }}
       >
-        <Typography variant="h5" component="h1" gutterBottom>
+        <Typography variant="h4" component="h1" gutterBottom align="center">
           Sign In
         </Typography>
-        {error && (
+        {auth.error && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
+            {auth.error}
           </Alert>
         )}
         <form onSubmit={handleSubmit}>
@@ -48,8 +56,8 @@ export default function Login() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            margin="normal"
             required
+            margin="normal"
           />
           <TextField
             fullWidth
@@ -57,14 +65,15 @@ export default function Login() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            margin="normal"
             required
+            margin="normal"
           />
           <Button
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 3 }}
+            size="large"
+            sx={{ mt: 2 }}
           >
             Sign In
           </Button>
@@ -72,4 +81,6 @@ export default function Login() {
       </Paper>
     </Box>
   );
-} 
+};
+
+export default Login; 

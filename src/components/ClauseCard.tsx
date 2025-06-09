@@ -166,7 +166,7 @@ export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, sx,
                     fontSize: '0.75rem',
                     transition: 'color 0.2s ease-in-out',
                   }}>
-                    {clause.family}
+                    {clause.family?.name || 'No Family'}
                   </Typography>
                 </Box>
                 <Box sx={{ 
@@ -307,7 +307,7 @@ export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, sx,
                     Family
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {clause.family}
+                    {clause.family?.name || 'No Family'}
                   </Typography>
                 </Box>
               </Box>

@@ -4,7 +4,7 @@ import { ClauseGraph } from '../components/ClauseGraph';
 import { useClauseContext } from '../contexts/ClauseContext';
 import type { GraphData, GraphNode, GraphEdge, Clause } from '../types/clause';
 
-export const Home: React.FC = () => {
+const Home: React.FC = () => {
   const { clauses, loading, error, bookmarkClause } = useClauseContext();
   const [snackbar, setSnackbar] = React.useState<{
     open: boolean;
@@ -102,4 +102,6 @@ export const Home: React.FC = () => {
       </Snackbar>
     </Box>
   );
-}; 
+};
+
+export default Home; 

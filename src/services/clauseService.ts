@@ -2,52 +2,93 @@ import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse } from '../ty
 import { apiCall } from './api';
 
 export const clauseService = {
-  async getAllClauses(): Promise<Clause[]> {
-    const response = await apiCall<Clause[]>('/clauses', { requireAuth: false });
-    console.log('API Response - getAllClauses:', {
-      totalClauses: response.length,
-      sampleClause: response[0],
-      relationships: response[0]?.relationships,
-      familyInfo: response[0]?.family
-    });
-    return response;
+  getAllClauses: async (): Promise<ApiResponse<Clause[]>> => {
+    try {
+      const response = await apiCall<Clause[]>('/clauses');
+      console.log('API Response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching clauses:', error);
+      return {
+        data: [],
+        error: error instanceof Error ? error.message : 'Failed to fetch clauses'
+      };
+    }
   },
 
-  async getClausesByFamily(family: ClauseFamily): Promise<Clause[]> {
-    const response = await apiCall<Clause[]>(`/clauses/family/${family}`, { requireAuth: false });
-    console.log('API Response - getClausesByFamily:', {
-      requestedFamily: family,
-      totalClauses: response.length,
-      sampleClause: response[0],
-      relationships: response[0]?.relationships,
-      familyInfo: response[0]?.family
-    });
-    return response;
+  getClausesByFamily: async (family: ClauseFamily): Promise<ApiResponse<Clause[]>> => {
+    try {
+      const response = await apiCall<Clause[]>(`/clauses/family/${family}`);
+      console.log('API Response - getClausesByFamily:', {
+        requestedFamily: family,
+        totalClauses: response.length,
+        sampleClause: response[0],
+        relationships: response[0]?.relationships,
+        familyInfo: response[0]?.family
+      });
+      return response;
+    } catch (error) {
+      console.error('Error fetching clauses by family:', error);
+      return {
+        data: [],
+        error: error instanceof Error ? error.message : 'Failed to fetch clauses by family'
+      };
+    }
   },
 
-  async getClauseFamilies(): Promise<ClauseFamilyGroup[]> {
-    const response = await apiCall<ClauseFamilyGroup[]>('/clauses/families', { requireAuth: false });
-    console.log('API Response - getClauseFamilies:', {
-      totalFamilies: response.length,
-      families: response.map(f => f.family)
-    });
-    return response;
+  getClauseFamilies: async (): Promise<ApiResponse<ClauseFamilyGroup[]>> => {
+    try {
+      const response = await apiCall<ClauseFamilyGroup[]>('/clauses/families');
+      console.log('API Response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching families:', error);
+      return {
+        data: [],
+        error: error instanceof Error ? error.message : 'Failed to fetch families'
+      };
+    }
   },
 
-  async bookmarkClause(clauseId: string): Promise<void> {
-    await apiCall(`/clauses/${clauseId}/bookmark`, {
-      method: 'POST',
-      requireAuth: false
-    });
+  bookmarkClause: async (clauseId: string): Promise<ApiResponse<void>> => {
+    try {
+      const response = await apiCall<void>(`/clauses/${clauseId}/bookmark`, {
+        method: 'POST'
+      });
+      console.log('API Response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error bookmarking clause:', error);
+      return {
+        data: undefined,
+        error: error instanceof Error ? error.message : 'Failed to bookmark clause'
+      };
+    }
   },
 
-  async getClauseById(clauseId: string): Promise<Clause> {
-    const response = await apiCall<Clause>(`/clauses/${clauseId}`, { requireAuth: false });
-    return response;
+  getClauseById: async (clauseId: string): Promise<ApiResponse<Clause>> => {
+    try {
+      const response = await apiCall<Clause>(`/clauses/${clauseId}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching clause by ID:', error);
+      return {
+        data: undefined,
+        error: error instanceof Error ? error.message : 'Failed to fetch clause by ID'
+      };
+    }
   },
 
-  async searchClauses(query: string): Promise<Clause[]> {
-    const response = await apiCall<Clause[]>(`/clauses/search?q=${encodeURIComponent(query)}`, { requireAuth: false });
-    return response;
+  searchClauses: async (query: string): Promise<ApiResponse<Clause[]>> => {
+    try {
+      const response = await apiCall<Clause[]>(`/clauses/search?q=${encodeURIComponent(query)}`);
+      return response;
+    } catch (error) {
+      console.error('Error searching clauses:', error);
+      return {
+        data: [],
+        error: error instanceof Error ? error.message : 'Failed to search clauses'
+      };
+    }
   }
 }; 

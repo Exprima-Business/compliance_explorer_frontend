@@ -1,8 +1,15 @@
 import React from 'react';
 import {
   Drawer,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
   Box,
   TextField,
+  InputAdornment,
+  Typography,
+  Divider,
   FormControl,
   InputLabel,
   Select,
@@ -10,11 +17,16 @@ import {
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { useClause } from '../contexts/ClauseContext';
+import type { ClauseFamily } from '../types/clause';
 
 const drawerWidth = 320;
 
 export const Sidebar = () => {
   const { searchQuery, setSearchQuery, selectedFamily, setSelectedFamily, families } = useClause();
+
+  const handleFamilyClick = (family: ClauseFamily) => {
+    setSelectedFamily(family);
+  };
 
   return (
     <Drawer
