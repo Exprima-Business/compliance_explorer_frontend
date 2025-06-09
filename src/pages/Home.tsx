@@ -1,17 +1,10 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { ClauseGraph } from '../components/ClauseGraph';
-import { SearchBar } from '../components/SearchBar';
 import { useClauseContext } from '../contexts/ClauseContext';
 
 export default function Home() {
-  const { clauses, loading, error, searchClauses } = useClauseContext();
-
-  const handleSearch = async (query: string) => {
-    if (query.trim()) {
-      await searchClauses(query);
-    }
-  };
+  const { clauses, loading, error } = useClauseContext();
 
   if (loading) {
     return (
@@ -30,19 +23,19 @@ export default function Home() {
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ mb: 2 }}>
-        <SearchBar onSearch={handleSearch} />
-      </Box>
-      <Box sx={{ flexGrow: 1, position: 'relative' }}>
-        <ClauseGraph 
-          clauses={clauses}
-          onNodeClick={(clause) => {
-            console.log('Selected clause:', clause);
-            // Handle clause selection
-          }}
-        />
-      </Box>
+    <Box sx={{ 
+      height: '100%', 
+      width: '100%',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <ClauseGraph 
+        clauses={clauses}
+        onNodeClick={(clause) => {
+          console.log('Selected clause:', clause);
+          // Handle clause selection
+        }}
+      />
     </Box>
   );
 } 

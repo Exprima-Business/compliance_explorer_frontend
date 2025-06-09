@@ -1,45 +1,53 @@
-import React from 'react';
-import { Box, AppBar, Toolbar, Typography, Button } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import React, { useState } from 'react';
+import { Box, CssBaseline } from '@mui/material';
+import { AppBar } from './AppBar';
+import { Sidebar } from './Sidebar';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const navigate = useNavigate();
-  const { isAuthenticated, signOut } = useAuth();
+  const [activeTab, setActiveTab] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
+
+  const handleSettingsClick = () => {
+    setSettingsOpen(true);
+  };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="sticky">
-        <Toolbar>
-          <Typography
-            variant="h6"
-            component="div"
-            sx={{ flexGrow: 1, cursor: 'pointer' }}
-            onClick={() => navigate('/')}
-          >
-            Compliance Explorer
-          </Typography>
-          {isAuthenticated ? (
-            <>
-              <Button color="inherit" onClick={() => navigate('/document-scanner')}>
-                Document Scanner
-              </Button>
-              <Button color="inherit" onClick={signOut}>
-                Sign Out
-              </Button>
-            </>
-          ) : (
-            <Button color="inherit" onClick={() => navigate('/login')}>
-              Sign In
-            </Button>
-          )}
-        </Toolbar>
-      </AppBar>
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
+      <CssBaseline />
+      <Box sx={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: (theme) => theme.zIndex.drawer + 1
+      }}>
+        <AppBar 
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          onSettingsClick={handleSettingsClick}
+        />
+      </Box>
+      <Sidebar />
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: { sm: `calc(100% - 240px)` },
+          ml: { sm: '240px' },
+          mt: '64px', // Height of AppBar
+          height: 'calc(100vh - 64px)',
+          overflow: 'auto'
+        }}
+      >
         {children}
       </Box>
     </Box>
