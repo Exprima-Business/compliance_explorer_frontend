@@ -14,13 +14,9 @@ interface ClauseGraphProps {
 
 interface NodeDatum extends d3.SimulationNodeDatum {
   id: string
+  label: string
   family: string
   clause: Clause
-  x?: number
-  y?: number
-  fx?: number | null
-  fy?: number | null
-  label: string
 }
 
 interface LinkDatum extends d3.SimulationLinkDatum<NodeDatum> {
@@ -120,379 +116,210 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ clauses, onNodeClick }
       return;
     }
 
-    console.log('Initializing graph with', nodes.length, 'nodes and', links.length, 'links');
+    try {
+      // Clear previous graph
+      d3.select(svgRef.current).selectAll('*').remove();
 
-    // Clear previous graph
-    d3.select(svgRef.current).selectAll('*').remove()
+      // Get container dimensions with fallback
+      const width = containerRef.current.clientWidth || window.innerWidth;
+      const height = containerRef.current.clientHeight || window.innerHeight * 0.8;
 
-    // Get container dimensions with fallback
-    const width = containerRef.current.clientWidth || window.innerWidth
-    const height = containerRef.current.clientHeight || window.innerHeight * 0.8
+      // Create the SVG container with explicit dimensions
+      const svg = d3.select<SVGSVGElement, unknown>(svgRef.current)
+        .attr('width', '100%')
+        .attr('height', '100%')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet');
 
-    // Create the SVG container with explicit dimensions
-    const svg = d3.select<SVGSVGElement, unknown>(svgRef.current)
-      .attr('width', '100%')
-      .attr('height', '100%')
-      .attr('viewBox', `0 0 ${width} ${height}`)
-      .attr('preserveAspectRatio', 'xMidYMid meet')
+      // Create zoom group first
+      const zoomGroup = svg.append('g')
+        .attr('class', 'zoom-group');
 
-    // Create zoom behavior
-    const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.1, 4])
-      .on('zoom', (event) => {
-        console.log('Zoom event:', event.transform)
-        zoomGroup.attr('transform', event.transform)
-      })
+      // Initialize force simulation
+      const simulation = d3.forceSimulation<NodeDatum>(nodes)
+        .force('link', d3.forceLink<NodeDatum, LinkDatum>(links).id(d => d.id))
+        .force('charge', d3.forceManyBody().strength(-100))
+        .force('center', d3.forceCenter(width / 2, height / 2));
 
-    // Apply zoom behavior to SVG
-    svg.call(zoom)
-    // Set initial zoom to 0.85 (slightly zoomed out)
-    svg.call(zoom.transform, d3.zoomIdentity.scale(0.85))
-    zoomRef.current = zoom
+      // Run simulation for initial positions
+      simulation.tick(100);
 
-    // Create zoom group
-    const zoomGroup = svg.append('g')
-      .attr('class', 'zoom-group')
-
-    // Create simulation
-    const simulation = d3.forceSimulation<NodeDatum>()
-      .force('link', d3.forceLink<NodeDatum, LinkDatum>(links)
-        .id((d: any) => d.id)
-        .distance(200) // Increased distance
-        .strength(0.5)) // Reduced strength
-      .force('charge', d3.forceManyBody()
-        .strength(-400) // Increased repulsion
-        .distanceMax(500)) // Increased max distance
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide()
-        .radius(60) // Increased collision radius
-        .strength(0.9)) // Increased collision strength
-      .force('x', d3.forceX((d: any) => {
-        const families = Array.from(new Set(nodes.map(n => n.family)))
-        const familyIndex = families.indexOf(d.family)
-        const columnWidth = width / (families.length + 1)
-        return columnWidth * (familyIndex + 1)
-      }).strength(0.3)) // Reduced x-force strength
-      .force('y', d3.forceY(height / 2).strength(0.2)) // Reduced y-force strength
-      .force('boundary', () => {
-        nodes.forEach(node => {
-          const padding = 60 // Increased padding
-          if (node.x! < padding) node.x = padding
-          if (node.x! > width - padding) node.x = width - padding
-          if (node.y! < padding) node.y = padding
-          if (node.y! > height - padding) node.y = height - padding
-        })
-      })
-
-    // Store simulation reference
-    simulationRef.current = simulation
-
-    // Force more simulation ticks with cooling
-    for (let i = 0; i < 500; ++i) {
-      simulation.tick()
-      // Gradually reduce alpha for smoother convergence
-      if (i > 300) {
-        simulation.alpha(simulation.alpha() * 0.99)
-      }
-    }
-
-    // Draw links within the zoom group
-    const link = zoomGroup.append('g')
-      .attr('class', 'links')
-      .selectAll('line')
-      .data(links)
-      .join('line')
-      .attr('stroke', (d: any) => {
-        const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
-        const targetId = typeof d.target === 'string' ? d.target : d.target.id;
-        const sourceClause = clauses.find(c => c.id === sourceId);
-        const targetClause = clauses.find(c => c.id === targetId);
-        
-        // Check if this is a parent relationship
-        if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
-          return '#1976d2'; // Primary blue for parent relationships
-        }
-        return '#bbb'; // Grey for sibling relationships
-      })
-      .attr('stroke-opacity', 0.7)
-      .attr('stroke-width', (d: any) => {
-        const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
-        const targetId = typeof d.target === 'string' ? d.target : d.target.id;
-        const sourceClause = clauses.find(c => c.id === sourceId);
-        const targetClause = clauses.find(c => c.id === targetId);
-        
-        // Thicker line for parent relationships
-        if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
-          return 2;
-        }
-        return 1;
-      })
-      .attr('stroke-dasharray', (d: any) => {
-        const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
-        const targetId = typeof d.target === 'string' ? d.target : d.target.id;
-        const sourceClause = clauses.find(c => c.id === sourceId);
-        const targetClause = clauses.find(c => c.id === targetId);
-        
-        // Solid line for parent relationships, dashed for siblings
-        if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
-          return 'none';
-        }
-        return '5,5';
-      });
-
-    // Draw nodes within the zoom group
-    const nodeGroup = zoomGroup.append('g')
-      .attr('class', 'nodes')
-      .selectAll('g')
-      .data(nodes)
-      .join('g')
-      .style('cursor', 'pointer')
-      .on('click', (event, d) => {
-        event.stopPropagation()  // Prevent click from bubbling to SVG
-        // Hide tooltip
-        tooltip.style('opacity', 0);
-        // Reset node size and style
-        d3.select(event.currentTarget)
-          .select('circle')
-          .transition()
-          .duration(200)
-          .attr('r', 35)
-          .style('stroke-width', 2);
-        // Reset all nodes and links
-        nodeGroup
-          .transition()
-          .duration(200)
-          .style('opacity', 1)
-          .select('circle')
-          .style('stroke-width', 2);
-        link
-          .transition()
-          .duration(200)
-          .style('opacity', 0.7)
-          .style('stroke-width', 1);
-        if (onNodeClick) onNodeClick(d.clause)
-      })
-      .on('mouseover', (event, d) => {
-        // Show tooltip
-        const [left, top] = d3.pointer(event);
-        tooltip
-          .style('opacity', 1)
-          .html(`
-            <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px; color: #1976d2;">
-              ${d.clause.clauseId || 'N/A'}
-            </div>
-            <div style="color: #666; font-size: 14px; line-height: 1.4; margin-bottom: 12px;">
-              ${d.clause.title}
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <span style="color: #1976d2; font-weight: 500;">
-                ${d.clause.family || 'N/A'}
-              </span>
-              <span style="color: ${d.clause.riskClassification === 'HIGH' ? '#d32f2f' : '#ed6c02'}; font-weight: 500;">
-                ${d.clause.riskClassification || 'N/A'}
-              </span>
-            </div>
-          `)
-          .style('left', (event.pageX + 10) + 'px')
-          .style('top', (event.pageY - 28) + 'px');
-
-        // Highlight connected nodes and links
-        const connectedNodes = new Set();
-        const connectedLinks = new Set();
-
-        links.forEach(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
-          const targetId = typeof link.target === 'string' ? link.target : link.target.id;
-          if (sourceId === d.id || targetId === d.id) {
-            connectedLinks.add(link);
-            connectedNodes.add(sourceId);
-            connectedNodes.add(targetId);
+      // Create zoom behavior
+      const zoom = d3.zoom<SVGSVGElement, unknown>()
+        .scaleExtent([0.1, 4])
+        .on('zoom', (event) => {
+          try {
+            zoomGroup.attr('transform', event.transform);
+          } catch (error) {
+            console.error('Zoom error:', error);
           }
         });
 
-        // Fade out unconnected nodes and links
-        nodeGroup
-          .transition()
-          .duration(200)
-          .style('opacity', node => connectedNodes.has(node.id) ? 1 : 0.1)
-          .select('circle')
-          .transition()
-          .duration(200)
-          .attr('r', node => connectedNodes.has(node.id) ? 40 : 35)
-          .style('stroke-width', node => connectedNodes.has(node.id) ? 3 : 2);
+      // Apply zoom behavior to SVG
+      svg.call(zoom);
+      zoomRef.current = zoom;
 
-        // Highlight connected links
+      // Draw links within the zoom group
+      const link = zoomGroup.append('g')
+        .attr('class', 'links')
+        .selectAll('line')
+        .data(links)
+        .join('line')
+        .attr('stroke', (d: any) => {
+          const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
+          const targetId = typeof d.target === 'string' ? d.target : d.target.id;
+          const sourceClause = clauses.find(c => c.id === sourceId);
+          const targetClause = clauses.find(c => c.id === targetId);
+          
+          if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
+            return '#1976d2';
+          }
+          return '#bbb';
+        })
+        .attr('stroke-opacity', 0.7)
+        .attr('stroke-width', (d: any) => {
+          const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
+          const targetId = typeof d.target === 'string' ? d.target : d.target.id;
+          const sourceClause = clauses.find(c => c.id === sourceId);
+          const targetClause = clauses.find(c => c.id === targetId);
+          
+          if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
+            return 2;
+          }
+          return 1;
+        })
+        .attr('stroke-dasharray', (d: any) => {
+          const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
+          const targetId = typeof d.target === 'string' ? d.target : d.target.id;
+          const sourceClause = clauses.find(c => c.id === sourceId);
+          const targetClause = clauses.find(c => c.id === targetId);
+          
+          if (sourceClause?.parentClause === targetId || targetClause?.parentClause === sourceId) {
+            return 'none';
+          }
+          return '5,5';
+        });
+
+      // Draw nodes within the zoom group
+      const nodeGroup = zoomGroup.append('g')
+        .attr('class', 'nodes')
+        .selectAll<SVGGElement, NodeDatum>('g')
+        .data(nodes)
+        .join('g')
+        .style('cursor', 'pointer');
+
+      // Add drag behavior
+      const drag = d3.drag<SVGGElement, NodeDatum>()
+        .on('start', (event) => {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          event.subject.fx = event.subject.x;
+          event.subject.fy = event.subject.y;
+        })
+        .on('drag', (event) => {
+          event.subject.fx = event.x;
+          event.subject.fy = event.y;
+        })
+        .on('end', (event) => {
+          if (!event.active) simulation.alphaTarget(0);
+          event.subject.fx = null;
+          event.subject.fy = null;
+        });
+
+      nodeGroup.call(drag);
+
+      // Add circles to node groups
+      nodeGroup.append('circle')
+        .attr('r', 35)
+        .style('fill', d => {
+          const family = d.clause.family;
+          return familyColors[family] || '#757575';
+        })
+        .style('stroke', '#fff')
+        .style('stroke-width', 2);
+
+      // Add text labels to node groups
+      nodeGroup.append('text')
+        .attr('dy', '.35em')
+        .attr('text-anchor', 'middle')
+        .style('font-size', '12px')
+        .style('font-weight', 'bold')
+        .style('fill', '#fff')
+        .style('pointer-events', 'none')
+        .text(d => d.clause.clauseId || 'N/A');
+
+      // Calculate initial zoom to fit all nodes
+      const padding = 100;
+      const xExtent = d3.extent(nodes, d => d.x) as [number, number];
+      const yExtent = d3.extent(nodes, d => d.y) as [number, number];
+      const xRange = xExtent[1] - xExtent[0];
+      const yRange = yExtent[1] - yExtent[0];
+      const scale = Math.min(
+        (width - padding) / xRange,
+        (height - padding) / yRange,
+        1.2
+      );
+
+      // Calculate center of the node group
+      const centerX = (xExtent[0] + xExtent[1]) / 2;
+      const centerY = (yExtent[0] + yExtent[1]) / 2;
+
+      // Create transform that centers the node group
+      const transform = d3.zoomIdentity
+        .translate(width / 2, height / 2)
+        .scale(scale)
+        .translate(-centerX, -centerY);
+
+      // Apply initial transform
+      svg.call(zoom.transform, transform);
+
+      // Update positions on each tick
+      simulation.on('tick', () => {
         link
-          .transition()
-          .duration(200)
-          .style('opacity', link => connectedLinks.has(link) ? 1 : 0.1)
-          .style('stroke-width', link => connectedLinks.has(link) ? 2 : 1);
-      })
-      .on('mouseout', () => {
-        // Hide tooltip
-        tooltip.style('opacity', 0);
-        // Reset all nodes and links
+          .attr('x1', d => (typeof d.source === 'object' ? d.source.x || 0 : 0))
+          .attr('y1', d => (typeof d.source === 'object' ? d.source.y || 0 : 0))
+          .attr('x2', d => (typeof d.target === 'object' ? d.target.x || 0 : 0))
+          .attr('y2', d => (typeof d.target === 'object' ? d.target.y || 0 : 0));
+
         nodeGroup
-          .transition()
-          .duration(200)
-          .style('opacity', 1)
           .select('circle')
-          .transition()
-          .duration(200)
-          .attr('r', 35)
-          .style('stroke-width', 2);
-        link
-          .transition()
-          .duration(200)
-          .style('opacity', 0.7)
-          .style('stroke-width', 1);
+          .attr('cx', d => d.x || 0)
+          .attr('cy', d => d.y || 0);
+
+        nodeGroup
+          .select('text')
+          .attr('x', d => d.x || 0)
+          .attr('y', d => d.y || 0);
       });
 
-    // Add circles to node groups
-    nodeGroup.append('circle')
-      .attr('r', 35)
-      .style('fill', d => {
-        const family = d.clause.family;
-        return familyColors[family] || '#757575';
-      })
-      .style('stroke', '#fff')
-      .style('stroke-width', 2);
+      // Store simulation reference
+      simulationRef.current = simulation;
 
-    // Add text labels to node groups
-    nodeGroup.append('text')
-      .attr('dy', '.35em')
-      .attr('text-anchor', 'middle')
-      .style('font-size', '12px')
-      .style('font-weight', 'bold')
-      .style('fill', '#fff')
-      .style('pointer-events', 'none')
-      .text(d => d.clause.clauseId || 'N/A');
+      // Add resize handler
+      const handleResize = () => {
+        if (!containerRef.current) return;
+        
+        const newWidth = containerRef.current.clientWidth;
+        const newHeight = containerRef.current.clientHeight;
+        
+        svg
+          .attr('width', newWidth)
+          .attr('height', newHeight)
+          .attr('viewBox', `0 0 ${newWidth} ${newHeight}`);
+        
+        simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
+        simulation.alpha(0.3).restart();
+      };
 
-    // Calculate initial zoom to fit all nodes
-    const padding = 100
-    const xExtent = d3.extent(nodes, (d: any) => d.x) as [number, number]
-    const yExtent = d3.extent(nodes, (d: any) => d.y) as [number, number]
-    const xRange = xExtent[1] - xExtent[0]
-    const yRange = yExtent[1] - yExtent[0]
-    const scale = Math.min(
-      (width - padding) / xRange,
-      (height - padding) / yRange,
-      1.2
-    )
+      window.addEventListener('resize', handleResize);
 
-    // Calculate center of the node group
-    const centerX = (xExtent[0] + xExtent[1]) / 2
-    const centerY = (yExtent[0] + yExtent[1]) / 2
-
-    // Create transform that centers the node group
-    const transform = d3.zoomIdentity
-      .translate(width / 2, height / 2)
-      .scale(scale)
-      .translate(-centerX, -centerY)
-
-    // Apply initial transform
-    svg.call(zoom.transform, transform)
-
-    // Add double-click to reset zoom
-    svg.on('dblclick', () => {
-      svg.transition()
-        .duration(750)
-        .call(zoom.transform, transform)
-    })
-
-    // Add mouse wheel zoom with smoother behavior
-    svg.on('wheel', (event) => {
-      event.preventDefault()
-      const currentTransform = d3.zoomTransform(svg.node()!)
-      const scale = currentTransform.k * (event.deltaY > 0 ? 0.9 : 1.1)
-      const newTransform = d3.zoomIdentity
-        .translate(currentTransform.x, currentTransform.y)
-        .scale(scale)
-      svg.transition()
-        .duration(50)
-        .call(zoom.transform, newTransform)
-    })
-
-    // Update positions on each tick with smoother transitions
-    simulation.on('tick', () => {
-      link
-        .attr('x1', (d: any) => (typeof d.source === 'object' ? d.source.x : 0))
-        .attr('y1', (d: any) => (typeof d.source === 'object' ? d.source.y : 0))
-        .attr('x2', (d: any) => (typeof d.target === 'object' ? d.target.x : 0))
-        .attr('y2', (d: any) => (typeof d.target === 'object' ? d.target.y : 0))
-
-      nodeGroup
-        .select('circle')
-        .attr('cx', (d: any) => d.x)
-        .attr('cy', (d: any) => d.y)
-
-      nodeGroup
-        .select('text')
-        .attr('x', (d: any) => d.x)
-        .attr('y', (d: any) => d.y)
-    })
-
-    function dragstarted(event: any) {
-      if (!event.active) simulation.alphaTarget(0.3).restart()
-      event.subject.fx = event.subject.x
-      event.subject.fy = event.subject.y
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        simulation.stop();
+      };
+    } catch (error) {
+      console.error('Error initializing graph:', error);
     }
-
-    function dragged(event: any) {
-      event.subject.fx = event.x
-      event.subject.fy = event.y
-    }
-
-    function dragended(event: any) {
-      if (!event.active) simulation.alphaTarget(0)
-      event.subject.fx = null
-      event.subject.fy = null
-    }
-
-    // Add resize handler
-    const handleResize = () => {
-      if (!containerRef.current) return
-      
-      const newWidth = containerRef.current.clientWidth
-      const newHeight = containerRef.current.clientHeight
-      
-      svg
-        .attr('width', newWidth)
-        .attr('height', newHeight)
-        .attr('viewBox', `0 0 ${newWidth} ${newHeight}`)
-      
-      // Update simulation center
-      simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2))
-      simulation.alpha(0.3).restart()
-    }
-
-    window.addEventListener('resize', handleResize)
-
-    // Add tooltip div
-    const tooltip = d3.select('body')
-      .append('div')
-      .attr('class', 'tooltip')
-      .style('opacity', 0)
-      .style('position', 'absolute')
-      .style('background-color', 'white')
-      .style('padding', '16px')
-      .style('border-radius', '8px')
-      .style('box-shadow', '0 2px 8px rgba(0,0,0,0.15)')
-      .style('pointer-events', 'none')
-      .style('z-index', 1000)
-      .style('font-family', 'system-ui, -apple-system, sans-serif')
-      .style('font-size', '14px')
-      .style('border', '1px solid #e0e0e0')
-      .style('width', '250px')
-      .style('word-wrap', 'break-word')
-      .style('white-space', 'normal')
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      simulation.stop()
-      tooltip.remove()
-    }
-  }, [nodes, links, clauses, onNodeClick])
+  }, [nodes, links, clauses, onNodeClick]);
 
   useEffect(() => {
     if (!containerRef.current) return
