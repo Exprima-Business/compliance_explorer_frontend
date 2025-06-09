@@ -4,7 +4,7 @@ import { apiCall } from './api';
 export const clauseService = {
   getAllClauses: async (): Promise<ApiResponse<Clause[]>> => {
     try {
-      const response = await apiCall<Clause[]>('/clauses');
+      const response = await apiCall<Clause[]>('/api/clauses');
       console.log('API Response:', response);
       return response;
     } catch (error) {
@@ -18,7 +18,7 @@ export const clauseService = {
 
   getClausesByFamily: async (family: ClauseFamily): Promise<ApiResponse<Clause[]>> => {
     try {
-      const response = await apiCall<Clause[]>(`/clauses/family/${family.id}`);
+      const response = await apiCall<Clause[]>(`/api/clauses/family/${family.id}`);
       console.log('API Response:', response);
       return response;
     } catch (error) {
@@ -32,7 +32,7 @@ export const clauseService = {
 
   getClauseFamilies: async (): Promise<ApiResponse<ClauseFamilyGroup[]>> => {
     try {
-      const response = await apiCall<ClauseFamilyGroup[]>('/clauses/families');
+      const response = await apiCall<ClauseFamilyGroup[]>('/api/clauses/families');
       console.log('API Response:', response);
       return response;
     } catch (error) {
@@ -46,7 +46,7 @@ export const clauseService = {
 
   getClauseById: async (id: string): Promise<ApiResponse<Clause>> => {
     try {
-      const response = await apiCall<Clause>(`/clauses/${id}`);
+      const response = await apiCall<Clause>(`/api/clauses/${id}`);
       console.log('API Response:', response);
       return response;
     } catch (error) {
@@ -60,7 +60,7 @@ export const clauseService = {
 
   searchClauses: async (query: string): Promise<ApiResponse<Clause[]>> => {
     try {
-      const response = await apiCall<Clause[]>(`/clauses/search?q=${encodeURIComponent(query)}`);
+      const response = await apiCall<Clause[]>(`/api/clauses/search?q=${encodeURIComponent(query)}`);
       console.log('API Response:', response);
       return response;
     } catch (error) {
@@ -74,7 +74,7 @@ export const clauseService = {
 
   bookmarkClause: async (clauseId: string): Promise<ApiResponse<void>> => {
     try {
-      const response = await apiCall<void>(`/clauses/${clauseId}/bookmark`, {
+      const response = await apiCall<void>(`/api/clauses/${clauseId}/bookmark`, {
         method: 'POST'
       });
       console.log('API Response:', response);
