@@ -1,16 +1,22 @@
-import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse } from '../types/clause';
+import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse, GraphData } from '../types/clause';
 import { apiCall } from './api';
 
 export const clauseService = {
-  getAllClauses: async (): Promise<ApiResponse<Clause[]>> => {
+  getAllClauses: async (): Promise<ApiResponse<GraphData>> => {
     try {
-      const response = await apiCall<Clause[]>('/api/clauses');
-      console.log('API Response:', response);
+      const response = await apiCall<GraphData>('/api/clauses');
+      console.log('API Response:', {
+        data: response.data,
+        nodes: response.data?.nodes,
+        edges: response.data?.edges,
+        firstNode: response.data?.nodes?.[0],
+        firstEdge: response.data?.edges?.[0]
+      });
       return response;
     } catch (error) {
       console.error('Error fetching clauses:', error);
       return {
-        data: [],
+        data: { nodes: [], edges: [] },
         error: error instanceof Error ? error.message : 'Failed to fetch clauses'
       };
     }
