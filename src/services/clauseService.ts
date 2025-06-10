@@ -2,9 +2,23 @@ import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse, GraphData } 
 import { apiCall } from './api';
 
 export const clauseService = {
-  getAllClauses: async (): Promise<ApiResponse<GraphData>> => {
+  getAllClauses: async (): Promise<ApiResponse<Clause[]>> => {
     try {
-      const response = await apiCall<GraphData>('/api/clauses');
+      const response = await apiCall<Clause[]>('/api/clauses');
+      console.log('API Response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching clauses:', error);
+      return {
+        data: [],
+        error: error instanceof Error ? error.message : 'Failed to fetch clauses'
+      };
+    }
+  },
+
+  getGraphData: async (): Promise<ApiResponse<GraphData>> => {
+    try {
+      const response = await apiCall<GraphData>('/api/clauses/graph');
       console.log('API Response:', {
         data: response.data,
         nodes: response.data?.nodes,
@@ -14,10 +28,10 @@ export const clauseService = {
       });
       return response;
     } catch (error) {
-      console.error('Error fetching clauses:', error);
+      console.error('Error fetching graph data:', error);
       return {
         data: { nodes: [], edges: [] },
-        error: error instanceof Error ? error.message : 'Failed to fetch clauses'
+        error: error instanceof Error ? error.message : 'Failed to fetch graph data'
       };
     }
   },
