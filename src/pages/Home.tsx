@@ -17,20 +17,36 @@ const Home: React.FC = () => {
   });
 
   const graphData: GraphData = React.useMemo(() => {
-    const nodes: GraphNode[] = clauses.map((clause: Clause) => ({
-      id: clause.id,
-      name: clause.title,
-      val: 1,
-      color: clause.is_bookmarked ? '#FFD700' : undefined
-    }));
+    if (!clauses || !Array.isArray(clauses)) {
+      console.warn('No valid clauses data available');
+      return { nodes: [], edges: [] };
+    }
 
-    const edges: GraphEdge[] = clauses.flatMap((clause: Clause) =>
-      clause.relationships.map((rel: ClauseRelationship) => ({
-        source: rel.sourceClauseId,
-        target: rel.targetClauseId,
-        value: 1
-      }))
-    );
+    const nodes: GraphNode[] = clauses
+      .filter((clause): clause is Clause => clause !== null && clause !== undefined)
+      .map((clause: Clause) => ({
+        id: clause.id || '',
+        name: clause.title || 'Untitled Clause',
+        val: 1,
+        color: clause.is_bookmarked ? '#FFD700' : undefined
+      }));
+
+    const edges: GraphEdge[] = clauses
+      .filter((clause): clause is Clause => clause !== null && clause !== undefined)
+      .flatMap((clause: Clause) => 
+        (clause.relationships || [])
+          .filter((rel): rel is ClauseRelationship => 
+            rel !== null && 
+            rel !== undefined && 
+            typeof rel.sourceClauseId === 'string' && 
+            typeof rel.targetClauseId === 'string'
+          )
+          .map((rel: ClauseRelationship) => ({
+            source: rel.sourceClauseId,
+            target: rel.targetClauseId,
+            value: 1
+          }))
+      );
 
     return { nodes, edges };
   }, [clauses]);
