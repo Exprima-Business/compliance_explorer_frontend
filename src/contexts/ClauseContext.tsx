@@ -32,6 +32,7 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           clauseService.getAllClauses(),
           clauseService.getClauseFamilies()
         ]);
+        console.log('Raw clauses response:', clausesResponse);
 
         if (clausesResponse.error) {
           throw new Error(clausesResponse.error);
