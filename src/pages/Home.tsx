@@ -28,7 +28,8 @@ const Home: React.FC = () => {
         id: clause.id || '',
         name: clause.title || 'Untitled Clause',
         val: 1,
-        color: clause.is_bookmarked ? '#FFD700' : undefined
+        color: clause.is_bookmarked ? '#FFD700' : undefined,
+        family: clause.family
       }));
 
     const edges: GraphEdge[] = clauses

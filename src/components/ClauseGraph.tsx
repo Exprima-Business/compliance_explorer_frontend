@@ -41,7 +41,11 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ graphData, onNodeClick
     <ForceGraph2D
       graphData={transformedData}
       nodeLabel="name"
-      nodeColor={(node: GraphNode) => node.color || '#33b5e5'}
+      nodeColor={(node: GraphNode) => {
+        if (node.color) return node.color;
+        const familyName = node.family?.name ?? 'Default';
+        return familyColors[familyName] ?? familyColors['Default'];
+      }}
       linkColor={() => '#999'}
       linkWidth={1}
       linkDirectionalParticles={2}
