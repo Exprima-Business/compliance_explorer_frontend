@@ -34,15 +34,15 @@ export const clauseService = {
       console.log('API Response:', {
         data: response.data,
         nodes: response.data?.nodes,
-        edges: response.data?.edges,
+        links: response.data?.links,
         firstNode: response.data?.nodes?.[0],
-        firstEdge: response.data?.edges?.[0]
+        firstLink: response.data?.links?.[0]
       });
       return response;
     } catch (error) {
       console.error('Error fetching graph data:', error);
       return {
-        data: { nodes: [], edges: [] },
+        data: { nodes: [], links: [] },
         error: error instanceof Error ? error.message : 'Failed to fetch graph data'
       };
     }

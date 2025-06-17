@@ -108,5 +108,5 @@ export interface GraphEdge {
 
 export interface GraphData {
   nodes: GraphNode[];
-  edges: GraphEdge[];
+  links: GraphEdge[];
 } 

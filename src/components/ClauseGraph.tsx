@@ -40,14 +40,38 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ graphData, onNodeClick
     }
   }, [onNodeClick])
 
-  const transformedData: ForceGraphData = useMemo(() => ({
-    nodes: graphData.nodes,
-    links: graphData.edges.map((edge: GraphEdge): ForceGraphLink => ({
-      source: edge.source,
-      target: edge.target,
-      value: edge.value
-    }))
-  }), [graphData])
+  const transformedData: ForceGraphData = useMemo(() => {
+    // Build a quick lookup map for node objects by id to ensure link.source/target
+    // are concrete node references (objects), not just string ids. This helps
+    // react-force-graph avoid cases where it tries to read properties (e.g., `id`)
+    // from an unresolved string.
+    const nodeById = new Map<string, GraphNode>();
+    graphData.nodes.forEach(node => nodeById.set(node.id, node));
+
+    const links: ForceGraphLink[] = graphData.links
+      .map((edge: GraphEdge): ForceGraphLink | null => {
+        const sourceNode = nodeById.get(edge.source);
+        const targetNode = nodeById.get(edge.target);
+
+        // Skip links that reference missing nodes as an extra safety net
+        if (!sourceNode || !targetNode) {
+          console.warn('[ClauseGraph] Dropping link with missing nodes', edge);
+          return null;
+        }
+
+        return {
+          source: sourceNode.id, // react-force-graph accepts id or object; keep id for serialization
+          target: targetNode.id,
+          value: edge.value
+        };
+      })
+      .filter((l): l is ForceGraphLink => l !== null);
+
+    return {
+      nodes: graphData.nodes,
+      links
+    };
+  }, [graphData]);
 
   // Expose graph data for debugging only in development builds
   if (import.meta.env.DEV) {

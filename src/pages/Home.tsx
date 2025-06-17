@@ -29,7 +29,7 @@ const Home: React.FC = () => {
 
     if (!clauses || !Array.isArray(clauses)) {
       console.warn('No valid clauses data available');
-      return { nodes: [], edges: [] };
+      return { nodes: [], links: [] };
     }
 
     // ---- DEBUG: inspect raw first clause before mapping ----
@@ -81,13 +81,13 @@ const Home: React.FC = () => {
 
     // Trim edges whose nodes are missing
     const nodeSet = new Set(nodes.map(n => n.id));
-    const safeEdges = edges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
+    const safeLinks = edges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
 
     // ---- DEBUG: dump final graph ----
     console.log('🧩 final graph nodes:', nodes);
-    console.log('🧩 final graph edges:', safeEdges);
+    console.log('🧩 final graph links:', safeLinks);
 
-    return { nodes, edges: safeEdges };
+    return { nodes, links: safeLinks };
   }, [clauses, useGraphApi, graphApiData]);
 
   const handleNodeClick = async (node: GraphNode) => {
@@ -121,6 +121,11 @@ const Home: React.FC = () => {
         <Alert severity="error">{error}</Alert>
       </Box>
     );
+  }
+
+  // Don't mount the graph until data is ready to avoid empty-graph flicker
+  if (!graphData.nodes.length) {
+    return null; // or a small spinner could go here
   }
 
   return (

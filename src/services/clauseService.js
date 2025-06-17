@@ -35,20 +35,31 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 import { apiCall } from './api';
+import { dlog } from '../utils/debugLog';
 export var clauseService = {
     getAllClauses: function () { return __awaiter(void 0, void 0, void 0, function () {
         var response, error_1;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0:
-                    _a.trys.push([0, 2, , 3]);
+                    _b.trys.push([0, 2, , 3]);
                     return [4 /*yield*/, apiCall('/api/clauses')];
                 case 1:
-                    response = _a.sent();
+                    response = _b.sent();
+                    // TEMP DEBUG: log first clause object to verify family presence
+                    if (import.meta.env.DEV) {
+                        // eslint-disable-next-line no-console
+                        console.log('🕵️‍♂️ raw clause[0]', (_a = response.data) === null || _a === void 0 ? void 0 : _a[0]);
+                    }
+                    dlog('[API] getAllClauses', {
+                        len: Array.isArray(response.data) ? response.data.length : 'n/a',
+                        missing: Array.isArray(response.data) ? response.data.filter(function (c) { return !c.family; }).length : 'n/a'
+                    });
                     console.log('API Response:', response);
                     return [2 /*return*/, response];
                 case 2:
-                    error_1 = _a.sent();
+                    error_1 = _b.sent();
                     console.error('Error fetching clauses:', error_1);
                     return [2 /*return*/, {
                             data: [],
@@ -71,16 +82,16 @@ export var clauseService = {
                     console.log('API Response:', {
                         data: response.data,
                         nodes: (_a = response.data) === null || _a === void 0 ? void 0 : _a.nodes,
-                        edges: (_b = response.data) === null || _b === void 0 ? void 0 : _b.edges,
+                        links: (_b = response.data) === null || _b === void 0 ? void 0 : _b.links,
                         firstNode: (_d = (_c = response.data) === null || _c === void 0 ? void 0 : _c.nodes) === null || _d === void 0 ? void 0 : _d[0],
-                        firstEdge: (_f = (_e = response.data) === null || _e === void 0 ? void 0 : _e.edges) === null || _f === void 0 ? void 0 : _f[0]
+                        firstLink: (_f = (_e = response.data) === null || _e === void 0 ? void 0 : _e.links) === null || _f === void 0 ? void 0 : _f[0]
                     });
                     return [2 /*return*/, response];
                 case 2:
                     error_2 = _g.sent();
                     console.error('Error fetching graph data:', error_2);
                     return [2 /*return*/, {
-                            data: { nodes: [], edges: [] },
+                            data: { nodes: [], links: [] },
                             error: error_2 instanceof Error ? error_2.message : 'Failed to fetch graph data'
                         }];
                 case 3: return [2 /*return*/];
@@ -96,6 +107,11 @@ export var clauseService = {
                     return [4 /*yield*/, apiCall("/api/clauses/family/".concat(family.id))];
                 case 1:
                     response = _a.sent();
+                    dlog('[API] getClausesByFamily', {
+                        familyId: family.id,
+                        len: Array.isArray(response.data) ? response.data.length : 'n/a',
+                        missing: Array.isArray(response.data) ? response.data.filter(function (c) { return !c.family; }).length : 'n/a'
+                    });
                     console.log('API Response:', response);
                     return [2 /*return*/, response];
                 case 2:
