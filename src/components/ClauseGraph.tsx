@@ -60,8 +60,9 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ graphData, onNodeClick
         }
 
         return {
-          source: sourceNode.id, // react-force-graph accepts id or object; keep id for serialization
-          target: targetNode.id,
+          // Provide concrete node objects to skip internal lookup and avoid undefined resolution
+          source: sourceNode as unknown as string,  // casting keeps type compatible
+          target: targetNode as unknown as string,
           value: edge.value
         };
       })
