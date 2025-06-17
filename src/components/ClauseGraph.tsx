@@ -21,6 +21,18 @@ interface ClauseGraphProps {
   onNodeClick?: (node: GraphNode) => void
 }
 
+// Shape expected by react-force-graph
+interface ForceGraphLink {
+  source: string;
+  target: string;
+  value: number;
+}
+
+interface ForceGraphData {
+  nodes: GraphNode[];
+  links: ForceGraphLink[];
+}
+
 export const ClauseGraph: React.FC<ClauseGraphProps> = ({ graphData, onNodeClick }) => {
   const handleNodeClick = useCallback((node: GraphNode) => {
     if (onNodeClick) {
@@ -28,16 +40,16 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ graphData, onNodeClick
     }
   }, [onNodeClick])
 
-  const transformedData = useMemo(() => ({
+  const transformedData: ForceGraphData = useMemo(() => ({
     nodes: graphData.nodes,
-    links: graphData.edges.map(edge => ({
+    links: graphData.edges.map((edge: GraphEdge): ForceGraphLink => ({
       source: edge.source,
       target: edge.target,
       value: edge.value
     }))
   }), [graphData])
 
-  // Expose graph data globally in development for debugging via console
+  // Expose graph data for debugging only in development builds
   if (import.meta.env.DEV) {
     (window as any).__graphData = graphData;
   }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import { ClauseGraph } from '../components/ClauseGraph';
+import { ErrorFallbackBoundary } from '../components/ErrorFallbackBoundary';
 import { useClause } from '../contexts/ClauseContext';
 import type { GraphData, GraphNode, GraphEdge, Clause, ClauseRelationship } from '../types/clause';
 
@@ -92,10 +93,12 @@ const Home: React.FC = () => {
 
   return (
     <Box sx={{ height: 'calc(100vh - 64px)', position: 'relative' }}>
-      <ClauseGraph
-        graphData={graphData}
-        onNodeClick={handleNodeClick}
-      />
+      <ErrorFallbackBoundary>
+        <ClauseGraph
+          graphData={graphData}
+          onNodeClick={handleNodeClick}
+        />
+      </ErrorFallbackBoundary>
     </Box>
   );
 };
