@@ -6,6 +6,13 @@ export const clauseService = {
   getAllClauses: async (): Promise<ApiResponse<Clause[]>> => {
     try {
       const response = await apiCall<Clause[]>('/api/clauses');
+
+      // TEMP DEBUG: log first clause object to verify family presence
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log('🕵️‍♂️ raw clause[0]', response.data?.[0]);
+      }
+
       dlog('[API] getAllClauses', {
         len: Array.isArray(response.data) ? response.data.length : 'n/a',
         missing: Array.isArray(response.data) ? response.data.filter(c=>!c.family).length : 'n/a'
