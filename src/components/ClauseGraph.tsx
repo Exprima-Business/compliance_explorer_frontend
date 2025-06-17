@@ -37,6 +37,11 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ graphData, onNodeClick
     }))
   }), [graphData])
 
+  // Expose graph data globally in development for debugging via console
+  if (import.meta.env.DEV) {
+    (window as any).__graphData = graphData;
+  }
+
   return (
     <ForceGraph2D
       graphData={transformedData}
