@@ -3,9 +3,14 @@ import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import { ClauseGraph } from '../components/ClauseGraph';
 import { ErrorFallbackBoundary } from '../components/ErrorFallbackBoundary';
 import { useClause } from '../contexts/ClauseContext';
+import { useGraph } from '../hooks/useGraph';
 import type { GraphData, GraphNode, GraphEdge, Clause, ClauseRelationship } from '../types/clause';
 
 const Home: React.FC = () => {
+  const useGraphApi = import.meta.env.VITE_USE_GRAPH === '1';
+
+  const { data: graphApiData, isLoading: graphLoading, isError: graphError } = useGraphApi ? useGraph() : { data: null, isLoading: false, isError: false } as any;
+
   const { clauses, loading, error, bookmarkClause } = useClause();
   const [snackbar, setSnackbar] = React.useState<{
     open: boolean;
@@ -18,6 +23,10 @@ const Home: React.FC = () => {
   });
 
   const graphData: GraphData = React.useMemo(() => {
+    if (useGraphApi && graphApiData) {
+      return graphApiData;
+    }
+
     if (!clauses || !Array.isArray(clauses)) {
       console.warn('No valid clauses data available');
       return { nodes: [], edges: [] };
@@ -56,7 +65,7 @@ const Home: React.FC = () => {
       });
 
     return { nodes, edges };
-  }, [clauses]);
+  }, [clauses, useGraphApi, graphApiData]);
 
   const handleNodeClick = async (node: GraphNode) => {
     try {
