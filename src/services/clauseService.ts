@@ -1,10 +1,15 @@
 import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse, GraphData } from '../types/clause';
 import { apiCall } from './api';
+import { dlog } from '../utils/debugLog';
 
 export const clauseService = {
   getAllClauses: async (): Promise<ApiResponse<Clause[]>> => {
     try {
       const response = await apiCall<Clause[]>('/api/clauses');
+      dlog('[API] getAllClauses', {
+        len: Array.isArray(response.data) ? response.data.length : 'n/a',
+        missing: Array.isArray(response.data) ? response.data.filter(c=>!c.family).length : 'n/a'
+      });
       console.log('API Response:', response);
       return response;
     } catch (error) {
@@ -39,6 +44,11 @@ export const clauseService = {
   getClausesByFamily: async (family: ClauseFamily): Promise<ApiResponse<Clause[]>> => {
     try {
       const response = await apiCall<Clause[]>(`/api/clauses/family/${family.id}`);
+      dlog('[API] getClausesByFamily', {
+        familyId: family.id,
+        len: Array.isArray(response.data) ? response.data.length : 'n/a',
+        missing: Array.isArray(response.data) ? response.data.filter(c=>!c.family).length : 'n/a'
+      });
       console.log('API Response:', response);
       return response;
     } catch (error) {

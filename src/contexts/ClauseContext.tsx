@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { clauseService } from '../services/clauseService';
 import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse } from '../types/clause';
+import { dlog } from '../utils/debugLog';
 
 export interface ClauseContextValue {
   clauses: Clause[];
@@ -42,6 +43,11 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         setClauses(clausesResponse.data);
+        dlog('[CLAUSES] set initial', {
+          src: 'all',
+          len: clausesResponse.data.length,
+          missing: clausesResponse.data.filter(c => !c.family).length
+        });
         setFamilies(familiesResponse.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
