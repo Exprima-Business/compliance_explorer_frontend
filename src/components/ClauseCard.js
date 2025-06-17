@@ -17,7 +17,8 @@ import LinkIcon from '@mui/icons-material/Link';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 export var ClauseCard = function (_a) {
-    var clause = _a.clause, _b = _a.isBookmarked, isBookmarked = _b === void 0 ? false : _b, onBookmarkToggle = _a.onBookmarkToggle, sx = _a.sx, _c = _a.compact, compact = _c === void 0 ? false : _c;
+    var _b, _c;
+    var clause = _a.clause, _d = _a.isBookmarked, isBookmarked = _d === void 0 ? false : _d, onBookmarkToggle = _a.onBookmarkToggle, sx = _a.sx, _e = _a.compact, compact = _e === void 0 ? false : _e;
     var renderField = function (label, value) {
         if (!value)
             return null;
@@ -95,7 +96,7 @@ export var ClauseCard = function (_a) {
                                                         color: 'text.secondary',
                                                         fontSize: '0.75rem',
                                                         transition: 'color 0.2s ease-in-out',
-                                                    }, children: clause.family })] }), _jsxs(Box, { sx: {
+                                                    }, children: ((_b = clause.family) === null || _b === void 0 ? void 0 : _b.name) || 'No Family' })] }), _jsxs(Box, { sx: {
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 gap: 0.75,
@@ -154,7 +155,7 @@ export var ClauseCard = function (_a) {
                                     gridTemplateColumns: 'repeat(2, 1fr)',
                                     gap: 2,
                                     mt: 2
-                                }, children: [_jsxs(Box, { sx: { display: 'flex', alignItems: 'center', gap: 1 }, children: [_jsx(CategoryIcon, { sx: { color: 'primary.main', fontSize: 20 } }), _jsxs(Box, { children: [_jsx(Typography, { variant: "caption", color: "text.secondary", children: "Family" }), _jsx(Typography, { variant: "body2", sx: { fontWeight: 500 }, children: clause.family })] })] }), _jsxs(Box, { sx: { display: 'flex', alignItems: 'center', gap: 1 }, children: [_jsx(SecurityIcon, { sx: {
+                                }, children: [_jsxs(Box, { sx: { display: 'flex', alignItems: 'center', gap: 1 }, children: [_jsx(CategoryIcon, { sx: { color: 'primary.main', fontSize: 20 } }), _jsxs(Box, { children: [_jsx(Typography, { variant: "caption", color: "text.secondary", children: "Family" }), _jsx(Typography, { variant: "body2", sx: { fontWeight: 500 }, children: ((_c = clause.family) === null || _c === void 0 ? void 0 : _c.name) || 'No Family' })] })] }), _jsxs(Box, { sx: { display: 'flex', alignItems: 'center', gap: 1 }, children: [_jsx(SecurityIcon, { sx: {
                                                     color: clause.riskClassification === 'HIGH' ? 'error.main' : 'warning.main',
                                                     fontSize: 20
                                                 } }), _jsxs(Box, { children: [_jsx(Typography, { variant: "caption", color: "text.secondary", children: "Risk Level" }), _jsx(Typography, { variant: "body2", sx: {

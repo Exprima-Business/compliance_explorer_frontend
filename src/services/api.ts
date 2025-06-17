@@ -102,11 +102,31 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
         'Content-Type': 'application/json',
         ...fetchOptions.headers,
       },
+      credentials: 'include',  // Add credentials for CORS
     });
+
+    // Handle CORS errors
+    if (response.type === 'opaque' || response.status === 0) {
+      console.error('CORS Error: Unable to access the API');
+      return {
+        data: null as unknown as T,
+        error: 'Unable to access the API. Please check CORS configuration.'
+      };
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      const errorMessage = errorData.message || `HTTP error! status: ${response.status}`;
+      
+      // Log detailed error information
+      console.error('API Error:', {
+        endpoint,
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
+
+      throw new Error(errorMessage);
     }
 
     const responseData = await response.json();
@@ -122,7 +142,12 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
       error: null
     };
   } catch (error) {
-    console.error('API call failed:', error);
+    console.error('API call failed:', {
+      endpoint,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
     return {
       data: null as unknown as T,
       error: error instanceof Error ? error.message : 'An error occurred'

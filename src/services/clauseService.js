@@ -34,120 +34,169 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
-    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-        if (ar || !(i in from)) {
-            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-            ar[i] = from[i];
-        }
-    }
-    return to.concat(ar || Array.prototype.slice.call(from));
+import { apiCall } from './api';
+export var clauseService = {
+    getAllClauses: function () { return __awaiter(void 0, void 0, void 0, function () {
+        var response, error_1;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, apiCall('/api/clauses')];
+                case 1:
+                    response = _a.sent();
+                    console.log('API Response:', response);
+                    return [2 /*return*/, response];
+                case 2:
+                    error_1 = _a.sent();
+                    console.error('Error fetching clauses:', error_1);
+                    return [2 /*return*/, {
+                            data: [],
+                            error: error_1 instanceof Error ? error_1.message : 'Failed to fetch clauses'
+                        }];
+                case 3: return [2 /*return*/];
+            }
+        });
+    }); },
+    getGraphData: function () { return __awaiter(void 0, void 0, void 0, function () {
+        var response, error_2;
+        var _a, _b, _c, _d, _e, _f;
+        return __generator(this, function (_g) {
+            switch (_g.label) {
+                case 0:
+                    _g.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, apiCall('/api/clauses/graph')];
+                case 1:
+                    response = _g.sent();
+                    console.log('API Response:', {
+                        data: response.data,
+                        nodes: (_a = response.data) === null || _a === void 0 ? void 0 : _a.nodes,
+                        edges: (_b = response.data) === null || _b === void 0 ? void 0 : _b.edges,
+                        firstNode: (_d = (_c = response.data) === null || _c === void 0 ? void 0 : _c.nodes) === null || _d === void 0 ? void 0 : _d[0],
+                        firstEdge: (_f = (_e = response.data) === null || _e === void 0 ? void 0 : _e.edges) === null || _f === void 0 ? void 0 : _f[0]
+                    });
+                    return [2 /*return*/, response];
+                case 2:
+                    error_2 = _g.sent();
+                    console.error('Error fetching graph data:', error_2);
+                    return [2 /*return*/, {
+                            data: { nodes: [], edges: [] },
+                            error: error_2 instanceof Error ? error_2.message : 'Failed to fetch graph data'
+                        }];
+                case 3: return [2 /*return*/];
+            }
+        });
+    }); },
+    getClausesByFamily: function (family) { return __awaiter(void 0, void 0, void 0, function () {
+        var response, error_3;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, apiCall("/api/clauses/family/".concat(family.id))];
+                case 1:
+                    response = _a.sent();
+                    console.log('API Response:', response);
+                    return [2 /*return*/, response];
+                case 2:
+                    error_3 = _a.sent();
+                    console.error('Error fetching clauses by family:', error_3);
+                    return [2 /*return*/, {
+                            data: [],
+                            error: error_3 instanceof Error ? error_3.message : 'Failed to fetch clauses by family'
+                        }];
+                case 3: return [2 /*return*/];
+            }
+        });
+    }); },
+    getClauseFamilies: function () { return __awaiter(void 0, void 0, void 0, function () {
+        var response, error_4;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, apiCall('/api/clauses/families')];
+                case 1:
+                    response = _a.sent();
+                    console.log('API Response:', response);
+                    return [2 /*return*/, response];
+                case 2:
+                    error_4 = _a.sent();
+                    console.error('Error fetching families:', error_4);
+                    return [2 /*return*/, {
+                            data: [],
+                            error: error_4 instanceof Error ? error_4.message : 'Failed to fetch families'
+                        }];
+                case 3: return [2 /*return*/];
+            }
+        });
+    }); },
+    getClauseById: function (id) { return __awaiter(void 0, void 0, void 0, function () {
+        var response, error_5;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, apiCall("/api/clauses/".concat(id))];
+                case 1:
+                    response = _a.sent();
+                    console.log('API Response:', response);
+                    return [2 /*return*/, response];
+                case 2:
+                    error_5 = _a.sent();
+                    console.error('Error fetching clause:', error_5);
+                    return [2 /*return*/, {
+                            data: null,
+                            error: error_5 instanceof Error ? error_5.message : 'Failed to fetch clause'
+                        }];
+                case 3: return [2 /*return*/];
+            }
+        });
+    }); },
+    searchClauses: function (query) { return __awaiter(void 0, void 0, void 0, function () {
+        var response, error_6;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, apiCall("/api/clauses/search?q=".concat(encodeURIComponent(query)))];
+                case 1:
+                    response = _a.sent();
+                    console.log('API Response:', response);
+                    return [2 /*return*/, response];
+                case 2:
+                    error_6 = _a.sent();
+                    console.error('Error searching clauses:', error_6);
+                    return [2 /*return*/, {
+                            data: [],
+                            error: error_6 instanceof Error ? error_6.message : 'Failed to search clauses'
+                        }];
+                case 3: return [2 /*return*/];
+            }
+        });
+    }); },
+    bookmarkClause: function (clauseId) { return __awaiter(void 0, void 0, void 0, function () {
+        var response, error_7;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, apiCall("/api/clauses/".concat(clauseId, "/bookmark"), {
+                            method: 'POST'
+                        })];
+                case 1:
+                    response = _a.sent();
+                    console.log('API Response:', response);
+                    return [2 /*return*/, response];
+                case 2:
+                    error_7 = _a.sent();
+                    console.error('Error bookmarking clause:', error_7);
+                    return [2 /*return*/, {
+                            data: null,
+                            error: error_7 instanceof Error ? error_7.message : 'Failed to bookmark clause'
+                        }];
+                case 3: return [2 /*return*/];
+            }
+        });
+    }); }
 };
-import { fetchClauses as apiFetchClauses, getClausesByFamily as apiGetClausesByFamily, getClauseFamilies as apiGetClauseFamilies } from './api';
-// Fetch all clauses from the API
-export var fetchClauses = function () { return __awaiter(void 0, void 0, void 0, function () {
-    var clauses, error_1;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                _a.trys.push([0, 2, , 3]);
-                console.log('Fetching clauses from API...');
-                return [4 /*yield*/, apiFetchClauses()];
-            case 1:
-                clauses = _a.sent();
-                console.log('Clauses fetched:', clauses.length, 'clauses');
-                return [2 /*return*/, clauses];
-            case 2:
-                error_1 = _a.sent();
-                console.error('Error loading clauses:', error_1);
-                throw error_1;
-            case 3: return [2 /*return*/];
-        }
-    });
-}); };
-export var searchClauses = function (query) { return __awaiter(void 0, void 0, void 0, function () {
-    var clauses, searchTerm;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0: return [4 /*yield*/, fetchClauses()];
-            case 1:
-                clauses = _a.sent();
-                if (!query)
-                    return [2 /*return*/, clauses];
-                searchTerm = query.toLowerCase();
-                return [2 /*return*/, clauses.filter(function (clause) {
-                        return clause.id.toLowerCase().includes(searchTerm) ||
-                            clause.title.toLowerCase().includes(searchTerm) ||
-                            clause.description.toLowerCase().includes(searchTerm);
-                    })];
-        }
-    });
-}); };
-export var getClauseById = function (clauseId) { return __awaiter(void 0, void 0, void 0, function () {
-    var clauses;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0: return [4 /*yield*/, fetchClauses()];
-            case 1:
-                clauses = _a.sent();
-                return [2 /*return*/, clauses.find(function (clause) { return clause.id === clauseId; })];
-        }
-    });
-}); };
-export var getRelatedClauses = function (clauseId) { return __awaiter(void 0, void 0, void 0, function () {
-    var clauses, clause, relatedIds;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0: return [4 /*yield*/, fetchClauses()];
-            case 1:
-                clauses = _a.sent();
-                clause = clauses.find(function (c) { return c.id === clauseId; });
-                if (!clause)
-                    return [2 /*return*/, []];
-                relatedIds = __spreadArray([
-                    clause.parentClause
-                ], clause.siblings, true).filter(Boolean);
-                return [2 /*return*/, clauses.filter(function (c) { return relatedIds.includes(c.id); })];
-        }
-    });
-}); };
-export var getClausesByFamily = function (family) { return __awaiter(void 0, void 0, void 0, function () {
-    var clauses, error_2;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                _a.trys.push([0, 2, , 3]);
-                console.log('Fetching clauses for family:', family);
-                return [4 /*yield*/, apiGetClausesByFamily(family)];
-            case 1:
-                clauses = _a.sent();
-                console.log('Clauses fetched for family:', clauses.length, 'clauses');
-                return [2 /*return*/, clauses];
-            case 2:
-                error_2 = _a.sent();
-                console.error('Error loading clauses by family:', error_2);
-                throw error_2;
-            case 3: return [2 /*return*/];
-        }
-    });
-}); };
-export var getClauseFamilies = function () { return __awaiter(void 0, void 0, void 0, function () {
-    var families, error_3;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                _a.trys.push([0, 2, , 3]);
-                console.log('Fetching clause families...');
-                return [4 /*yield*/, apiGetClauseFamilies()];
-            case 1:
-                families = _a.sent();
-                console.log('Families fetched:', families.length, 'families');
-                return [2 /*return*/, families];
-            case 2:
-                error_3 = _a.sent();
-                console.error('Error loading clause families:', error_3);
-                throw error_3;
-            case 3: return [2 /*return*/];
-        }
-    });
-}); };

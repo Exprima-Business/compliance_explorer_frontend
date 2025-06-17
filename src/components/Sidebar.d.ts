@@ -1,1 +1,2 @@
-export declare const Sidebar: () => import("react/jsx-runtime").JSX.Element;
+import React from 'react';
+export declare const Sidebar: React.FC;

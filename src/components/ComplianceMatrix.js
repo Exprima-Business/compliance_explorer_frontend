@@ -55,8 +55,8 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-import { useState, useRef, useEffect } from 'react';
-import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography, IconButton, Tooltip, Button, Dialog, DialogTitle, DialogContent, DialogActions, RadioGroup, Radio, FormControlLabel, CircularProgress, } from '@mui/material';
+import { useState, useRef } from 'react';
+import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography, IconButton, Tooltip, Button, Dialog, DialogTitle, DialogContent, DialogActions, RadioGroup, Radio, FormControlLabel, } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -72,13 +72,11 @@ var ensureString = function (value) {
     return String(value);
 };
 export var ComplianceMatrix = function (_a) {
-    var clauses = _a.clauses, onClose = _a.onClose;
+    var rows = _a.rows;
     var _b = useState(false), exportDialogOpen = _b[0], setExportDialogOpen = _b[1];
     var _c = useState('PDF'), selectedFormat = _c[0], setSelectedFormat = _c[1];
     var _d = useState(new Set()), expandedRows = _d[0], setExpandedRows = _d[1];
     var _e = useState(false), allExpanded = _e[0], setAllExpanded = _e[1];
-    var _f = useState(true), loading = _f[0], setLoading = _f[1];
-    var _g = useState([]), rows = _g[0], setRows = _g[1];
     // Define the default column widths
     var DEFAULT_COL_WIDTHS = {
         id: 130,
@@ -112,7 +110,7 @@ export var ComplianceMatrix = function (_a) {
         { field: 'referenceUrl', headerName: 'Reference URL', width: 200 }
     ];
     // Column widths state
-    var _h = useState(function () { return (__assign({}, DEFAULT_COL_WIDTHS)); }), colWidths = _h[0], setColWidths = _h[1];
+    var _f = useState(function () { return (__assign({}, DEFAULT_COL_WIDTHS)); }), colWidths = _f[0], setColWidths = _f[1];
     var resizingCol = useRef(null);
     var startX = useRef(0);
     var startWidth = useRef(0);
@@ -141,7 +139,7 @@ export var ComplianceMatrix = function (_a) {
     var getParentClauseId = function (clause) {
         if (!clause.parentClause)
             return '';
-        var parent = clauses.find(function (c) { return c.id === clause.parentClause; });
+        var parent = rows.find(function (c) { return c.id === clause.parentClause; });
         return parent ? parent.clauseId : '';
     };
     // Function to format cell value
@@ -269,46 +267,13 @@ export var ComplianceMatrix = function (_a) {
             setExpandedRows(new Set());
         }
         else {
-            setExpandedRows(new Set(clauses.map(function (clause) { return clause.id; })));
+            setExpandedRows(new Set(rows.map(function (clause) { return clause.id; })));
         }
         setAllExpanded(!allExpanded);
     };
-    useEffect(function () {
-        var processClauses = function () { return __awaiter(void 0, void 0, void 0, function () {
-            var processedRows;
-            return __generator(this, function (_a) {
-                try {
-                    processedRows = clauses.map(function (clause, index) { return ({
-                        id: String(index + 1),
-                        clauseId: clause.clauseId,
-                        title: clause.title,
-                        description: clause.description,
-                        intent: clause.intent,
-                        status: clause.status,
-                        category: clause.category,
-                        family: clause.family,
-                        conditions: clause.conditions,
-                        implementationGuidance: clause.implementationGuidance,
-                        assessmentMethod: clause.assessmentMethod,
-                        riskClassification: clause.riskClassification,
-                        referenceUrl: clause.referenceUrl
-                    }); });
-                    setRows(processedRows);
-                }
-                catch (error) {
-                    console.error('Error processing clauses:', error);
-                }
-                finally {
-                    setLoading(false);
-                }
-                return [2 /*return*/];
-            });
-        }); };
-        processClauses();
-    }, [clauses]);
-    if (loading) {
-        return (_jsx(Box, { display: "flex", justifyContent: "center", alignItems: "center", height: "100%", children: _jsx(CircularProgress, {}) }));
-    }
+    var getFamilyName = function (family) {
+        return (family === null || family === void 0 ? void 0 : family.name) || 'Uncategorized';
+    };
     return (_jsxs(Box, { sx: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }, children: [_jsxs(Box, { sx: { p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }, children: [_jsx(Button, { variant: "outlined", onClick: toggleAllRows, startIcon: allExpanded ? _jsx(ExpandLessIcon, {}) : _jsx(ExpandMoreIcon, {}), sx: {
                             borderRadius: 2,
                             textTransform: 'none',
@@ -388,7 +353,7 @@ export var ComplianceMatrix = function (_a) {
                                     var isExpanded = expandedRows.has(row.id.toString());
                                     var hasLongContent = columns.some(function (column) {
                                         var value = column.field === 'parentClause'
-                                            ? getParentClauseId(clauses.find(function (c) { return c.id === row.id; }))
+                                            ? getParentClauseId(rows.find(function (c) { return c.id === row.id; }))
                                             : formatCellValue(row[column.field]);
                                         return typeof value === 'string' && value.length > 100;
                                     });
@@ -403,7 +368,7 @@ export var ComplianceMatrix = function (_a) {
                                             },
                                         }, children: columns.map(function (column) {
                                             var value = column.field === 'parentClause'
-                                                ? getParentClauseId(clauses.find(function (c) { return c.id === row.id; }))
+                                                ? getParentClauseId(rows.find(function (c) { return c.id === row.id; }))
                                                 : formatCellValue(row[column.field]);
                                             var isLong = typeof value === 'string' && value.length > 100;
                                             var showExpandButton = isLong && !isExpanded;

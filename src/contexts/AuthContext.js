@@ -35,14 +35,14 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 import { jsx as _jsx } from "react/jsx-runtime";
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-var AuthContext = createContext(undefined);
-export function AuthProvider(_a) {
-    var _this = this;
+export var AuthContext = createContext(undefined);
+export var AuthProvider = function (_a) {
     var children = _a.children;
     var _b = useState(null), user = _b[0], setUser = _b[1];
     var _c = useState(true), loading = _c[0], setLoading = _c[1];
+    var _d = useState(null), error = _d[0], setError = _d[1];
     useEffect(function () {
         // Check active sessions and sets the user
         supabase.auth.getSession().then(function (_a) {
@@ -51,7 +51,7 @@ export function AuthProvider(_a) {
             setUser((_b = session === null || session === void 0 ? void 0 : session.user) !== null && _b !== void 0 ? _b : null);
             setLoading(false);
         });
-        // Listen for changes on auth state (signed in, signed out, etc.)
+        // Listen for changes on auth state (logged in, signed out, etc.)
         var subscription = supabase.auth.onAuthStateChange(function (_event, session) {
             var _a;
             setUser((_a = session === null || session === void 0 ? void 0 : session.user) !== null && _a !== void 0 ? _a : null);
@@ -59,68 +59,65 @@ export function AuthProvider(_a) {
         }).data.subscription;
         return function () { return subscription.unsubscribe(); };
     }, []);
-    var signIn = function (email, password) { return __awaiter(_this, void 0, void 0, function () {
-        var error, error_1;
+    var signIn = function (email, password) { return __awaiter(void 0, void 0, void 0, function () {
+        var error_1, err_1;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, supabase.auth.signInWithPassword({
-                            email: email,
-                            password: password,
-                        })];
+                    setError(null);
+                    return [4 /*yield*/, supabase.auth.signInWithPassword({ email: email, password: password })];
                 case 1:
-                    error = (_a.sent()).error;
-                    if (error)
-                        throw error;
+                    error_1 = (_a.sent()).error;
+                    if (error_1)
+                        throw error_1;
                     return [3 /*break*/, 3];
                 case 2:
-                    error_1 = _a.sent();
-                    console.error('Error signing in:', error_1);
-                    throw error_1;
+                    err_1 = _a.sent();
+                    setError(err_1 instanceof Error ? err_1.message : 'Failed to sign in');
+                    throw err_1;
                 case 3: return [2 /*return*/];
             }
         });
     }); };
-    var signUp = function (email, password) { return __awaiter(_this, void 0, void 0, function () {
-        var error, error_2;
+    var signUp = function (email, password) { return __awaiter(void 0, void 0, void 0, function () {
+        var error_2, err_2;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, supabase.auth.signUp({
-                            email: email,
-                            password: password,
-                        })];
+                    setError(null);
+                    return [4 /*yield*/, supabase.auth.signUp({ email: email, password: password })];
                 case 1:
-                    error = (_a.sent()).error;
-                    if (error)
-                        throw error;
+                    error_2 = (_a.sent()).error;
+                    if (error_2)
+                        throw error_2;
                     return [3 /*break*/, 3];
                 case 2:
-                    error_2 = _a.sent();
-                    console.error('Error signing up:', error_2);
-                    throw error_2;
+                    err_2 = _a.sent();
+                    setError(err_2 instanceof Error ? err_2.message : 'Failed to sign up');
+                    throw err_2;
                 case 3: return [2 /*return*/];
             }
         });
     }); };
-    var signOut = function () { return __awaiter(_this, void 0, void 0, function () {
-        var error, error_3;
+    var signOut = function () { return __awaiter(void 0, void 0, void 0, function () {
+        var error_3, err_3;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
+                    setError(null);
                     return [4 /*yield*/, supabase.auth.signOut()];
                 case 1:
-                    error = (_a.sent()).error;
-                    if (error)
-                        throw error;
+                    error_3 = (_a.sent()).error;
+                    if (error_3)
+                        throw error_3;
                     return [3 /*break*/, 3];
                 case 2:
-                    error_3 = _a.sent();
-                    console.error('Error signing out:', error_3);
-                    throw error_3;
+                    err_3 = _a.sent();
+                    setError(err_3 instanceof Error ? err_3.message : 'Failed to sign out');
+                    throw err_3;
                 case 3: return [2 /*return*/];
             }
         });
@@ -131,9 +128,11 @@ export function AuthProvider(_a) {
         signUp: signUp,
         signOut: signOut,
         loading: loading,
+        error: error,
+        isAuthenticated: !!user
     };
     return (_jsx(AuthContext.Provider, { value: value, children: children }));
-}
+};
 export function useAuth() {
     var context = useContext(AuthContext);
     if (context === undefined) {

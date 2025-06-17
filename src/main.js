@@ -4,4 +4,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
-createRoot(document.getElementById('root')).render(_jsx(StrictMode, { children: _jsx(AuthProvider, { children: _jsx(App, {}) }) }));
+import { DEBUG_LOG } from './config/debug';
+import { DebugErrorBoundary } from './components/DebugErrorBoundary';
+import './utils/setupDebug';
+createRoot(document.getElementById('root')).render(_jsx(StrictMode, { children: _jsx(AuthProvider, { children: DEBUG_LOG ? (_jsx(DebugErrorBoundary, { children: _jsx(App, {}) })) : (_jsx(App, {})) }) }));

@@ -1,13 +1,12 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import React from 'react';
-import { Drawer, List, ListItem, ListItemIcon, ListItemText, ListItemButton, Divider, Box, Typography, Collapse, } from '@mui/material';
-import { Dashboard as DashboardIcon, Assessment as AssessmentIcon, Settings as SettingsIcon, ExpandLess, ExpandMore, Security as SecurityIcon, Business as BusinessIcon, Gavel as GavelIcon, } from '@mui/icons-material';
-var drawerWidth = 240;
+import { Drawer, Box, TextField, FormControl, InputLabel, Select, MenuItem, } from '@mui/material';
+import { Search as SearchIcon } from '@mui/icons-material';
+import { useClause } from '../contexts/ClauseContext';
+var drawerWidth = 320;
 export var Sidebar = function () {
-    var _a = React.useState(true), open = _a[0], setOpen = _a[1];
-    var _b = React.useState(true), complianceOpen = _b[0], setComplianceOpen = _b[1];
-    var handleComplianceClick = function () {
-        setComplianceOpen(!complianceOpen);
+    var _a = useClause(), searchQuery = _a.searchQuery, setSearchQuery = _a.setSearchQuery, selectedFamily = _a.selectedFamily, setSelectedFamily = _a.setSelectedFamily, families = _a.families;
+    var handleFamilyClick = function (family) {
+        setSelectedFamily(family);
     };
     return (_jsx(Drawer, { variant: "permanent", sx: {
             width: drawerWidth,
@@ -16,6 +15,19 @@ export var Sidebar = function () {
                 width: drawerWidth,
                 boxSizing: 'border-box',
                 marginTop: '64px', // Height of AppBar
+                backgroundColor: 'background.paper',
+                borderRight: '1px solid rgba(148, 163, 184, 0.1)',
+                padding: 2,
             },
-        }, children: _jsxs(Box, { sx: { overflow: 'auto' }, children: [_jsxs(List, { children: [_jsx(ListItem, { disablePadding: true, children: _jsxs(ListItemButton, { children: [_jsx(ListItemIcon, { children: _jsx(DashboardIcon, {}) }), _jsx(ListItemText, { primary: "Dashboard" })] }) }), _jsx(ListItem, { disablePadding: true, children: _jsxs(ListItemButton, { onClick: handleComplianceClick, children: [_jsx(ListItemIcon, { children: _jsx(SecurityIcon, {}) }), _jsx(ListItemText, { primary: "Compliance" }), complianceOpen ? _jsx(ExpandLess, {}) : _jsx(ExpandMore, {})] }) }), _jsx(Collapse, { in: complianceOpen, timeout: "auto", unmountOnExit: true, children: _jsxs(List, { component: "div", disablePadding: true, children: [_jsxs(ListItemButton, { sx: { pl: 4 }, children: [_jsx(ListItemIcon, { children: _jsx(BusinessIcon, {}) }), _jsx(ListItemText, { primary: "Business Rules" })] }), _jsxs(ListItemButton, { sx: { pl: 4 }, children: [_jsx(ListItemIcon, { children: _jsx(GavelIcon, {}) }), _jsx(ListItemText, { primary: "Legal Requirements" })] })] }) }), _jsx(ListItem, { disablePadding: true, children: _jsxs(ListItemButton, { children: [_jsx(ListItemIcon, { children: _jsx(AssessmentIcon, {}) }), _jsx(ListItemText, { primary: "Reports" })] }) }), _jsx(ListItem, { disablePadding: true, children: _jsxs(ListItemButton, { children: [_jsx(ListItemIcon, { children: _jsx(SettingsIcon, {}) }), _jsx(ListItemText, { primary: "Settings" })] }) })] }), _jsx(Divider, {}), _jsxs(Box, { sx: { p: 2 }, children: [_jsx(Typography, { variant: "subtitle2", color: "text.secondary", children: "Quick Links" }), _jsxs(List, { children: [_jsx(ListItem, { disablePadding: true, children: _jsx(ListItemButton, { children: _jsx(ListItemText, { primary: "Recent Items" }) }) }), _jsx(ListItem, { disablePadding: true, children: _jsx(ListItemButton, { children: _jsx(ListItemText, { primary: "Favorites" }) }) })] })] })] }) }));
+        }, children: _jsxs(Box, { sx: { display: 'flex', flexDirection: 'column', gap: 2 }, children: [_jsx(TextField, { fullWidth: true, variant: "outlined", placeholder: "Search clauses...", value: searchQuery, onChange: function (e) { return setSearchQuery(e.target.value); }, InputProps: {
+                        startAdornment: _jsx(SearchIcon, { sx: { color: 'text.secondary', mr: 1 } }),
+                    } }), _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Filter by Family" }), _jsxs(Select, { value: (selectedFamily === null || selectedFamily === void 0 ? void 0 : selectedFamily.id) || '', label: "Filter by Family", onChange: function (e) {
+                                var familyId = e.target.value;
+                                if (!familyId) {
+                                    handleFamilyClick(null);
+                                    return;
+                                }
+                                var familyGroup = families.find(function (f) { return f.family.id === familyId; });
+                                handleFamilyClick((familyGroup === null || familyGroup === void 0 ? void 0 : familyGroup.family) || null);
+                            }, children: [_jsx(MenuItem, { value: "", children: "All Families" }), families.map(function (familyGroup) { return (_jsx(MenuItem, { value: familyGroup.family.id, children: familyGroup.family.name }, familyGroup.family.id)); })] })] })] }) }));
 };

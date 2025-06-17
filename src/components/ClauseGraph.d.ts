@@ -1,8 +1,8 @@
-/// <reference types="react" />
-import type { Clause } from '../types/clause';
+import React from 'react';
+import type { GraphData, GraphNode } from '../types/clause';
 interface ClauseGraphProps {
-    clauses: Clause[];
-    onNodeClick?: (clause: Clause) => void;
+    graphData: GraphData;
+    onNodeClick?: (node: GraphNode) => void;
 }
 export declare const ClauseGraph: React.FC<ClauseGraphProps>;
 export {};

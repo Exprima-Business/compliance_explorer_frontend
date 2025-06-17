@@ -33,20 +33,25 @@ const Home: React.FC = () => {
 
     const edges: GraphEdge[] = clauses
       .filter((clause): clause is Clause => clause !== null && clause !== undefined)
-      .flatMap((clause: Clause) => 
-        (clause.relationships || [])
-          .filter((rel): rel is ClauseRelationship => 
-            rel !== null && 
-            rel !== undefined && 
-            typeof rel.sourceClauseId === 'string' && 
-            typeof rel.targetClauseId === 'string'
-          )
+      .flatMap((clause: Clause) => {
+        console.log('Processing relationships for clause:', {
+          clauseId: clause.id,
+          relationships: clause.relationships
+        });
+        return (clause.relationships || [])
+          .filter((rel): rel is ClauseRelationship => {
+            console.log('Checking relationship:', rel);
+            return rel !== null && 
+              rel !== undefined && 
+              typeof rel.sourceClauseId === 'string' && 
+              typeof rel.targetClauseId === 'string';
+          })
           .map((rel: ClauseRelationship) => ({
             source: rel.sourceClauseId,
             target: rel.targetClauseId,
             value: 1
-          }))
-      );
+          }));
+      });
 
     return { nodes, edges };
   }, [clauses]);
