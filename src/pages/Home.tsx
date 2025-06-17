@@ -7,9 +7,15 @@ import { useGraph } from '../hooks/useGraph';
 import type { GraphData, GraphNode, GraphEdge, Clause, ClauseRelationship } from '../types/clause';
 
 const Home: React.FC = () => {
-  const useGraphApi = import.meta.env.VITE_USE_GRAPH === '1';
+  // TEST MODE: force-fetch graph endpoint regardless of env flag
+  const useGraphApi = true;
 
-  const { data: graphApiData, isLoading: graphLoading, isError: graphError } = useGraphApi ? useGraph() : { data: null, isLoading: false, isError: false } as any;
+  const { data: graphApiData, isLoading: graphLoading, isError: graphError } = useGraph();
+
+  // Log entire payload for checklist step 1-A
+  if (graphApiData) {
+    console.log('GRAPH-API payload', graphApiData);
+  }
 
   const { clauses, loading, error, bookmarkClause } = useClause();
   const [snackbar, setSnackbar] = React.useState<{
