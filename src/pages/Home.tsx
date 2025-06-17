@@ -64,7 +64,11 @@ const Home: React.FC = () => {
           }));
       });
 
-    return { nodes, edges };
+    // Trim edges whose nodes are missing
+    const nodeSet = new Set(nodes.map(n => n.id));
+    const safeEdges = edges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
+
+    return { nodes, edges: safeEdges };
   }, [clauses, useGraphApi, graphApiData]);
 
   const handleNodeClick = async (node: GraphNode) => {
