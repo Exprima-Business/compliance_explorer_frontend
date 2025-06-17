@@ -32,15 +32,30 @@ const Home: React.FC = () => {
       return { nodes: [], edges: [] };
     }
 
-    const nodes: GraphNode[] = clauses
+    // ---- DEBUG: inspect raw first clause before mapping ----
+    if (clauses.length > 0) {
+      console.log('🔍 raw clause[0]:', clauses[0]);
+    }
+
+    // Build nodes, ensuring uniqueness by clause id
+    const nodeMap = new Map<string, GraphNode>();
+
+    clauses
       .filter((clause): clause is Clause => clause !== null && clause !== undefined)
-      .map((clause: Clause) => ({
-        id: clause.id || '',
-        name: clause.title || 'Untitled Clause',
-        val: 1,
-        color: clause.is_bookmarked ? '#FFD700' : undefined,
-        family: clause.family
-      }));
+      .forEach((clause: Clause) => {
+        const id = clause.id || '';
+        if (!nodeMap.has(id)) {
+          nodeMap.set(id, {
+            id,
+            name: clause.title || 'Untitled Clause',
+            val: 1,
+            color: clause.is_bookmarked ? '#FFD700' : undefined,
+            family: clause.family
+          });
+        }
+      });
+
+    const nodes: GraphNode[] = Array.from(nodeMap.values());
 
     const edges: GraphEdge[] = clauses
       .filter((clause): clause is Clause => clause !== null && clause !== undefined)
@@ -67,6 +82,10 @@ const Home: React.FC = () => {
     // Trim edges whose nodes are missing
     const nodeSet = new Set(nodes.map(n => n.id));
     const safeEdges = edges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
+
+    // ---- DEBUG: dump final graph ----
+    console.log('🧩 final graph nodes:', nodes);
+    console.log('🧩 final graph edges:', safeEdges);
 
     return { nodes, edges: safeEdges };
   }, [clauses, useGraphApi, graphApiData]);
