@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import type { GraphData, GraphNode, GraphEdge } from '../types/clause'
 
@@ -40,39 +40,8 @@ export const ClauseGraph: React.FC<ClauseGraphProps> = ({ graphData, onNodeClick
     }
   }, [onNodeClick])
 
-  const transformedData: ForceGraphData = useMemo(() => {
-    // Build a quick lookup map for node objects by id to ensure link.source/target
-    // are concrete node references (objects), not just string ids. This helps
-    // react-force-graph avoid cases where it tries to read properties (e.g., `id`)
-    // from an unresolved string.
-    const nodeById = new Map<string, GraphNode>();
-    graphData.nodes.forEach(node => nodeById.set(node.id, node));
-
-    const links: ForceGraphLink[] = graphData.links
-      .map((edge: GraphEdge): ForceGraphLink | null => {
-        const sourceNode = nodeById.get(edge.source);
-        const targetNode = nodeById.get(edge.target);
-
-        // Skip links that reference missing nodes as an extra safety net
-        if (!sourceNode || !targetNode) {
-          console.warn('[ClauseGraph] Dropping link with missing nodes', edge);
-          return null;
-        }
-
-        return {
-          // Provide concrete node objects to skip internal lookup and avoid undefined resolution
-          source: sourceNode as unknown as string,  // casting keeps type compatible
-          target: targetNode as unknown as string,
-          value: edge.value
-        };
-      })
-      .filter((l): l is ForceGraphLink => l !== null);
-
-    return {
-      nodes: graphData.nodes,
-      links
-    };
-  }, [graphData]);
+  // Backend already returns nodes and links in the exact shape the graph expects.
+  const transformedData = graphData as unknown as ForceGraphData;
 
   // Expose graph data for debugging only in development builds
   if (import.meta.env.DEV) {
