@@ -6,13 +6,6 @@ export const clauseService = {
   getAllClauses: async (): Promise<ApiResponse<Clause[]>> => {
     try {
       const response = await apiCall<Clause[]>('/api/clauses');
-
-      // TEMP DEBUG: log first clause object to verify family presence
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.log('🕵️‍♂️ raw clause[0]', response.data?.[0]);
-      }
-
       dlog('[API] getAllClauses', {
         len: Array.isArray(response.data) ? response.data.length : 'n/a',
         missing: Array.isArray(response.data) ? response.data.filter(c=>!c.family).length : 'n/a'
@@ -34,15 +27,15 @@ export const clauseService = {
       console.log('API Response:', {
         data: response.data,
         nodes: response.data?.nodes,
-        links: response.data?.links,
+        edges: response.data?.edges,
         firstNode: response.data?.nodes?.[0],
-        firstLink: response.data?.links?.[0]
+        firstEdge: response.data?.edges?.[0]
       });
       return response;
     } catch (error) {
       console.error('Error fetching graph data:', error);
       return {
-        data: { nodes: [], links: [] },
+        data: { nodes: [], edges: [] },
         error: error instanceof Error ? error.message : 'Failed to fetch graph data'
       };
     }

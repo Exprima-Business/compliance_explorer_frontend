@@ -328,88 +328,38 @@ export function getClauseById(id) {
         });
     });
 }
-export function searchClauses(query) {
-    return __awaiter(this, void 0, void 0, function () {
-        var error_7;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, apiCall("/api/clauses/search?q=".concat(encodeURIComponent(query)))];
-                case 1: return [2 /*return*/, _a.sent()];
-                case 2:
-                    error_7 = _a.sent();
-                    console.error('Error searching clauses:', error_7);
-                    throw error_7;
-                case 3: return [2 /*return*/];
-            }
-        });
-    });
+export async function searchClauses(query) {
+    try {
+        return await apiCall(`/api/clauses/search?q=${encodeURIComponent(query)}`);
+    } catch (error) {
+        console.error('Error searching clauses:', error);
+        throw error;
+    }
 }
 // Protected endpoints (auth required)
-export function bookmarkClause(clauseId) {
-    return __awaiter(this, void 0, void 0, function () {
-        var error_8;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, apiCall("/api/clauses/bookmark/".concat(clauseId), {
-                            method: 'POST',
-                            requireAuth: true
-                        })];
-                case 1: return [2 /*return*/, _a.sent()];
-                case 2:
-                    error_8 = _a.sent();
-                    console.error('Error bookmarking clause:', error_8);
-                    throw error_8;
-                case 3: return [2 /*return*/];
-            }
+export async function uploadDocument(file) {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        return await apiCall('/api/documents/upload', {
+            method: 'POST',
+            body: formData,
+            requireAuth: true
         });
-    });
+    } catch (error) {
+        console.error('Error uploading document:', error);
+        throw error;
+    }
 }
-export function uploadDocument(file) {
-    return __awaiter(this, void 0, void 0, function () {
-        var formData, error_9;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    formData = new FormData();
-                    formData.append('file', file);
-                    return [4 /*yield*/, apiCall('/api/documents/upload', {
-                            method: 'POST',
-                            body: formData,
-                            requireAuth: true
-                        })];
-                case 1: return [2 /*return*/, _a.sent()];
-                case 2:
-                    error_9 = _a.sent();
-                    console.error('Error uploading document:', error_9);
-                    throw error_9;
-                case 3: return [2 /*return*/];
-            }
+export async function analyzeDocument(documentId) {
+    try {
+        return await apiCall(`/api/documents/${documentId}/analyze`, {
+            method: 'POST',
+            requireAuth: true
         });
-    });
-}
-export function analyzeDocument(documentId) {
-    return __awaiter(this, void 0, void 0, function () {
-        var error_10;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, apiCall("/api/documents/".concat(documentId, "/analyze"), {
-                            method: 'POST',
-                            requireAuth: true
-                        })];
-                case 1: return [2 /*return*/, _a.sent()];
-                case 2:
-                    error_10 = _a.sent();
-                    console.error("Error analyzing document ".concat(documentId, ":"), error_10);
-                    throw error_10;
-                case 3: return [2 /*return*/];
-            }
-        });
-    });
+    } catch (error) {
+        console.error(`Error analyzing document ${documentId}:`, error);
+        throw error;
+    }
 }

@@ -1,23 +1,12 @@
 import React from 'react';
 import { Box, Typography, CircularProgress, Alert } from '@mui/material';
-import { ClauseGraph } from '../components/ClauseGraph';
-import { ErrorFallbackBoundary } from '../components/ErrorFallbackBoundary';
+import { ClauseGraphD3 as ClauseGraph } from '../components/ClauseGraphD3';
+import { FloatingPanel } from '../components/FloatingPanel';
 import { useClause } from '../contexts/ClauseContext';
-import { useGraph } from '../hooks/useGraph';
-import type { GraphData, GraphNode, GraphEdge, Clause, ClauseRelationship } from '../types/clause';
+import type { GraphData, GraphNode, GraphEdge, Clause, ClauseRelationship, ClauseFamily } from '../types/clause';
 
 const Home: React.FC = () => {
-  // TEST MODE: force-fetch graph endpoint regardless of env flag
-  const useGraphApi = true;
-
-  const { data: graphApiData, isLoading: graphLoading, isError: graphError } = useGraph();
-
-  // Log entire payload for checklist step 1-A
-  if (graphApiData) {
-    console.log('GRAPH-API payload', graphApiData);
-  }
-
-  const { clauses, loading, error, bookmarkClause } = useClause();
+  const { clauses, searchQuery, loading, error, bookmarkClause } = useClause();
   const [snackbar, setSnackbar] = React.useState<{
     open: boolean;
     message: string;
@@ -28,51 +17,48 @@ const Home: React.FC = () => {
     severity: 'success'
   });
 
-  const graphData: GraphData = React.useMemo(() => {
-    if (useGraphApi && graphApiData) {
-      return graphApiData;
-    }
+  const [activeClause, setActiveClause] = React.useState<Clause | null>(null);
 
-    if (!clauses || !Array.isArray(clauses)) {
+  const searchLower = searchQuery.toLowerCase();
+
+  const filtered = clauses.filter((clause): clause is Clause => {
+    if (!clause) return false;
+    if (!searchLower) return true;
+    return (
+      clause.title?.toLowerCase().includes(searchLower) ||
+      clause.clauseId?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const graphData: GraphData = React.useMemo(() => {
+    if (!filtered || !Array.isArray(filtered)) {
       console.warn('No valid clauses data available');
       return { nodes: [], links: [] };
     }
 
-    // ---- DEBUG: inspect raw first clause before mapping ----
-    if (clauses.length > 0) {
-      console.log('🔍 raw clause[0]:', clauses[0]);
-    }
+    const nodes: GraphNode[] = filtered
+      .map((clause: Clause) => ({
+        id: clause.id || '',
+        name: clause.title || 'Untitled Clause',
+        clauseId: clause.clauseId || '',
+        title: clause.title || '',
+        riskClassification: clause.riskClassification || 'UNKNOWN',
+        category: clause.category || '',
+        family: clause.family,
+        val: 1,
+        color: clause.is_bookmarked ? '#FFD700' : undefined
+      } as GraphNode & {
+        title: string;
+        riskClassification: string;
+        category: string;
+      }));
 
-    // Build nodes, ensuring uniqueness by clause id
-    const nodeMap = new Map<string, GraphNode>();
-
-    clauses
-      .filter((clause): clause is Clause => clause !== null && clause !== undefined)
-      .forEach((clause: Clause) => {
-        const id = clause.id || '';
-        if (!nodeMap.has(id)) {
-          nodeMap.set(id, {
-            id,
-            name: clause.title || 'Untitled Clause',
-            val: 1,
-            color: clause.is_bookmarked ? '#FFD700' : undefined,
-            family: clause.family
-          });
-        }
-      });
-
-    const nodes: GraphNode[] = Array.from(nodeMap.values());
-
-    const edges: GraphEdge[] = clauses
-      .filter((clause): clause is Clause => clause !== null && clause !== undefined)
+    const links: GraphEdge[] = filtered
       .flatMap((clause: Clause) => {
-        console.log('Processing relationships for clause:', {
-          clauseId: clause.id,
-          relationships: clause.relationships
-        });
+        // console.debug('Processing relationships for clause', clause.id);
         return (clause.relationships || [])
           .filter((rel): rel is ClauseRelationship => {
-            console.log('Checking relationship:', rel);
+            // console.debug('Checking relationship', rel);
             return rel !== null && 
               rel !== undefined && 
               typeof rel.sourceClauseId === 'string' && 
@@ -85,31 +71,13 @@ const Home: React.FC = () => {
           }));
       });
 
-    // Trim edges whose nodes are missing
-    const nodeSet = new Set(nodes.map(n => n.id));
-    const safeLinks = edges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
+    return { nodes, links };
+  }, [filtered]);
 
-    // ---- DEBUG: dump final graph ----
-    console.log('🧩 final graph nodes:', nodes);
-    console.log('🧩 final graph links:', safeLinks);
-
-    return { nodes, links: safeLinks };
-  }, [clauses, useGraphApi, graphApiData]);
-
-  const handleNodeClick = async (node: GraphNode) => {
-    try {
-      await bookmarkClause(node.id);
-      setSnackbar({
-        open: true,
-        message: 'Clause bookmarked successfully',
-        severity: 'success'
-      });
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Failed to bookmark clause',
-        severity: 'error'
-      });
+  const handleNodeClick = (node: GraphNode) => {
+    const clause = clauses.find(c => c.id === node.id);
+    if (clause) {
+      setActiveClause(clause);
     }
   };
 
@@ -129,19 +97,25 @@ const Home: React.FC = () => {
     );
   }
 
-  // Don't mount the graph until data is ready to avoid empty-graph flicker
-  if (!graphData.nodes.length) {
-    return null; // or a small spinner could go here
-  }
-
   return (
     <Box sx={{ height: 'calc(100vh - 64px)', position: 'relative' }}>
-      <ErrorFallbackBoundary>
-        <ClauseGraph
-          graphData={graphData}
-          onNodeClick={handleNodeClick}
-        />
-      </ErrorFallbackBoundary>
+      <ClauseGraph
+        graphData={graphData}
+        onNodeClick={handleNodeClick}
+      />
+
+      <FloatingPanel
+        clause={activeClause}
+        onClose={() => setActiveClause(null)}
+        isBookmarked={activeClause?.is_bookmarked}
+        onBookmarkToggle={async () => {
+          if (!activeClause) return;
+          try {
+            await bookmarkClause(activeClause.id);
+            setActiveClause({ ...activeClause, is_bookmarked: !activeClause.is_bookmarked });
+          } catch {}
+        }}
+      />
     </Box>
   );
 };

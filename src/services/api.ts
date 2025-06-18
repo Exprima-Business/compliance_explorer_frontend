@@ -202,18 +202,6 @@ export async function searchClauses(query: string): Promise<ApiResponse<Clause[]
 }
 
 // Protected endpoints (auth required)
-export async function bookmarkClause(clauseId: string): Promise<ApiResponse<Clause>> {
-  try {
-    return await apiCall<Clause>(`/api/clauses/bookmark/${clauseId}`, {
-      method: 'POST',
-      requireAuth: true
-    });
-  } catch (error) {
-    console.error('Error bookmarking clause:', error);
-    throw error;
-  }
-}
-
 export async function uploadDocument(file: File): Promise<ApiResponse<any>> {
   try {
     const formData = new FormData();

@@ -59,6 +59,30 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     fetchData();
   }, []);
 
+  // When the user selects / clears a family, (re)load the appropriate clause set
+  useEffect(() => {
+    const loadByFamily = async () => {
+      try {
+        setLoading(true);
+        let resp;
+        if (selectedFamily) {
+          resp = await clauseService.getClausesByFamily(selectedFamily);
+        } else {
+          // fetch the full list again
+          resp = await clauseService.getAllClauses();
+        }
+        if (resp.error) throw new Error(resp.error);
+        setClauses(resp.data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch clauses');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadByFamily();
+  }, [selectedFamily]);
+
   const bookmarkClause = async (clauseId: string) => {
     try {
       const response = await clauseService.bookmarkClause(clauseId);

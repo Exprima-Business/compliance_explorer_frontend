@@ -61,12 +61,13 @@ export default function Layout({ children }: LayoutProps) {
       <Box
         component="main"
         sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - 320px)` },
-          ml: { sm: '320px' },
-          mt: '64px', // Height of AppBar
-          height: 'calc(100vh - 64px)',
+          position: 'absolute',
+          left: '320px',
+          right: 0,
+          top: '64px',
+          bottom: 0,
+          width: 'auto',
+          maxWidth: 'none',
           overflow: 'auto'
         }}
       >

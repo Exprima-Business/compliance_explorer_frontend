@@ -86,7 +86,6 @@ export interface GraphNode {
     name: string;
     val: number;
     color?: string;
-    family?: ClauseFamily | null;
 }
 export interface GraphEdge {
     source: string;
@@ -95,5 +94,5 @@ export interface GraphEdge {
 }
 export interface GraphData {
     nodes: GraphNode[];
-    links: GraphEdge[];
+    edges: GraphEdge[];
 }

@@ -8,17 +8,19 @@ import CategoryIcon from '@mui/icons-material/Category';
 import LinkIcon from '@mui/icons-material/Link';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import CloseIcon from '@mui/icons-material/Close';
 import type { Clause } from '../types/clause';
 
 interface ClauseCardProps {
   clause: Clause;
   isBookmarked?: boolean;
   onBookmarkToggle?: () => void;
+  onClose?: () => void;
   sx?: SxProps<Theme>;
   compact?: boolean;
 }
 
-export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, sx, compact = false }: ClauseCardProps) => {
+export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, onClose, sx, compact = false }: ClauseCardProps) => {
   const renderField = (label: string, value: string | string[]) => {
     if (!value) return null;
     
@@ -196,19 +198,36 @@ export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, sx,
                 </Box>
               </Box>
             </Box>
-            <IconButton
-              onClick={onBookmarkToggle}
-              sx={{
-                color: isBookmarked ? 'secondary.main' : 'text.secondary',
-                transition: 'all 0.2s ease-in-out',
-                '&:hover': {
-                  color: 'secondary.main',
-                  transform: 'scale(1.1)',
-                },
-              }}
-            >
-              {isBookmarked ? <BookmarkIcon /> : <BookmarkBorderIcon />}
-            </IconButton>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <IconButton
+                onClick={onBookmarkToggle}
+                sx={{
+                  color: isBookmarked ? 'secondary.main' : 'text.secondary',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    color: 'secondary.main',
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                {isBookmarked ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+              </IconButton>
+              {onClose && (
+                <IconButton
+                  onClick={onClose}
+                  sx={{
+                    color: 'text.secondary',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      color: 'error.main',
+                      transform: 'scale(1.1)',
+                    },
+                  }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              )}
+            </Box>
           </Box>
         </CardContent>
       </Card>
@@ -275,21 +294,38 @@ export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, sx,
                   {clause.title}
                 </Typography>
               </Box>
-              {onBookmarkToggle && (
-                <IconButton 
-                  onClick={onBookmarkToggle}
-                  sx={{ 
-                    color: isBookmarked ? 'primary.main' : 'text.secondary',
-                    transition: 'transform 0.18s cubic-bezier(0.4,0,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1)',
-                    '&:hover, &:focus': {
-                      color: 'secondary.main',
-                      transform: 'scale(1.18)',
-                    }
-                  }}
-                >
-                  {isBookmarked ? <BookmarkIcon /> : <BookmarkBorderIcon />}
-                </IconButton>
-              )}
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {onBookmarkToggle && (
+                  <IconButton 
+                    onClick={onBookmarkToggle}
+                    sx={{ 
+                      color: isBookmarked ? 'primary.main' : 'text.secondary',
+                      transition: 'transform 0.18s cubic-bezier(0.4,0,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1)',
+                      '&:hover, &:focus': {
+                        color: 'secondary.main',
+                        transform: 'scale(1.18)',
+                      }
+                    }}
+                  >
+                    {isBookmarked ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                  </IconButton>
+                )}
+                {onClose && (
+                  <IconButton 
+                    onClick={onClose}
+                    sx={{ 
+                      color: 'text.secondary',
+                      transition: 'transform 0.18s cubic-bezier(0.4,0,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1)',
+                      '&:hover, &:focus': {
+                        color: 'error.main',
+                        transform: 'scale(1.18)',
+                      }
+                    }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                )}
+              </Box>
             </Box>
 
             {/* Metadata Grid */}

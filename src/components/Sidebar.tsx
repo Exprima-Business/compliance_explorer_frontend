@@ -28,6 +28,12 @@ export const Sidebar: React.FC = () => {
     setSelectedFamily(family);
   };
 
+  const validFamilies = Array.isArray(families)
+    ? families.filter((fg): fg is ClauseFamilyGroup =>
+        Boolean(fg && fg.family && fg.family.id && fg.family.name)
+      )
+    : []
+
   return (
     <Drawer
       variant="permanent"
@@ -66,12 +72,12 @@ export const Sidebar: React.FC = () => {
                 handleFamilyClick(null);
                 return;
               }
-              const familyGroup = families.find(f => f.family.id === familyId);
+              const familyGroup = validFamilies.find(fg => fg.family.id === familyId);
               handleFamilyClick(familyGroup?.family || null);
             }}
           >
             <MenuItem value="">All Families</MenuItem>
-            {families.map((familyGroup) => (
+            {validFamilies.map((familyGroup) => (
               <MenuItem key={familyGroup.family.id} value={familyGroup.family.id}>
                 {familyGroup.family.name}
               </MenuItem>

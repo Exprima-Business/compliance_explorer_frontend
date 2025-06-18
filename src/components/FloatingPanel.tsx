@@ -1,6 +1,5 @@
 import React from 'react';
-import { Box, IconButton, Paper } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Box, Paper } from '@mui/material';
 import { ClauseCard } from './ClauseCard';
 import type { Clause } from '../types/clause';
 
@@ -25,7 +24,7 @@ export const FloatingPanel = ({
       sx={{
         position: 'fixed',
         right: 20,
-        top: 20,
+        top: { xs: 84, sm: 92 }, // Account for AppBar height (64px + 20px margin on xs, 72px + 20px margin on sm)
         bottom: 20,
         width: 400,
         overflow: 'auto',
@@ -36,26 +35,12 @@ export const FloatingPanel = ({
         borderRadius: 2,
       }}
     >
-      <Box sx={{ 
-        position: 'sticky', 
-        top: 0, 
-        p: 1, 
-        bgcolor: 'background.paper',
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        display: 'flex',
-        justifyContent: 'flex-end',
-        zIndex: 1
-      }}>
-        <IconButton onClick={onClose} size="small">
-          <CloseIcon />
-        </IconButton>
-      </Box>
       <Box sx={{ p: 2, flex: 1 }}>
         <ClauseCard 
           clause={clause} 
           isBookmarked={isBookmarked}
           onBookmarkToggle={onBookmarkToggle}
+          onClose={onClose}
         />
       </Box>
     </Paper>
