@@ -3,9 +3,8 @@ import { supabase } from '../lib/supabase';
 import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse } from '../types/clause';
 import environment from '../config/environment';
 
-// Ensure API URL has no trailing slash
-const API_URL = environment.api.url.replace(/\/$/, '');
-console.log('API URL:', API_URL); // Log the API URL for debugging
+// API configuration
+const API_URL = environment.api.url;
 
 const publicEndpoints = [
   '/api/clauses',

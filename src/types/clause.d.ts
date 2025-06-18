@@ -84,8 +84,13 @@ export interface ClauseNode extends Clause {
 export interface GraphNode {
     id: string;
     name: string;
+    clauseId?: string;
+    title?: string;
+    riskClassification?: string;
+    category?: string;
     val: number;
     color?: string;
+    family?: ClauseFamily;
 }
 export interface GraphEdge {
     source: string;
@@ -94,5 +99,6 @@ export interface GraphEdge {
 }
 export interface GraphData {
     nodes: GraphNode[];
-    edges: GraphEdge[];
+    links: GraphEdge[];
+    edges?: never;
 }

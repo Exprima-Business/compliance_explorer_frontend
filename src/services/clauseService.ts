@@ -10,7 +10,6 @@ export const clauseService = {
         len: Array.isArray(response.data) ? response.data.length : 'n/a',
         missing: Array.isArray(response.data) ? response.data.filter(c=>!c.family).length : 'n/a'
       });
-      console.log('API Response:', response);
       return response;
     } catch (error) {
       console.error('Error fetching clauses:', error);
@@ -24,13 +23,6 @@ export const clauseService = {
   getGraphData: async (): Promise<ApiResponse<GraphData>> => {
     try {
       const response = await apiCall<GraphData>('/api/clauses/graph');
-      console.log('API Response:', {
-        data: response.data,
-        nodes: response.data?.nodes,
-        links: response.data?.links,
-        firstNode: response.data?.nodes?.[0],
-        firstLink: response.data?.links?.[0]
-      });
       return response;
     } catch (error) {
       console.error('Error fetching graph data:', error);
@@ -49,7 +41,6 @@ export const clauseService = {
         len: Array.isArray(response.data) ? response.data.length : 'n/a',
         missing: Array.isArray(response.data) ? response.data.filter(c=>!c.family).length : 'n/a'
       });
-      console.log('API Response:', response);
       return response;
     } catch (error) {
       console.error('Error fetching clauses by family:', error);
@@ -63,7 +54,6 @@ export const clauseService = {
   getClauseFamilies: async (): Promise<ApiResponse<ClauseFamilyGroup[]>> => {
     try {
       const response = await apiCall<ClauseFamilyGroup[]>('/api/clauses/families');
-      console.log('API Response:', response);
       return response;
     } catch (error) {
       console.error('Error fetching families:', error);
@@ -77,7 +67,6 @@ export const clauseService = {
   getClauseById: async (id: string): Promise<ApiResponse<Clause>> => {
     try {
       const response = await apiCall<Clause>(`/api/clauses/${id}`);
-      console.log('API Response:', response);
       return response;
     } catch (error) {
       console.error('Error fetching clause:', error);
@@ -91,7 +80,6 @@ export const clauseService = {
   searchClauses: async (query: string): Promise<ApiResponse<Clause[]>> => {
     try {
       const response = await apiCall<Clause[]>(`/api/clauses/search?q=${encodeURIComponent(query)}`);
-      console.log('API Response:', response);
       return response;
     } catch (error) {
       console.error('Error searching clauses:', error);
@@ -107,7 +95,6 @@ export const clauseService = {
       const response = await apiCall<void>(`/api/clauses/${clauseId}/bookmark`, {
         method: 'POST'
       });
-      console.log('API Response:', response);
       return response;
     } catch (error) {
       console.error('Error bookmarking clause:', error);

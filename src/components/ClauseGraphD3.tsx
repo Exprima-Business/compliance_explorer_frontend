@@ -100,25 +100,15 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
   }, [graphData])
 
   // Color function
-  const getNodeColor = useCallback((node: GraphNode) => {
-    console.log('[ClauseGraphD3] getNodeColor called with node:', node)
-    
-    // Try multiple ways to get family
-    const family1 = (node as any).family?.name
-    const family2 = (node as any).family?.id
-    const family3 = (node as any).family
-    const family4 = (node as any).familyName
-    
-    console.log('[ClauseGraphD3] Family detection attempts:', { family1, family2, family3, family4 })
-    
-    const fam = family1 || family2 || family3 || family4 || 'unknown'
-    console.log('[ClauseGraphD3] Selected family:', fam)
-    
-    const color = familyColors[fam] || familyColors['Default'] || hashColor(fam)
-    console.log('[ClauseGraphD3] Selected color:', color)
-    
-    return color
-  }, [])
+  const getNodeColor = (node: GraphNode): string => {
+    // Use family color if available, otherwise fallback to default
+    const fam = node.family;
+    if (fam) {
+      const color = familyColors[fam.name];
+      if (color) return color;
+    }
+    return '#6366f1'; // Default color
+  };
 
   // Hover highlighting helpers
   const relatedNodeIds = useMemo(() => {
@@ -246,8 +236,6 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
       }
     })
 
-    console.log('[ClauseGraphD3] Family values found:', Array.from(dataFamilies))
-
     // Add subtle background pattern
     const pattern = defs.append('pattern')
       .attr('id', 'grid')
@@ -290,7 +278,6 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
       .attr('stroke-width', (d: any) => {
         // Make PARENT relationships bolder than SIBLING
         const relationshipType = (d as any).relationshipType || 'SIBLING'
-        console.log('[ClauseGraphD3] Link relationship:', d.source, '->', d.target, 'type:', relationshipType)
         return relationshipType === 'PARENT' ? 4 : 2
       })
       .attr('opacity', 0.6)
@@ -512,8 +499,6 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
         }
         return baseWidth
       })
-
-    console.log('[ClauseGraphD3] Hover state updated. Hovered node:', hoverNode?.id, 'Related nodes:', Array.from(relatedNodeIds))
   }, [hoverNode, relatedNodeIds])
 
   return (
