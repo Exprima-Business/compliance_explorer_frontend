@@ -33,9 +33,10 @@ interface CustomAppBarProps {
   activeTab: number;
   onTabChange: (event: React.SyntheticEvent, newValue: number) => void;
   onSettingsClick: () => void;
+  enableScanner: boolean;
 }
 
-export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, onSettingsClick }) => {
+export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, onSettingsClick, enableScanner }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
@@ -147,7 +148,7 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
             >
               <Tab label="Clauses" />
               <Tab label="Matrix" />
-              <Tab label="Document Scanner" />
+              {enableScanner && <Tab label="Document Scanner" />}
             </Tabs>
           </Box>
           {/* Right: Settings and Auth/User Menu */}

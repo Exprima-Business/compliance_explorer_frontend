@@ -14,6 +14,8 @@ import { ClauseProvider } from './contexts/ClauseContext';
 import { useAuth } from './hooks/useAuth';
 import { BookmarkProvider } from './contexts/BookmarkContext';
 
+const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
+
 export default function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -28,7 +30,9 @@ export default function App() {
                     <Route path="/" element={<Home />} />
                     <Route path="/matrix" element={<Matrix />} />
                     <Route path="/login" element={<Login />} />
-                    <Route path="/document-scanner" element={<DocumentScanner />} />
+                    {ENABLE_SCANNER && (
+                      <Route path="/document-scanner" element={<DocumentScanner />} />
+                    )}
                   </Routes>
                 </Layout>
               </BookmarkProvider>

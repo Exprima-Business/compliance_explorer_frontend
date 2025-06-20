@@ -9,6 +9,8 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
+
 export default function Layout({ children }: LayoutProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -20,22 +22,14 @@ export default function Layout({ children }: LayoutProps) {
     const path = location.pathname;
     if (path === '/') setActiveTab(0);
     else if (path === '/matrix') setActiveTab(1);
-    else if (path === '/document-scanner') setActiveTab(2);
+    else if (ENABLE_SCANNER && path === '/document-scanner') setActiveTab(2);
   }, [location]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
-    switch (newValue) {
-      case 0:
-        navigate('/');
-        break;
-      case 1:
-        navigate('/matrix');
-        break;
-      case 2:
-        navigate('/document-scanner');
-        break;
-    }
+    if (newValue === 0) navigate('/');
+    else if (newValue === 1) navigate('/matrix');
+    else if (ENABLE_SCANNER && newValue === 2) navigate('/document-scanner');
   };
 
   const handleSettingsClick = () => {
@@ -60,6 +54,7 @@ export default function Layout({ children }: LayoutProps) {
           activeTab={activeTab}
           onTabChange={handleTabChange}
           onSettingsClick={handleSettingsClick}
+          enableScanner={ENABLE_SCANNER}
         />
       </Box>
       <Sidebar />
