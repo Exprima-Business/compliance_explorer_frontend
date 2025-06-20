@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { bookmarkService } from '../services/bookmarkService';
 import type { Bookmark } from '../services/bookmarkService';
 import { clauseService } from '../services/clauseService';
+import { supabase } from '../lib/supabase';
 
 interface BookmarkContextValue {
   bookmarks: Bookmark[];
@@ -32,6 +33,44 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     load();
   }, [load]);
+
+  // ---------------------------------------------
+  // Realtime subscription: keep bookmarks in sync
+  // ---------------------------------------------
+  useEffect(() => {
+    // Subscribe to all row changes for this organisation
+    const channel = supabase
+      .channel('bookmarks-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookmarks',
+          filter: `organizationId=eq.${DEFAULT_ORG_ID}`
+        },
+        (payload) => {
+          // We receive INSERT, UPDATE, DELETE events.
+          if (payload.eventType === 'INSERT') {
+            setBookmarks(prev => {
+              const b = payload.new as Bookmark;
+              // avoid duplicates if we already have it
+              return prev.some(item => item.id === b.id) ? prev : [...prev, b];
+            });
+          } else if (payload.eventType === 'DELETE') {
+            setBookmarks(prev => prev.filter(b => b.id !== (payload.old as any).id));
+          } else if (payload.eventType === 'UPDATE') {
+            setBookmarks(prev => prev.map(b => b.id === (payload.new as any).id ? (payload.new as Bookmark) : b));
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const toggleBookmark = async (clauseId: string) => {
     try {
