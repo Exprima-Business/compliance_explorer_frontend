@@ -9,8 +9,10 @@ import Login from './pages/Login';
 import DocumentScanner from './pages/DocumentScanner';
 import Matrix from './pages/Matrix';
 import { AuthProvider } from './contexts/AuthContext';
+import { PreferencesProvider } from './contexts/PreferencesContext';
 import { ClauseProvider } from './contexts/ClauseContext';
 import { useAuth } from './hooks/useAuth';
+import { BookmarkProvider } from './contexts/BookmarkContext';
 
 export default function App() {
   return (
@@ -18,16 +20,20 @@ export default function App() {
       <CssBaseline />
       <AuthProvider>
         <Router>
-          <ClauseProvider>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/matrix" element={<Matrix />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/document-scanner" element={<DocumentScanner />} />
-              </Routes>
-            </Layout>
-          </ClauseProvider>
+          <PreferencesProvider>
+            <ClauseProvider>
+              <BookmarkProvider>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/matrix" element={<Matrix />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/document-scanner" element={<DocumentScanner />} />
+                  </Routes>
+                </Layout>
+              </BookmarkProvider>
+            </ClauseProvider>
+          </PreferencesProvider>
         </Router>
       </AuthProvider>
     </ThemeProvider>

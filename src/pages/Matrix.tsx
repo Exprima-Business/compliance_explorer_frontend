@@ -2,10 +2,12 @@ import React from 'react';
 import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import { ComplianceMatrix } from '../components/ComplianceMatrix';
 import { useClause } from '../contexts/ClauseContext';
+import { useBookmarks } from '../contexts/BookmarkContext';
 import type { Clause } from '../types/clause';
 
 const Matrix: React.FC = () => {
   const { clauses, loading, error } = useClause();
+  const { bookmarks } = useBookmarks();
 
   if (loading) {
     return (
@@ -23,7 +25,42 @@ const Matrix: React.FC = () => {
     );
   }
 
-  const matrixData = clauses.map((clause: Clause) => ({
+  // Helper function to find parent clauses
+  const findParentClauses = (clause: Clause): Clause[] => {
+    const parentClauses: Clause[] = [];
+    
+    clause.relationships.forEach(relationship => {
+      if (relationship.type === 'PARENT') {
+        const parentClause = clauses.find(c => c.clauseId === relationship.targetClauseId);
+        if (parentClause) {
+          parentClauses.push(parentClause);
+        }
+      }
+    });
+
+    return parentClauses;
+  };
+
+  // Get all bookmarked clauses and their parent clauses
+  const bookmarkedClauses = bookmarks
+    .map(b => clauses.find(c => c.id === b.clauseId))
+    .filter((c): c is Clause => Boolean(c));
+  const parentClauses = new Set<string>();
+  
+  // Add parent clauses of bookmarked clauses
+  bookmarkedClauses.forEach(clause => {
+    const parents = findParentClauses(clause);
+    parents.forEach(parent => {
+      parentClauses.add(parent.id);
+    });
+  });
+
+  // Combine bookmarked clauses with their parent clauses
+  const matrixClauses = clauses.filter((clause: Clause) => 
+    bookmarks.some(b=>b.clauseId===clause.id) || parentClauses.has(clause.id)
+  );
+
+  const matrixData = matrixClauses.map((clause: Clause) => ({
     id: clause.id,
     clauseId: clause.clauseId,
     title: clause.title,
@@ -44,7 +81,25 @@ const Matrix: React.FC = () => {
       <Typography variant="h4" gutterBottom>
         Compliance Matrix
       </Typography>
-      <ComplianceMatrix rows={matrixData} />
+      {matrixData.length === 0 ? (
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          py: 8,
+          textAlign: 'center'
+        }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            No bookmarked clauses yet
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Bookmark clauses from the Clauses tab to see them appear in the matrix
+          </Typography>
+        </Box>
+      ) : (
+        <ComplianceMatrix rows={matrixData} />
+      )}
     </Box>
   );
 };

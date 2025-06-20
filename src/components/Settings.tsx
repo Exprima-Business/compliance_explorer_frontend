@@ -12,22 +12,19 @@ import {
   Tooltip,
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
+import { usePreferences } from '../contexts/PreferencesContext';
 
 interface SettingsProps {
   open: boolean;
   onClose: () => void;
-  preferences: {
-    removeParentWithChild: boolean | null;
-  };
-  onPreferenceChange: (key: string, value: boolean | null) => void;
 }
 
 export const Settings = ({
   open,
   onClose,
-  preferences,
-  onPreferenceChange,
 }: SettingsProps) => {
+  const { preferences, updatePreference } = usePreferences();
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Settings</DialogTitle>
@@ -36,12 +33,30 @@ export const Settings = ({
           <Typography variant="h6" sx={{ mb: 2 }}>
             Bookmark Preferences
           </Typography>
+          
+          {/* Auto Bookmark Parents Setting */}
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={preferences.autoBookmarkParents}
+                  onChange={(e) => updatePreference('autoBookmarkParents', e.target.checked)}
+                />
+              }
+              label="Automatically bookmark parent clauses when bookmarking child clauses"
+            />
+            <Tooltip title="When enabled, parent clause bookmarks will be automatically added when their child clauses are bookmarked to ensure no mandatory clauses are missed">
+              <InfoIcon fontSize="small" sx={{ ml: 1, color: 'text.secondary' }} />
+            </Tooltip>
+          </Box>
+
+          {/* Remove Parent with Child Setting */}
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <FormControlLabel
               control={
                 <Switch
                   checked={preferences.removeParentWithChild === true}
-                  onChange={(e) => onPreferenceChange('removeParentWithChild', e.target.checked ? true : null)}
+                  onChange={(e) => updatePreference('removeParentWithChild', e.target.checked ? true : null)}
                 />
               }
               label="Always remove parent clause when removing child clause"
@@ -50,10 +65,11 @@ export const Settings = ({
               <InfoIcon fontSize="small" sx={{ ml: 1, color: 'text.secondary' }} />
             </Tooltip>
           </Box>
+          
           <Button
             variant="outlined"
             color="primary"
-            onClick={() => onPreferenceChange('removeParentWithChild', null)}
+            onClick={() => updatePreference('removeParentWithChild', null)}
             sx={{ mt: 1 }}
           >
             Reset to Ask Each Time

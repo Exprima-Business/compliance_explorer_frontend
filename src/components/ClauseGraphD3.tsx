@@ -302,8 +302,8 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
         const family = (d as any).family?.name || (d as any).family?.id || (d as any).family || 'Default'
         return `url(#gradient-${family})`
       })
-      .attr('stroke', (d: GraphNode) => (d as any).is_bookmarked ? '#FFD700' : 'none')
-      .attr('stroke-width', (d: GraphNode) => (d as any).is_bookmarked ? 3 : 0)
+      .attr('stroke', (d: GraphNode) => (d as any).isBookmarked ? '#FFD700' : 'none')
+      .attr('stroke-width', (d: GraphNode) => (d as any).isBookmarked ? 3 : 0)
       .style('cursor', 'pointer')
       .style('filter', 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2))')
       .style('transition', 'all 0.3s ease')

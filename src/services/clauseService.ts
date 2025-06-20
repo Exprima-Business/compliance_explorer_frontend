@@ -90,16 +90,16 @@ export const clauseService = {
     }
   },
 
-  bookmarkClause: async (clauseId: string): Promise<ApiResponse<void>> => {
+  bookmarkClause: async (clauseId: string): Promise<ApiResponse<{id: string, isBookmarked: boolean}>> => {
     try {
-      const response = await apiCall<void>(`/api/clauses/${clauseId}/bookmark`, {
+      const response = await apiCall<{id: string, isBookmarked: boolean}>(`/api/clauses/${clauseId}/bookmark`, {
         method: 'POST'
       });
       return response;
     } catch (error) {
       console.error('Error bookmarking clause:', error);
       return {
-        data: null as unknown as void,
+        data: null as unknown as {id: string, isBookmarked: boolean},
         error: error instanceof Error ? error.message : 'Failed to bookmark clause'
       };
     }

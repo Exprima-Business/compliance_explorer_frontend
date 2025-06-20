@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, CssBaseline } from '@mui/material';
 import { AppBar } from './AppBar';
 import { Sidebar } from './Sidebar';
+import { Settings } from './Settings';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface LayoutProps {
@@ -41,6 +42,10 @@ export default function Layout({ children }: LayoutProps) {
     setSettingsOpen(true);
   };
 
+  const handleSettingsClose = () => {
+    setSettingsOpen(false);
+  };
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
       <CssBaseline />
@@ -73,6 +78,10 @@ export default function Layout({ children }: LayoutProps) {
       >
         {children}
       </Box>
+      <Settings 
+        open={settingsOpen}
+        onClose={handleSettingsClose}
+      />
     </Box>
   );
 } 

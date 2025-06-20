@@ -3,10 +3,12 @@ import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import { ClauseGraphD3 as ClauseGraph } from '../components/ClauseGraphD3';
 import { FloatingPanel } from '../components/FloatingPanel';
 import { useClause } from '../contexts/ClauseContext';
+import { useBookmarks } from '../contexts/BookmarkContext';
 import type { GraphData, GraphNode, GraphEdge, Clause, ClauseRelationship, ClauseFamily } from '../types/clause';
 
 const Home: React.FC = () => {
-  const { clauses, searchQuery, loading, error, bookmarkClause } = useClause();
+  const { clauses, searchQuery, loading, error } = useClause();
+  const { bookmarks, toggleBookmark } = useBookmarks();
   const [snackbar, setSnackbar] = React.useState<{
     open: boolean;
     message: string;
@@ -30,6 +32,8 @@ const Home: React.FC = () => {
     );
   });
 
+  const bookmarkedSet = React.useMemo(() => new Set(bookmarks.map(b=>b.clauseId)), [bookmarks]);
+
   const graphData: GraphData = React.useMemo(() => {
     if (!filtered || !Array.isArray(filtered)) {
       console.warn('No valid clauses data available');
@@ -46,7 +50,8 @@ const Home: React.FC = () => {
         category: clause.category || '',
         family: clause.family,
         val: 1,
-        color: clause.is_bookmarked ? '#FFD700' : undefined
+        isBookmarked: bookmarkedSet.has(clause.id),
+        color: bookmarkedSet.has(clause.id) ? '#FFD700' : undefined
       } as GraphNode & {
         title: string;
         riskClassification: string;
@@ -55,24 +60,32 @@ const Home: React.FC = () => {
 
     const links: GraphEdge[] = filtered
       .flatMap((clause: Clause) => {
-        // console.debug('Processing relationships for clause', clause.id);
         return (clause.relationships || [])
           .filter((rel): rel is ClauseRelationship => {
-            // console.debug('Checking relationship', rel);
-            return rel !== null && 
+            // Handle both possible relationship structures
+            return (
+              rel !== null && 
               rel !== undefined && 
-              typeof rel.sourceClauseId === 'string' && 
-              typeof rel.targetClauseId === 'string';
+              (
+                (typeof (rel as any).sourceClauseId === 'string' && typeof (rel as any).targetClauseId === 'string') ||
+                (typeof (rel as any).clauseId === 'string')
+              )
+            );
           })
-          .map((rel: ClauseRelationship) => ({
-            source: rel.sourceClauseId,
-            target: rel.targetClauseId,
-            value: 1
-          }));
+          .map((rel: ClauseRelationship) => {
+            // Handle both possible relationship structures
+            const source = (rel as any).sourceClauseId || clause.clauseId;
+            const target = (rel as any).targetClauseId || (rel as any).clauseId;
+            return {
+              source,
+              target,
+              value: 1
+            };
+          });
       });
 
     return { nodes, links };
-  }, [filtered]);
+  }, [filtered, bookmarkedSet]);
 
   const handleNodeClick = (node: GraphNode) => {
     const clause = clauses.find(c => c.id === node.id);
@@ -107,13 +120,10 @@ const Home: React.FC = () => {
       <FloatingPanel
         clause={activeClause}
         onClose={() => setActiveClause(null)}
-        isBookmarked={activeClause?.is_bookmarked}
+        isBookmarked={activeClause ? bookmarkedSet.has(activeClause.id) : false}
         onBookmarkToggle={async () => {
           if (!activeClause) return;
-          try {
-            await bookmarkClause(activeClause.id);
-            setActiveClause({ ...activeClause, is_bookmarked: !activeClause.is_bookmarked });
-          } catch {}
+          await toggleBookmark(activeClause.id);
         }}
       />
     </Box>

@@ -17,12 +17,15 @@ import {
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { useClause } from '../contexts/ClauseContext';
-import type { ClauseFamily, ClauseFamilyGroup } from '../types/clause';
+import { useBookmarks } from '../contexts/BookmarkContext';
+import { BookmarkedClauses } from './BookmarkedClauses';
+import type { ClauseFamily, ClauseFamilyGroup, Clause } from '../types/clause';
 
 const drawerWidth = 320;
 
 export const Sidebar: React.FC = () => {
-  const { searchQuery, setSearchQuery, selectedFamily, setSelectedFamily, families } = useClause();
+  const { searchQuery, setSearchQuery, selectedFamily, setSelectedFamily, families, clauses } = useClause();
+  const { bookmarks, toggleBookmark } = useBookmarks();
 
   const handleFamilyClick = (family: ClauseFamily | null) => {
     setSelectedFamily(family);
@@ -33,6 +36,21 @@ export const Sidebar: React.FC = () => {
         Boolean(fg && fg.family && fg.family.id && fg.family.name)
       )
     : []
+
+  // Get bookmarked clauses
+  const bookmarkedClauses = bookmarks
+    .map(b => clauses.find(c => c.id === b.clauseId))
+    .filter((c): c is Clause => Boolean(c));
+
+  const handleClauseClick = (clause: Clause) => {
+    // This could trigger opening the clause in the main view
+    // For now, we'll just log it
+    console.log('Clause clicked:', clause.clauseId);
+  };
+
+  const handleBookmarkToggle = async (clause: Clause) => {
+    await toggleBookmark(clause.id);
+  };
 
   return (
     <Drawer
@@ -50,7 +68,7 @@ export const Sidebar: React.FC = () => {
         },
       }}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
         <TextField
           fullWidth
           variant="outlined"
@@ -84,6 +102,17 @@ export const Sidebar: React.FC = () => {
             ))}
           </Select>
         </FormControl>
+        
+        <Divider />
+        
+        {/* Bookmarked Clauses Section */}
+        <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+          <BookmarkedClauses
+            bookmarkedClauses={bookmarkedClauses}
+            onClauseClick={handleClauseClick}
+            onBookmarkToggle={handleBookmarkToggle}
+          />
+        </Box>
       </Box>
     </Drawer>
   );
