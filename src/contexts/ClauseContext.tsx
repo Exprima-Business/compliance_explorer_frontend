@@ -90,16 +90,21 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const rType: string = (relAny.type ?? relAny.relationshipType ?? '').toUpperCase();
 
       if (rType === 'PARENT') {
-        // In a PARENT row, the *target* (relatedClauseId / targetClauseId) points to the child.
-        // Therefore the *source* column (clauseId / sourceClauseId) is the parent.
-        const parentId = relAny.sourceClauseId || relAny.clauseId;
+        // For a PARENT relationship stored as
+        //   clauseId           = child
+        //   relatedClauseId    = parent
+        // the parent is in the *relatedClauseId* (or targetClauseId) column.
+        const parentId = relAny.relatedClauseId || relAny.targetClauseId;
         if (parentId) {
           const parent = clauses.find(c => c.clauseId === parentId);
           if (parent) parentClauses.push(parent);
         }
       } else if (rType === 'CHILD') {
-        // In a CHILD row, the *related* column points upward to the parent.
-        const parentId = relAny.relatedClauseId || relAny.targetClauseId;
+        // For a CHILD relationship stored as
+        //   clauseId           = parent
+        //   relatedClauseId    = child
+        // the parent is in the *clauseId* (or sourceClauseId) column.
+        const parentId = relAny.clauseId || relAny.sourceClauseId;
         if (parentId) {
           const parent = clauses.find(c => c.clauseId === parentId);
           if (parent) parentClauses.push(parent);
