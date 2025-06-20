@@ -84,15 +84,24 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Helper function to find parent clauses
   const findParentClauses = (clause: Clause): Clause[] => {
     const parentClauses: Clause[] = [];
-    
-    // Check relationships for PARENT type
-    clause.relationships.forEach(relationship => {
-      if (relationship.type === 'PARENT') {
-        // Handle both possible property names
-        const targetId = (relationship as any).targetClauseId || (relationship as any).clauseId;
-        const parentClause = clauses.find(c => c.clauseId === targetId);
-        if (parentClause) {
-          parentClauses.push(parentClause);
+
+    clause.relationships.forEach(rel => {
+      const relAny = rel as any;
+
+      if (rel.type === 'PARENT') {
+        // In a PARENT row, the *target* (relatedClauseId / targetClauseId) points to the child.
+        // Therefore the *source* column (clauseId / sourceClauseId) is the parent.
+        const parentId = relAny.sourceClauseId || relAny.clauseId;
+        if (parentId) {
+          const parent = clauses.find(c => c.clauseId === parentId);
+          if (parent) parentClauses.push(parent);
+        }
+      } else if (rel.type === 'CHILD') {
+        // In a CHILD row, the *related* column points upward to the parent.
+        const parentId = relAny.relatedClauseId || relAny.targetClauseId;
+        if (parentId) {
+          const parent = clauses.find(c => c.clauseId === parentId);
+          if (parent) parentClauses.push(parent);
         }
       }
     });
