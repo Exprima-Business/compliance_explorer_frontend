@@ -27,6 +27,8 @@ const Matrix: React.FC = () => {
 
   // Helper function to find parent clauses
   const findParentClauses = (clause: Clause): Clause[] => {
+    if (!clause.relationships || !Array.isArray(clause.relationships)) return [];
+
     const parentClauses: Clause[] = [];
     
     clause.relationships.forEach(relationship => {
