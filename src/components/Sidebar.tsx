@@ -45,7 +45,7 @@ export const Sidebar: React.FC = () => {
   const handleClauseClick = (clause: Clause) => {
     // This could trigger opening the clause in the main view
     // For now, we'll just log it
-    console.log('Clause clicked:', clause.clauseId);
+    console.log('Clause clicked:', clause.clauseCode);
   };
 
   const handleBookmarkToggle = async (clause: Clause) => {

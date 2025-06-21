@@ -13,7 +13,8 @@ export interface ClauseRelationship {
 }
 export interface Clause {
     id: string;
-    clauseId: string;
+    clauseCode: string;
+    clauseId?: string;
     title: string;
     description: string;
     content: string;

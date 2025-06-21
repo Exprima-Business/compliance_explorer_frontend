@@ -134,7 +134,7 @@ export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, onC
                   }
                 }}
               >
-                {clause.clauseId}
+                {clause.clauseCode}
               </Typography>
               <Typography 
                 variant="body2" 
@@ -282,7 +282,7 @@ export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, onC
                     lineHeight: 1.1,
                   }}
                 >
-                  {clause.clauseId}
+                  {clause.clauseCode}
                 </Typography>
                 <Typography 
                   variant="h6" 

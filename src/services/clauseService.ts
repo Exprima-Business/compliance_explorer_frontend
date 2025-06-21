@@ -92,10 +92,25 @@ export const clauseService = {
 
   bookmarkClause: async (clauseId: string): Promise<ApiResponse<{id: string, isBookmarked: boolean}>> => {
     try {
-      const response = await apiCall<{id: string, isBookmarked: boolean}>(`/api/clauses/${clauseId}/bookmark`, {
+      const response = await apiCall<any>(`/api/clauses/${clauseId}/bookmark`, {
         method: 'POST'
       });
-      return response;
+
+      if (response.error) {
+        return response;
+      }
+
+      // Backend may wrap the useful payload inside its own `data` key.
+      const payload = response.data;
+
+      if (payload && typeof payload === 'object' && 'data' in payload && payload.data) {
+        return {
+          data: payload.data as { id: string; isBookmarked: boolean },
+          error: null
+        };
+      }
+
+      return response as ApiResponse<{id: string, isBookmarked: boolean}>;
     } catch (error) {
       console.error('Error bookmarking clause:', error);
       return {

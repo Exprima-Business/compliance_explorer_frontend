@@ -3,7 +3,7 @@ import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import { ComplianceMatrix } from '../components/ComplianceMatrix';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
-import type { Clause } from '../types/clause';
+import type { Clause, MatrixRow } from '../types/clause';
 
 const Matrix: React.FC = () => {
   const { clauses, loading, error } = useClause();
@@ -76,7 +76,7 @@ const Matrix: React.FC = () => {
     intent: clause.intent,
     status: clause.status,
     category: clause.category,
-    family: clause.family,
+    family: clause.family ?? { id: 'unknown', name: 'Uncategorized' },
     conditions: clause.conditions,
     implementationGuidance: clause.implementationGuidance,
     assessmentMethod: clause.assessmentMethod,

@@ -28,7 +28,7 @@ const Home: React.FC = () => {
     if (!searchLower) return true;
     return (
       clause.title?.toLowerCase().includes(searchLower) ||
-      clause.clauseId?.toLowerCase().includes(searchLower)
+      (clause.clauseCode || '').toLowerCase().includes(searchLower)
     );
   });
 
@@ -44,7 +44,7 @@ const Home: React.FC = () => {
       .map((clause: Clause) => ({
         id: clause.id || '',
         name: clause.title || 'Untitled Clause',
-        clauseId: clause.clauseId || '',
+        clauseId: clause.clauseCode || '',
         title: clause.title || '',
         riskClassification: clause.riskClassification || 'UNKNOWN',
         category: clause.category || '',
@@ -74,7 +74,7 @@ const Home: React.FC = () => {
           })
           .map((rel: ClauseRelationship) => {
             // Handle both possible relationship structures
-            const source = (rel as any).sourceClauseId || clause.clauseId;
+            const source = (rel as any).sourceClauseId || clause.id;
             const target = (rel as any).targetClauseId || (rel as any).clauseId;
             return {
               source,
