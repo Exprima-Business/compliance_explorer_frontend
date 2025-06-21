@@ -93,9 +93,7 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     graphData.nodes.forEach(n => {
       if (!nodeMap.has(n.id)) nodeMap.set(n.id, { ...n } as D3Node)
     })
-    const links: GraphEdge[] = (graphData.links ?? []).filter(l => 
-      !!nodeMap.get(l.source as string) && !!nodeMap.get(l.target as string)
-    )
+    const links: GraphEdge[] = graphData.links ?? [];
     return { nodes: Array.from(nodeMap.values()), links }
   }, [graphData])
 
@@ -310,7 +308,7 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
 
     // Add labels to nodes
     const labels = nodes.append('text')
-      .text((d: GraphNode) => (d as any).clauseId || d.name)
+      .text((d: GraphNode) => (d as any).clauseCode || (d as any).clauseId || d.name)
       .attr('text-anchor', 'middle')
       .attr('dy', '.35em')
       .attr('font-size', '14px')
@@ -541,7 +539,7 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
                   fontSize: '16px',
                   letterSpacing: '-0.02em'
                 }}>
-                  {(tooltip.data as any).clauseId || 'No ID'}
+                  {(tooltip.data as any).clauseCode || (tooltip.data as any).clauseId || 'No ID'}
                 </div>
                 <div style={{ 
                   marginBottom: '12px', 
