@@ -31,7 +31,7 @@ const Matrix: React.FC = () => {
     
     clause.relationships.forEach(relationship => {
       if (relationship.type === 'PARENT') {
-        const parentClause = clauses.find(c => c.clauseId === relationship.targetClauseId);
+        const parentClause = clauses.find(c => c.id === relationship.targetClauseId);
         if (parentClause) {
           parentClauses.push(parentClause);
         }
@@ -45,6 +45,12 @@ const Matrix: React.FC = () => {
   const bookmarkedClauses = bookmarks
     .map(b => clauses.find(c => c.id === b.clauseId))
     .filter((c): c is Clause => Boolean(c));
+
+  if (bookmarkedClauses.length !== bookmarks.length) {
+    const missing = bookmarks.filter(b => !bookmarkedClauses.some(c => c.id === b.clauseId));
+    console.warn('Matrix: some bookmarked clause IDs missing from current clause list', missing);
+  }
+
   const parentClauses = new Set<string>();
   
   // Add parent clauses of bookmarked clauses
@@ -62,7 +68,7 @@ const Matrix: React.FC = () => {
 
   const matrixData = matrixClauses.map((clause: Clause) => ({
     id: clause.id,
-    clauseId: clause.clauseId,
+    clauseId: clause.clauseCode,
     title: clause.title,
     description: clause.description,
     intent: clause.intent,
