@@ -14,10 +14,12 @@ var Matrix = function () {
     }
     // Helper function to find parent clauses
     var findParentClauses = function (clause) {
+        if (!clause.relationships || !Array.isArray(clause.relationships))
+            return [];
         var parentClauses = [];
         clause.relationships.forEach(function (relationship) {
             if (relationship.type === 'PARENT') {
-                var parentClause = clauses.find(function (c) { return c.clauseId === relationship.targetClauseId; });
+                var parentClause = clauses.find(function (c) { return c.id === relationship.targetClauseId; });
                 if (parentClause) {
                     parentClauses.push(parentClause);
                 }
@@ -29,6 +31,10 @@ var Matrix = function () {
     var bookmarkedClauses = bookmarks
         .map(function (b) { return clauses.find(function (c) { return c.id === b.clauseId; }); })
         .filter(function (c) { return Boolean(c); });
+    if (bookmarkedClauses.length !== bookmarks.length) {
+        var missing = bookmarks.filter(function (b) { return !bookmarkedClauses.some(function (c) { return c.id === b.clauseId; }); });
+        console.warn('Matrix: some bookmarked clause IDs missing from current clause list', missing);
+    }
     var parentClauses = new Set();
     // Add parent clauses of bookmarked clauses
     bookmarkedClauses.forEach(function (clause) {
@@ -41,21 +47,24 @@ var Matrix = function () {
     var matrixClauses = clauses.filter(function (clause) {
         return bookmarks.some(function (b) { return b.clauseId === clause.id; }) || parentClauses.has(clause.id);
     });
-    var matrixData = matrixClauses.map(function (clause) { return ({
-        id: clause.id,
-        clauseId: clause.clauseId,
-        title: clause.title,
-        description: clause.description,
-        intent: clause.intent,
-        status: clause.status,
-        category: clause.category,
-        family: clause.family,
-        conditions: clause.conditions,
-        implementationGuidance: clause.implementationGuidance,
-        assessmentMethod: clause.assessmentMethod,
-        riskClassification: clause.riskClassification,
-        referenceUrl: clause.referenceUrl
-    }); });
+    var matrixData = matrixClauses.map(function (clause) {
+        var _a;
+        return ({
+            id: clause.id,
+            clauseId: clause.clauseCode,
+            title: clause.title,
+            description: clause.description,
+            intent: clause.intent,
+            status: clause.status,
+            category: clause.category,
+            family: (_a = clause.family) !== null && _a !== void 0 ? _a : { id: 'unknown', name: 'Uncategorized' },
+            conditions: clause.conditions,
+            implementationGuidance: clause.implementationGuidance,
+            assessmentMethod: clause.assessmentMethod,
+            riskClassification: clause.riskClassification,
+            referenceUrl: clause.referenceUrl
+        });
+    });
     return (_jsxs(Box, { sx: { p: 3 }, children: [_jsx(Typography, { variant: "h4", gutterBottom: true, children: "Compliance Matrix" }), matrixData.length === 0 ? (_jsxs(Box, { sx: {
                     display: 'flex',
                     flexDirection: 'column',

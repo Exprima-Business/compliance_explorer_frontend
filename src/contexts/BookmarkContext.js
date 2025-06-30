@@ -47,6 +47,7 @@ import { jsx as _jsx } from "react/jsx-runtime";
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { bookmarkService } from '../services/bookmarkService';
 import { clauseService } from '../services/clauseService';
+import { supabase } from '../lib/supabase';
 var BookmarkContext = createContext(undefined);
 var DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 export var BookmarkProvider = function (_a) {
@@ -79,6 +80,40 @@ export var BookmarkProvider = function (_a) {
     useEffect(function () {
         load();
     }, [load]);
+    // ---------------------------------------------
+    // Realtime subscription: keep bookmarks in sync
+    // ---------------------------------------------
+    useEffect(function () {
+        // Subscribe to all row changes for this organisation
+        var channel = supabase
+            .channel('bookmarks-realtime')
+            .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'bookmarks',
+            filter: "organizationId=eq.".concat(DEFAULT_ORG_ID)
+        }, function (payload) {
+            // We receive INSERT, UPDATE, DELETE events.
+            if (payload.eventType === 'INSERT') {
+                setBookmarks(function (prev) {
+                    var b = payload.new;
+                    // avoid duplicates if we already have it
+                    return prev.some(function (item) { return item.id === b.id; }) ? prev : __spreadArray(__spreadArray([], prev, true), [b], false);
+                });
+            }
+            else if (payload.eventType === 'DELETE') {
+                setBookmarks(function (prev) { return prev.filter(function (b) { return b.id !== payload.old.id; }); });
+            }
+            else if (payload.eventType === 'UPDATE') {
+                setBookmarks(function (prev) { return prev.map(function (b) { return b.id === payload.new.id ? payload.new : b; }); });
+            }
+        })
+            .subscribe();
+        // Cleanup on unmount
+        return function () {
+            supabase.removeChannel(channel);
+        };
+    }, []);
     var toggleBookmark = function (clauseId) { return __awaiter(void 0, void 0, void 0, function () {
         var resp_1, isBookmarked_1, err_2;
         var _a, _b;

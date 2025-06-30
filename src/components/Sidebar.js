@@ -59,7 +59,7 @@ export var Sidebar = function () {
     var handleClauseClick = function (clause) {
         // This could trigger opening the clause in the main view
         // For now, we'll just log it
-        console.log('Clause clicked:', clause.clauseId);
+        console.log('Clause clicked:', clause.clauseCode);
     };
     var handleBookmarkToggle = function (clause) { return __awaiter(void 0, void 0, void 0, function () {
         return __generator(this, function (_a) {

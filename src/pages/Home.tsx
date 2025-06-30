@@ -4,7 +4,8 @@ import { ClauseGraphD3 as ClauseGraph } from '../components/ClauseGraphD3';
 import { FloatingPanel } from '../components/FloatingPanel';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
-import type { GraphData, GraphNode, GraphEdge, Clause, ClauseRelationship, ClauseFamily } from '../types/clause';
+import { clauseService } from '../services/clauseService';
+import type { GraphData, GraphNode, GraphEdge, Clause, ClauseFamily } from '../types/clause';
 
 const Home: React.FC = () => {
   const { clauses, searchQuery, loading, error } = useClause();
@@ -34,58 +35,61 @@ const Home: React.FC = () => {
 
   const bookmarkedSet = React.useMemo(() => new Set(bookmarks.map(b=>b.clauseId)), [bookmarks]);
 
+  // ------------------------------------------------------------------
+  // Fetch relationship links once (or whenever bookmarks / clauses change)
+  // ------------------------------------------------------------------
+  const [remoteLinks, setRemoteLinks] = React.useState<GraphEdge[]>([]);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const resp = await clauseService.getGraphData();
+        if (!resp.error && resp.data && Array.isArray(resp.data.links)) {
+          setRemoteLinks(resp.data.links);
+        } else {
+          console.warn('graphData fetch error', resp.error);
+        }
+      } catch (err) {
+        console.error('Failed to fetch graph links', err);
+      }
+    })();
+  }, []); // call once at mount
+
   const graphData: GraphData = React.useMemo(() => {
-    if (!filtered || !Array.isArray(filtered)) {
-      console.warn('No valid clauses data available');
-      return { nodes: [], links: [] };
-    }
+    // Build nodes from currently filtered clauses
+    const nodes: GraphNode[] = filtered.map((clause: Clause) => ({
+      id: clause.id || '',
+      name: clause.title || 'Untitled Clause',
+      clauseId: clause.clauseCode || '',
+      title: clause.title || '',
+      riskClassification: clause.riskClassification || 'UNKNOWN',
+      category: clause.category || '',
+      family: clause.family ?? undefined,
+      val: 1,
+      isBookmarked: bookmarkedSet.has(clause.id),
+      color: bookmarkedSet.has(clause.id) ? '#FFD700' : undefined
+    }));
 
-    const nodes: GraphNode[] = filtered
-      .map((clause: Clause) => ({
-        id: clause.id || '',
-        name: clause.title || 'Untitled Clause',
-        clauseId: clause.clauseCode || '',
-        title: clause.title || '',
-        riskClassification: clause.riskClassification || 'UNKNOWN',
-        category: clause.category || '',
-        family: clause.family,
-        val: 1,
-        isBookmarked: bookmarkedSet.has(clause.id),
-        color: bookmarkedSet.has(clause.id) ? '#FFD700' : undefined
-      } as GraphNode & {
-        title: string;
-        riskClassification: string;
-        category: string;
-      }));
-
-    const links: GraphEdge[] = filtered
-      .flatMap((clause: Clause) => {
-        return (clause.relationships || [])
-          .filter((rel): rel is ClauseRelationship => {
-            // Handle both possible relationship structures
-            return (
-              rel !== null && 
-              rel !== undefined && 
-              (
-                (typeof (rel as any).sourceClauseId === 'string' && typeof (rel as any).targetClauseId === 'string') ||
-                (typeof (rel as any).clauseId === 'string')
-              )
-            );
-          })
-          .map((rel: ClauseRelationship) => {
-            // Handle both possible relationship structures
-            const source = (rel as any).sourceClauseId || clause.id;
-            const target = (rel as any).targetClauseId || (rel as any).clauseId;
-            return {
-              source,
-              target,
-              value: 1
-            };
-          });
-      });
+    // Links already reference clause UUIDs; D3 will ignore any link whose
+    // endpoints are missing from the node set, so we can forward them as-is.
+    const links: GraphEdge[] = remoteLinks;
 
     return { nodes, links };
-  }, [filtered, bookmarkedSet]);
+  }, [filtered, bookmarkedSet, remoteLinks]);
+
+  // ------------------------------------------------------------------
+  // DEBUG: Log the graph data size and a sample of the links
+  // ------------------------------------------------------------------
+  React.useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      // Only log in development to avoid console noise in prod builds
+      console.log(
+        'GRAPH-DEBUG',
+        { nodes: graphData.nodes.length, links: graphData.links.length },
+        graphData.links.slice(0, 10)
+      );
+    }
+  }, [graphData]);
 
   const handleNodeClick = (node: GraphNode) => {
     const clause = clauses.find(c => c.id === node.id);

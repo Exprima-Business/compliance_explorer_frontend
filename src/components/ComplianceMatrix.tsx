@@ -42,6 +42,21 @@ type ExportFormat = 'PDF' | 'XLSX' | 'CSV';
 // Helper function to ensure safe string values
 const ensureString = (value: any): string => {
   if (value === undefined || value === null) return '';
+
+  // Handle arrays gracefully
+  if (Array.isArray(value)) {
+    return value.join(', ');
+  }
+
+  // Handle objects – if there is a `name` field, prefer that, otherwise JSON stringify
+  if (typeof value === 'object') {
+    if ('name' in value && typeof (value as any).name === 'string') {
+      return (value as any).name as string;
+    }
+    // Fallback: stringify the object so that it is at least readable
+    return JSON.stringify(value);
+  }
+
   return String(value);
 };
 
@@ -124,12 +139,20 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
   // Function to format cell value
   const formatCellValue = (value: any): string => {
     if (value === null || value === undefined) return '';
+
+    // Handle arrays first
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+
+    // Handle objects – show `name` if present, otherwise JSON stringify
     if (typeof value === 'object') {
-      if (Array.isArray(value)) {
-        return value.join(', ');
+      if ('name' in value && typeof (value as any).name === 'string') {
+        return (value as any).name as string;
       }
       return JSON.stringify(value);
     }
+
     return String(value);
   };
 

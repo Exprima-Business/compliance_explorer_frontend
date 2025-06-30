@@ -173,7 +173,7 @@ export var clauseService = {
         });
     }); },
     bookmarkClause: function (clauseId) { return __awaiter(void 0, void 0, void 0, function () {
-        var response, error_7;
+        var response, payload, error_7;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -183,6 +183,16 @@ export var clauseService = {
                         })];
                 case 1:
                     response = _a.sent();
+                    if (response.error) {
+                        return [2 /*return*/, response];
+                    }
+                    payload = response.data;
+                    if (payload && typeof payload === 'object' && 'data' in payload && payload.data) {
+                        return [2 /*return*/, {
+                                data: payload.data,
+                                error: null
+                            }];
+                    }
                     return [2 /*return*/, response];
                 case 2:
                     error_7 = _a.sent();

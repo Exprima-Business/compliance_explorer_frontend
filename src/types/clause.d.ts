@@ -13,7 +13,14 @@ export interface ClauseRelationship {
 }
 export interface Clause {
     id: string;
+    /**
+     * Human-readable reference such as "DFARS 252.204-7012".
+     * Renamed from `clauseId` to avoid confusion with the primary-key UUID.
+     */
     clauseCode: string;
+    /**
+     * @deprecated Temporary alias during migration; will be removed.
+     */
     clauseId?: string;
     title: string;
     description: string;

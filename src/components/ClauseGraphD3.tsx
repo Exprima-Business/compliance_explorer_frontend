@@ -254,17 +254,42 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
       .attr('fill', 'url(#grid)')
       .style('pointer-events', 'none')
 
-    // Create simulation with stable configuration
-    const simulation = d3.forceSimulation<D3Node>(transformedData.nodes)
-      .force('link', d3.forceLink<D3Node, GraphEdge>(transformedData.links).id((d: D3Node) => d.id).distance(50))
-      .force('charge', d3.forceManyBody<D3Node>().strength(-100))
+    // ---------------------------------------
+    // Force-directed simulation
+    // ---------------------------------------
+
+    const simulation = d3
+      .forceSimulation<D3Node>(transformedData.nodes)
+      .force(
+        'link',
+        d3
+          .forceLink<D3Node, GraphEdge>(transformedData.links)
+          .id((d: D3Node) => d.id)
+          .distance(60)
+      )
+      .force(
+        'charge',
+        d3
+          .forceManyBody<D3Node>()
+          .strength(-80)                     // user-requested repulsion strength
+          .distanceMax(Math.min(dimensions.width, dimensions.height) / 2) // no repulsion past half the viewport
+      )
       .force('center', d3.forceCenter(dimensions.width / 2, dimensions.height / 2))
-      .force('collision', d3.forceCollide(NODE_RADIUS * 1.2))
+      .force('attractX', d3.forceX<D3Node>(dimensions.width / 2).strength(0.03))
+      .force('attractY', d3.forceY<D3Node>(dimensions.height / 2).strength(0.03))
+      .force('collision', d3.forceCollide(NODE_RADIUS * 1.6))
       .alphaDecay(0.02) // Slower decay for more stability
       .velocityDecay(0.4) // Higher velocity decay for less bouncing
 
     // Store simulation reference
     simulationRef.current = simulation
+
+    // --------------------------------------------------
+    // DEBUG: Log link data before rendering
+    // --------------------------------------------------
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('D3-LINKS', transformedData.links.length, transformedData.links.slice(0, 10));
+    }
 
     // Create links with enhanced styling
     const links = g.append('g')
@@ -272,13 +297,19 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
       .data(transformedData.links)
       .enter()
       .append('line')
-      .attr('stroke', '#999')
-      .attr('stroke-width', (d: any) => {
-        // Make PARENT relationships bolder than SIBLING
-        const relationshipType = (d as any).relationshipType || 'SIBLING'
-        return relationshipType === 'PARENT' ? 4 : 2
+      .attr('stroke', (d: any) => {
+        const rel = ((d as any).relationshipType || 'sibling').toLowerCase();
+        // Distinct colors help users spot different relationship kinds
+        if (rel === 'parent') return '#6366f1'; // Primary blue for parent edges
+        if (rel === 'child') return '#0ea5e9'; // Lighter blue for child (if present)
+        return '#94a3b8'; // Grayish for sibling
       })
-      .attr('opacity', 0.6)
+      .attr('stroke-width', (d: any) => {
+        // Make parent/child relationships bolder than sibling
+        const rel = ((d as any).relationshipType || 'sibling').toLowerCase();
+        return rel === 'parent' || rel === 'child' ? 3 : 2;
+      })
+      .attr('opacity', 0.9)
       .style('filter', 'drop-shadow(0 0 2px rgba(153, 153, 153, 0.3))')
 
     // Create nodes with clean design

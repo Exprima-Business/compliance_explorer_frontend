@@ -12,6 +12,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { PreferencesProvider } from './contexts/PreferencesContext';
 import { ClauseProvider } from './contexts/ClauseContext';
 import { BookmarkProvider } from './contexts/BookmarkContext';
+var ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
 export default function App() {
-    return (_jsxs(ThemeProvider, { theme: theme, children: [_jsx(CssBaseline, {}), _jsx(AuthProvider, { children: _jsx(Router, { children: _jsx(PreferencesProvider, { children: _jsx(ClauseProvider, { children: _jsx(BookmarkProvider, { children: _jsx(Layout, { children: _jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(Home, {}) }), _jsx(Route, { path: "/matrix", element: _jsx(Matrix, {}) }), _jsx(Route, { path: "/login", element: _jsx(Login, {}) }), _jsx(Route, { path: "/document-scanner", element: _jsx(DocumentScanner, {}) })] }) }) }) }) }) }) })] }));
+    return (_jsxs(ThemeProvider, { theme: theme, children: [_jsx(CssBaseline, {}), _jsx(AuthProvider, { children: _jsx(Router, { children: _jsx(PreferencesProvider, { children: _jsx(ClauseProvider, { children: _jsx(BookmarkProvider, { children: _jsx(Layout, { children: _jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(Home, {}) }), _jsx(Route, { path: "/matrix", element: _jsx(Matrix, {}) }), _jsx(Route, { path: "/login", element: _jsx(Login, {}) }), ENABLE_SCANNER && (_jsx(Route, { path: "/document-scanner", element: _jsx(DocumentScanner, {}) }))] }) }) }) }) }) }) })] }));
 }

@@ -37,20 +37,31 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 import { apiCall } from './api';
 export var bookmarkService = {
     getBookmarks: function (orgId) { return __awaiter(void 0, void 0, void 0, function () {
-        var resp;
-        var _a;
-        return __generator(this, function (_b) {
-            switch (_b.label) {
+        var resp, payload;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
                 case 0: return [4 /*yield*/, apiCall('/api/bookmarks', {
                         headers: {
                             'x-org-id': orgId
                         }
                     })];
                 case 1:
-                    resp = _b.sent();
-                    if (resp.error)
+                    resp = _a.sent();
+                    if (resp.error) {
                         throw new Error(resp.error);
-                    return [2 /*return*/, (_a = resp.data) !== null && _a !== void 0 ? _a : []];
+                    }
+                    payload = resp.data;
+                    // Case 1: payload is already an array of bookmarks
+                    if (Array.isArray(payload)) {
+                        return [2 /*return*/, payload];
+                    }
+                    // Case 2: payload is an object that contains the array in its own `data` prop
+                    if (payload && Array.isArray(payload.data)) {
+                        return [2 /*return*/, payload.data];
+                    }
+                    // Anything else – return an empty list so the UI degrades gracefully
+                    console.warn('Unexpected bookmarks response shape', payload);
+                    return [2 /*return*/, []];
             }
         });
     }); }

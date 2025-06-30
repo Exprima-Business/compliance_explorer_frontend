@@ -64,7 +64,7 @@ export const BookmarkedClauses = ({
                     mb: 0.5
                   }}
                 >
-                  {clause.clauseId}
+                  {clause.clauseCode || clause.clauseId}
                 </Typography>
                 <Typography 
                   variant="body2" 
@@ -79,18 +79,22 @@ export const BookmarkedClauses = ({
                 >
                   {clause.title}
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   <Typography variant="body2" color="text.secondary">
-                    {clause.family?.name || 'No Family'}
+                    <strong>Family:</strong> {clause.family?.name || 'No Family'}
                   </Typography>
                   <Typography 
                     variant="caption" 
                     sx={{ 
-                      color: clause.riskClassification === 'HIGH' ? 'error.main' : 'warning.main',
+                      color: clause.riskClassification === 'HIGH'
+                        ? 'error.main'
+                        : clause.riskClassification === 'MEDIUM'
+                        ? 'warning.main'
+                        : 'success.main',
                       fontWeight: 500
                     }}
                   >
-                    {clause.riskClassification}
+                    <strong>Risk:</strong> {clause.riskClassification}
                   </Typography>
                 </Box>
               </Box>

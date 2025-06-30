@@ -75,7 +75,7 @@ export var ClauseCard = function (_a) {
                                         '&:hover': {
                                             color: 'secondary.main',
                                         }
-                                    }, children: clause.clauseId }), _jsx(Typography, { variant: "body2", sx: {
+                                    }, children: clause.clauseCode }), _jsx(Typography, { variant: "body2", sx: {
                                         fontSize: '0.85rem',
                                         color: 'text.primary',
                                         lineHeight: 1.4,
@@ -148,7 +148,7 @@ export var ClauseCard = function (_a) {
                                                     mb: 1,
                                                     fontSize: '1.25rem',
                                                     lineHeight: 1.1,
-                                                }, children: clause.clauseId }), _jsx(Typography, { variant: "h6", sx: {
+                                                }, children: clause.clauseCode }), _jsx(Typography, { variant: "h6", sx: {
                                                     fontWeight: 600,
                                                     color: 'text.primary',
                                                 }, children: clause.title })] }), _jsxs(Box, { sx: { display: 'flex', gap: 1 }, children: [onBookmarkToggle && (_jsx(IconButton, { onClick: onBookmarkToggle, sx: {

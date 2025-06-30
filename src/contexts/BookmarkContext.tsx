@@ -66,9 +66,17 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       )
       .subscribe();
 
-    // Cleanup on unmount
+    // Cleanup on unmount – gracefully attempt to unsubscribe and remove the channel.
     return () => {
-      supabase.removeChannel(channel);
+      // `unsubscribe()` is preferred because it is safe to call even if the
+      // WebSocket was never fully established (e.g., React Strict Mode double-mount).
+      channel
+        .unsubscribe()
+        .catch((err: unknown) => {
+          // Fallback to removeChannel just in case, but swallow errors to avoid noisy logs
+          console.warn('BookmarkContext: failed to unsubscribe channel, falling back to removeChannel', err);
+          supabase.removeChannel(channel).catch(() => {/* ignore */});
+        });
     };
   }, []);
 

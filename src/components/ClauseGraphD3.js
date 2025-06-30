@@ -81,9 +81,7 @@ export var ClauseGraphD3 = function (_a) {
             if (!nodeMap.has(n.id))
                 nodeMap.set(n.id, __assign({}, n));
         });
-        var links = ((_a = graphData.links) !== null && _a !== void 0 ? _a : []).filter(function (l) {
-            return !!nodeMap.get(l.source) && !!nodeMap.get(l.target);
-        });
+        var links = (_a = graphData.links) !== null && _a !== void 0 ? _a : [];
         return { nodes: Array.from(nodeMap.values()), links: links };
     }, [graphData]);
     // Color function
@@ -275,7 +273,7 @@ export var ClauseGraphD3 = function (_a) {
             .style('transition', 'all 0.3s ease');
         // Add labels to nodes
         var labels = nodes.append('text')
-            .text(function (d) { return d.clauseId || d.name; })
+            .text(function (d) { return d.clauseCode || d.clauseId || d.name; })
             .attr('text-anchor', 'middle')
             .attr('dy', '.35em')
             .attr('font-size', '14px')
@@ -480,7 +478,7 @@ export var ClauseGraphD3 = function (_a) {
                                     color: '#6366f1',
                                     fontSize: '16px',
                                     letterSpacing: '-0.02em'
-                                }, children: tooltip.data.clauseId || 'No ID' }), _jsx("div", { style: {
+                                }, children: tooltip.data.clauseCode || tooltip.data.clauseId || 'No ID' }), _jsx("div", { style: {
                                     marginBottom: '12px',
                                     fontWeight: '600',
                                     color: '#1f2937',

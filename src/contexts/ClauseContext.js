@@ -156,14 +156,32 @@ export var ClauseProvider = function (_a) {
     // Helper function to find parent clauses
     var findParentClauses = function (clause) {
         var parentClauses = [];
-        // Check relationships for PARENT type
-        clause.relationships.forEach(function (relationship) {
-            if (relationship.type === 'PARENT') {
-                // Handle both possible property names
-                var targetId_1 = relationship.targetClauseId || relationship.clauseId;
-                var parentClause = clauses.find(function (c) { return c.clauseId === targetId_1; });
-                if (parentClause) {
-                    parentClauses.push(parentClause);
+        clause.relationships.forEach(function (rel) {
+            var _a, _b;
+            var relAny = rel;
+            var rType = ((_b = (_a = relAny.type) !== null && _a !== void 0 ? _a : relAny.relationshipType) !== null && _b !== void 0 ? _b : '').toUpperCase();
+            if (rType === 'PARENT') {
+                // For a PARENT relationship stored as
+                //   clauseId           = child
+                //   relatedClauseId    = parent
+                // the parent is in the *relatedClauseId* (or targetClauseId) column.
+                var parentId_1 = relAny.relatedClauseId || relAny.targetClauseId;
+                if (parentId_1) {
+                    var parent_1 = clauses.find(function (c) { return c.clauseId === parentId_1; });
+                    if (parent_1)
+                        parentClauses.push(parent_1);
+                }
+            }
+            else if (rType === 'CHILD') {
+                // For a CHILD relationship stored as
+                //   clauseId           = parent
+                //   relatedClauseId    = child
+                // the parent is in the *clauseId* (or sourceClauseId) column.
+                var parentId_2 = relAny.clauseId || relAny.sourceClauseId;
+                if (parentId_2) {
+                    var parent_2 = clauses.find(function (c) { return c.clauseId === parentId_2; });
+                    if (parent_2)
+                        parentClauses.push(parent_2);
                 }
             }
         });

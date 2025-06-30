@@ -52,13 +52,13 @@ var Home = function () {
     var _d = React.useState(null), activeClause = _d[0], setActiveClause = _d[1];
     var searchLower = searchQuery.toLowerCase();
     var filtered = clauses.filter(function (clause) {
-        var _a, _b;
+        var _a;
         if (!clause)
             return false;
         if (!searchLower)
             return true;
         return (((_a = clause.title) === null || _a === void 0 ? void 0 : _a.toLowerCase().includes(searchLower)) ||
-            ((_b = clause.clauseId) === null || _b === void 0 ? void 0 : _b.toLowerCase().includes(searchLower)));
+            (clause.clauseCode || '').toLowerCase().includes(searchLower));
     });
     var bookmarkedSet = React.useMemo(function () { return new Set(bookmarks.map(function (b) { return b.clauseId; })); }, [bookmarks]);
     var graphData = React.useMemo(function () {
@@ -70,7 +70,7 @@ var Home = function () {
             .map(function (clause) { return ({
             id: clause.id || '',
             name: clause.title || 'Untitled Clause',
-            clauseId: clause.clauseId || '',
+            clauseId: clause.clauseCode || '',
             title: clause.title || '',
             riskClassification: clause.riskClassification || 'UNKNOWN',
             category: clause.category || '',
@@ -91,7 +91,7 @@ var Home = function () {
             })
                 .map(function (rel) {
                 // Handle both possible relationship structures
-                var source = rel.sourceClauseId || clause.clauseId;
+                var source = rel.sourceClauseId || clause.id;
                 var target = rel.targetClauseId || rel.clauseId;
                 return {
                     source: source,
@@ -114,7 +114,7 @@ var Home = function () {
     if (error) {
         return (_jsx(Box, { sx: { p: 3 }, children: _jsx(Alert, { severity: "error", children: error }) }));
     }
-    return (_jsxs(Box, { sx: { height: 'calc(100vh - 64px)', position: 'relative' }, children: [_jsx(ClauseGraph, { graphData: graphData, onNodeClick: handleNodeClick }), _jsx(FloatingPanel, { clause: activeClause, onClose: function () { return setActiveClause(null); }, isBookmarked: activeClause === null || activeClause === void 0 ? void 0 : activeClause.isBookmarked, onBookmarkToggle: function () { return __awaiter(void 0, void 0, void 0, function () {
+    return (_jsxs(Box, { sx: { height: 'calc(100vh - 64px)', position: 'relative' }, children: [_jsx(ClauseGraph, { graphData: graphData, onNodeClick: handleNodeClick }), _jsx(FloatingPanel, { clause: activeClause, onClose: function () { return setActiveClause(null); }, isBookmarked: activeClause ? bookmarkedSet.has(activeClause.id) : false, onBookmarkToggle: function () { return __awaiter(void 0, void 0, void 0, function () {
                     return __generator(this, function (_a) {
                         switch (_a.label) {
                             case 0:
