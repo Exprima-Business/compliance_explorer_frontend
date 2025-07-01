@@ -27,7 +27,8 @@ const Login: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        bgcolor: 'background.default',
+        bgcolor: 'grey.100',
+        p: 2,
       }}
     >
       <Paper
@@ -35,21 +36,26 @@ const Login: React.FC = () => {
         sx={{
           p: 4,
           width: '100%',
-          maxWidth: 400,
+          maxWidth: 420,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          alignItems: 'center',
         }}
       >
-        <Typography variant="h4" component="h1" gutterBottom align="center">
-          Sign In
+        <Box sx={{ mb: 2 }}>
+          <img src="/CElogo2sm.png" alt="ClauseAtlas logo" style={{ width: 64, height: 'auto' }} />
+        </Box>
+        <Typography variant="h5" component="h1" gutterBottom>
+          Sign in to ClauseAtlas
         </Typography>
+
         {auth.error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
             {auth.error}
           </Alert>
         )}
-        <form onSubmit={handleSubmit}>
+
+        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
           <TextField
             fullWidth
             label="Email"
@@ -77,7 +83,7 @@ const Login: React.FC = () => {
           >
             Sign In
           </Button>
-        </form>
+        </Box>
       </Paper>
     </Box>
   );
