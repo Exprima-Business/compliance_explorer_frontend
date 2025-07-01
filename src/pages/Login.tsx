@@ -23,6 +23,7 @@ const Login: React.FC = () => {
   return (
     <Box
       sx={{
+        width: '100vw',
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
@@ -43,7 +44,7 @@ const Login: React.FC = () => {
         }}
       >
         <Box sx={{ mb: 2 }}>
-          <img src="/CElogo2sm.png" alt="ClauseAtlas logo" style={{ width: 64, height: 'auto' }} />
+          <img src="/ClauseAtlasLogoSM.png" alt="ClauseAtlas logo" style={{ width: 240, height: 'auto' }} />
         </Box>
         <Typography variant="h5" component="h1" gutterBottom>
           Sign in to ClauseAtlas
