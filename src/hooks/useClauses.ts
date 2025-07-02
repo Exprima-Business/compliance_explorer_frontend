@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { clauseService } from '../services/clauseService';
-import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse } from '../types/clause';
+import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
+import type { ApiError } from '../types/api';
 
 export function useClauses() {
   const [clauses, setClauses] = useState<Clause[]>([]);
@@ -19,14 +20,14 @@ export function useClauses() {
         ]);
 
         if (clausesResponse.error) {
-          throw new Error(clausesResponse.error);
+          throw new Error(typeof clausesResponse.error === 'string' ? clausesResponse.error : (clausesResponse.error as ApiError).message);
         }
         if (familiesResponse.error) {
-          throw new Error(familiesResponse.error);
+          throw new Error(typeof familiesResponse.error === 'string' ? familiesResponse.error : (familiesResponse.error as ApiError).message);
         }
 
-        setClauses(clausesResponse.data);
-        setFamilies(familiesResponse.data);
+        if (clausesResponse.data) setClauses(clausesResponse.data);
+        if (familiesResponse.data) setFamilies(familiesResponse.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -42,9 +43,9 @@ export function useClauses() {
       setLoading(true);
       const response = await clauseService.getClausesByFamily(family);
       if (response.error) {
-        throw new Error(response.error);
+        throw new Error(typeof response.error === 'string' ? response.error : response.error.message);
       }
-      setClauses(response.data);
+      if (response.data) setClauses(response.data);
       setSelectedFamily(family);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch clauses by family');
@@ -58,9 +59,9 @@ export function useClauses() {
       setLoading(true);
       const response = await clauseService.searchClauses(query);
       if (response.error) {
-        throw new Error(response.error);
+        throw new Error(typeof response.error === 'string' ? response.error : response.error.message);
       }
-      setClauses(response.data);
+      if (response.data) setClauses(response.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to search clauses');
     } finally {
