@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse } from '../types/clause';
+import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
+import type { ApiResponse, ApiError as ApiErrorObj } from '../types/api';
 import environment from '../config/environment';
 
 // API configuration
@@ -17,6 +18,14 @@ const publicEndpoints = [
 const protectedEndpoints = [
   '/api/documents'
 ];
+
+const ORG_STORAGE_KEY = 'orgId';
+const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
+
+const getCurrentOrgId = (): string => {
+  if (typeof window === 'undefined') return DEFAULT_ORG_ID;
+  return localStorage.getItem(ORG_STORAGE_KEY) || DEFAULT_ORG_ID;
+};
 
 class ApiError extends Error {
   constructor(message: string, public status?: number, public data?: any) {
@@ -95,10 +104,18 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
   const { requireAuth = false, ...fetchOptions } = options;
 
   try {
+    // Retrieve current session token (if any)
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...fetchOptions,
       headers: {
         'Content-Type': 'application/json',
+        'x-org-id': getCurrentOrgId(),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...fetchOptions.headers,
       },
       credentials: 'include',  // Add credentials for CORS
@@ -115,17 +132,23 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.message || `HTTP error! status: ${response.status}`;
+      const errObj: ApiErrorObj =
+        typeof errorData === 'object' && errorData !== null && 'message' in errorData
+          ? {
+              code: (errorData.code as string) || 'UNKNOWN',
+              message: (errorData.message as string) || 'Request failed',
+            }
+          : { code: 'UNKNOWN', message: `HTTP error! status: ${response.status}` };
       
       // Log detailed error information
       console.error('API Error:', {
         endpoint,
         status: response.status,
         statusText: response.statusText,
-        error: errorData
+        error: errObj,
       });
 
-      throw new Error(errorMessage);
+      throw new Error(errObj.message);
     }
 
     const responseData = await response.json();
@@ -138,7 +161,7 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
     // Otherwise, wrap the response in ApiResponse format
     return {
       data: responseData as T,
-      error: null
+      error: null,
     };
   } catch (error) {
     console.error('API call failed:', {
@@ -147,9 +170,14 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
       stack: error instanceof Error ? error.stack : undefined
     });
     
+    const err: ApiErrorObj =
+      error && error instanceof Error
+        ? { code: 'UNKNOWN', message: error.message }
+        : { code: 'UNKNOWN', message: 'An error occurred' };
+
     return {
       data: null as unknown as T,
-      error: error instanceof Error ? error.message : 'An error occurred'
+      error: err,
     };
   }
 };
