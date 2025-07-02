@@ -6,6 +6,7 @@ import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import { clauseService } from '../services/clauseService';
 import type { GraphData, GraphNode, GraphEdge, Clause, ClauseFamily } from '../types/clause';
+import { dlog } from '../utils/debugLog';
 
 const Home: React.FC = () => {
   const { clauses, searchQuery, loading, error } = useClause();
@@ -83,7 +84,7 @@ const Home: React.FC = () => {
   React.useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
       // Only log in development to avoid console noise in prod builds
-      console.log(
+      dlog(
         'GRAPH-DEBUG',
         { nodes: graphData.nodes.length, links: graphData.links.length },
         graphData.links.slice(0, 10)

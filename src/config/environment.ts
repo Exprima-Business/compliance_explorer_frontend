@@ -1,4 +1,5 @@
 import type { Environment } from './types';
+import { dlog } from '../utils/debugLog';
 
 const environment: Environment = {
   supabase: {
@@ -11,7 +12,7 @@ const environment: Environment = {
 };
 
 // Log environment configuration for debugging
-console.log('Environment:', {
+dlog('Environment:', {
   isProd: import.meta.env.PROD,
   apiUrl: environment.api.url,
   supabaseUrl: environment.supabase.url,

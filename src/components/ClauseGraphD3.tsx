@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import * as d3 from 'd3'
 import type { GraphData, GraphNode, GraphEdge } from '../types/clause'
+import { dlog } from '../utils/debugLog'
 
 // Constants
 const NODE_RADIUS = 45
@@ -288,7 +289,7 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     // DEBUG: Log link data before rendering
     // --------------------------------------------------
     if (process.env.NODE_ENV !== 'production') {
-      console.log('D3-LINKS', transformedData.links.length, transformedData.links.slice(0, 10));
+      dlog('D3-LINKS', transformedData.links.length, transformedData.links.slice(0, 10));
     }
 
     // Create links with enhanced styling

@@ -65,6 +65,7 @@ const Login: React.FC = () => {
             onChange={(e) => setEmail(e.target.value)}
             required
             margin="normal"
+            autoComplete="email"
           />
           <TextField
             fullWidth
@@ -74,6 +75,7 @@ const Login: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
             margin="normal"
+            autoComplete="current-password"
           />
           <Button
             type="submit"

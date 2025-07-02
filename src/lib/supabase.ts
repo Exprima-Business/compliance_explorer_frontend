@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import environment from '../config/environment';
+import { dlog } from '../utils/debugLog';
 
 // Enhanced error checking with detailed messages
 if (!environment.supabase.url) {
@@ -12,8 +13,8 @@ if (!environment.supabase.anonKey) {
   throw new Error('Missing Supabase anon key environment variable');
 }
 
-// Log successful initialization (without sensitive data)
-console.log('Supabase client initializing with URL:', environment.supabase.url);
+// Log successful initialization (without sensitive data) in dev mode
+dlog('Supabase client initializing with URL:', environment.supabase.url);
 
 // Create the Supabase client with error handling
 let supabase: SupabaseClient;
@@ -36,7 +37,7 @@ try {
       if (error) {
         console.error('Supabase connection test failed:', error.message);
       } else {
-        console.log('Supabase connection test successful');
+        dlog('Supabase connection test successful');
       }
     }
   );
