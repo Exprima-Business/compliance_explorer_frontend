@@ -13,6 +13,7 @@ import { ClauseProvider } from './contexts/ClauseContext';
 import { BookmarkProvider } from './contexts/BookmarkContext';
 import { OrgProvider } from './contexts/OrgContext';
 import AuthGate from './components/AuthGate';
+import OrgSetupDialog from './components/OrgSetupDialog';
 
 const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
 
@@ -31,6 +32,7 @@ export default function App() {
                   <PreferencesProvider>
                     <ClauseProvider>
                       <BookmarkProvider>
+                        <OrgSetupDialog />
                         <Layout>
                           <Routes>
                             <Route path="/" element={<Home />} />

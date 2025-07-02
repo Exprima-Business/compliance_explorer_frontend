@@ -3,6 +3,7 @@ import { bookmarkService } from '../services/bookmarkService';
 import type { Bookmark } from '../services/bookmarkService';
 import { clauseService } from '../services/clauseService';
 import { supabase } from '../lib/supabase';
+import { useOrg } from './OrgContext';
 
 interface BookmarkContextValue {
   bookmarks: Bookmark[];
@@ -12,23 +13,23 @@ interface BookmarkContextValue {
 
 const BookmarkContext = createContext<BookmarkContextValue | undefined>(undefined);
 
-const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
-
 export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentOrg } = useOrg();
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const list = await bookmarkService.getBookmarks(DEFAULT_ORG_ID);
+      if (!currentOrg) return;
+      const list = await bookmarkService.getBookmarks(currentOrg.id);
       setBookmarks(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error('Failed to load bookmarks', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentOrg]);
 
   useEffect(() => {
     load();
@@ -38,6 +39,8 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Realtime subscription: keep bookmarks in sync
   // ---------------------------------------------
   useEffect(() => {
+    if (!currentOrg) return;
+
     // Subscribe to all row changes for this organisation
     const channel = supabase
       .channel('bookmarks-realtime')
@@ -47,7 +50,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           event: '*',
           schema: 'public',
           table: 'bookmarks',
-          filter: `organizationId=eq.${DEFAULT_ORG_ID}`
+          filter: `organizationId=eq.${currentOrg.id}`
         },
         (payload) => {
           // We receive INSERT, UPDATE, DELETE events.
@@ -78,7 +81,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           supabase.removeChannel(channel).catch(() => {/* ignore */});
         });
     };
-  }, []);
+  }, [currentOrg]);
 
   const toggleBookmark = async (clauseId: string) => {
     try {
@@ -95,7 +98,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (!exists) {
             return [
               ...prev,
-              { id: resp.data!.id, clauseId, organizationId: DEFAULT_ORG_ID, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Bookmark
+              { id: resp.data!.id, clauseId, organizationId: currentOrg!.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Bookmark
             ];
           }
           return prev;
