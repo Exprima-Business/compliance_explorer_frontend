@@ -12,6 +12,7 @@ interface Project {
 interface ProjectContextValue {
   projects: Project[];
   currentProject: Project | null;
+  initialized: boolean;
   setCurrentProject: (p: Project) => void;
   refreshProjects: () => Promise<void>;
   createProject: (name: string, description?: string) => Promise<void>;
@@ -24,6 +25,7 @@ const PROJECT_KEY = 'projectId';
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
   const refreshProjects = useCallback(async () => {
     const resp = await apiCall<Project[]>('/api/projects');
@@ -38,6 +40,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setCurrentProjectState(null);
         localStorage.removeItem(PROJECT_KEY);
       }
+      setInitialized(true);
     }
   }, []);
 
@@ -68,6 +71,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const value: ProjectContextValue = {
     projects,
     currentProject,
+    initialized,
     setCurrentProject,
     refreshProjects,
     createProject,

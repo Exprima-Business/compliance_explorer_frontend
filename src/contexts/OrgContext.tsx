@@ -14,6 +14,7 @@ interface OrgContextValue {
   setCurrentOrg: (org: Organization) => void;
   refreshOrgs: () => Promise<void>;
   createOrg: (name: string) => Promise<void>;
+  initialized: boolean;
 }
 
 const OrgContext = createContext<OrgContextValue | undefined>(undefined);
@@ -23,6 +24,7 @@ const ORG_KEY = 'orgId';
 export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [currentOrg, setCurrentOrgState] = useState<Organization | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
   const refreshOrgs = useCallback(async () => {
     const resp = await apiCall<Organization[]>('/api/organizations');
@@ -40,6 +42,7 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.removeItem(ORG_KEY);
       }
     }
+    setInitialized(true);
   }, []);
 
   useEffect(() => {
@@ -69,7 +72,7 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const value: OrgContextValue = { orgs, currentOrg, setCurrentOrg, refreshOrgs, createOrg };
+  const value: OrgContextValue = { orgs, currentOrg, setCurrentOrg, refreshOrgs, createOrg, initialized };
   return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>;
 };
 

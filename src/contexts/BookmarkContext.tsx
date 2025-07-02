@@ -4,6 +4,7 @@ import type { Bookmark } from '../services/bookmarkService';
 import { clauseService } from '../services/clauseService';
 import { supabase } from '../lib/supabase';
 import { useOrg } from './OrgContext';
+import { useProject } from './ProjectContext';
 
 interface BookmarkContextValue {
   bookmarks: Bookmark[];
@@ -15,13 +16,14 @@ const BookmarkContext = createContext<BookmarkContextValue | undefined>(undefine
 
 export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentOrg } = useOrg();
+  const { currentProject } = useProject();
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      if (!currentOrg) return;
+      if (!currentOrg || !currentProject) return;
       const list = await bookmarkService.getBookmarks(currentOrg.id);
       setBookmarks(Array.isArray(list) ? list : []);
     } catch (err) {
@@ -29,7 +31,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setLoading(false);
     }
-  }, [currentOrg]);
+  }, [currentOrg, currentProject]);
 
   useEffect(() => {
     load();
@@ -84,6 +86,11 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [currentOrg]);
 
   const toggleBookmark = async (clauseId: string) => {
+    if (!currentProject) {
+      console.warn('toggleBookmark called without currentProject');
+      return;
+    }
+
     try {
       const resp = await clauseService.bookmarkClause(clauseId);
       if (resp.error) {

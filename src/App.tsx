@@ -15,6 +15,7 @@ import { OrgProvider } from './contexts/OrgContext';
 import { ProjectProvider } from './contexts/ProjectContext';
 import AuthGate from './components/AuthGate';
 import OrgSetupDialog from './components/OrgSetupDialog';
+import ProjectGate from './components/ProjectGate';
 
 const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
 
@@ -31,22 +32,24 @@ export default function App() {
               <AuthGate>
                 <OrgProvider>
                   <ProjectProvider>
-                    <PreferencesProvider>
-                      <ClauseProvider>
-                        <BookmarkProvider>
-                          <OrgSetupDialog />
-                          <Layout>
-                            <Routes>
-                              <Route path="/" element={<Home />} />
-                              <Route path="/matrix" element={<Matrix />} />
-                              {ENABLE_SCANNER && (
-                                <Route path="/document-scanner" element={<DocumentScanner />} />
-                              )}
-                            </Routes>
-                          </Layout>
-                        </BookmarkProvider>
-                      </ClauseProvider>
-                    </PreferencesProvider>
+                    <ProjectGate>
+                      <PreferencesProvider>
+                        <ClauseProvider>
+                          <BookmarkProvider>
+                            <OrgSetupDialog />
+                            <Layout>
+                              <Routes>
+                                <Route path="/" element={<Home />} />
+                                <Route path="/matrix" element={<Matrix />} />
+                                {ENABLE_SCANNER && (
+                                  <Route path="/document-scanner" element={<DocumentScanner />} />
+                                )}
+                              </Routes>
+                            </Layout>
+                          </BookmarkProvider>
+                        </ClauseProvider>
+                      </PreferencesProvider>
+                    </ProjectGate>
                   </ProjectProvider>
                 </OrgProvider>
               </AuthGate>
