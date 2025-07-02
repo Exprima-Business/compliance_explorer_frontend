@@ -83,7 +83,10 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const toggleBookmark = async (clauseId: string) => {
     try {
       const resp = await clauseService.bookmarkClause(clauseId);
-      if (resp.error) throw new Error(resp.error);
+      if (resp.error) {
+        const msg = typeof resp.error === 'string' ? resp.error : resp.error.message;
+        throw new Error(msg);
+      }
       const isBookmarked = resp.data?.isBookmarked ?? false;
       setBookmarks(prev => {
         const exists = prev.find(b => b.clauseId === clauseId);

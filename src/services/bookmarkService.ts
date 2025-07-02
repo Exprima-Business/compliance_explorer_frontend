@@ -1,5 +1,5 @@
 import { apiCall } from './api';
-import type { ApiResponse } from '../types/clause';
+import type { ApiResponse } from '../types/api';
 
 export interface Bookmark {
   id: string;
@@ -24,7 +24,8 @@ export const bookmarkService = {
     });
 
     if (resp.error) {
-      throw new Error(resp.error);
+      const msg = typeof resp.error === 'string' ? resp.error : resp.error.message;
+      throw new Error(msg);
     }
 
     // The backend often wraps the actual bookmarks array inside a `data` property.

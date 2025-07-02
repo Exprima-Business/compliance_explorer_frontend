@@ -54,19 +54,6 @@ export interface ClauseFamilyGroup {
   clauses: Clause[];
 }
 
-export interface ApiResponse<T> {
-  data: T;
-  error: string | null;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
-
 export interface MatrixRow {
   id: string;
   clauseId: string;

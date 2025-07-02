@@ -1,4 +1,5 @@
-import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse, GraphData } from '../types/clause';
+import type { Clause, ClauseFamily, ClauseFamilyGroup, GraphData } from '../types/clause';
+import type { ApiResponse } from '../types/api';
 import { apiCall } from './api';
 import { dlog } from '../utils/debugLog';
 
@@ -90,7 +91,7 @@ export const clauseService = {
     }
   },
 
-  bookmarkClause: async (clauseId: string): Promise<ApiResponse<{id: string, isBookmarked: boolean}>> => {
+  bookmarkClause: async (clauseId: string): Promise<ApiResponse<{ id: string; isBookmarked: boolean }>> => {
     try {
       const response = await apiCall<any>(`/api/clauses/${clauseId}/bookmark`, {
         method: 'POST'
@@ -110,11 +111,11 @@ export const clauseService = {
         };
       }
 
-      return response as ApiResponse<{id: string, isBookmarked: boolean}>;
+      return response as ApiResponse<{ id: string; isBookmarked: boolean }>;
     } catch (error) {
       console.error('Error bookmarking clause:', error);
       return {
-        data: null as unknown as {id: string, isBookmarked: boolean},
+        data: null as unknown as { id: string; isBookmarked: boolean },
         error: error instanceof Error ? error.message : 'Failed to bookmark clause'
       };
     }
