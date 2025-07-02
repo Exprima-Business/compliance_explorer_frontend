@@ -12,6 +12,7 @@ import { PreferencesProvider } from './contexts/PreferencesContext';
 import { ClauseProvider } from './contexts/ClauseContext';
 import { BookmarkProvider } from './contexts/BookmarkContext';
 import { OrgProvider } from './contexts/OrgContext';
+import { ProjectProvider } from './contexts/ProjectContext';
 import AuthGate from './components/AuthGate';
 import OrgSetupDialog from './components/OrgSetupDialog';
 
@@ -29,22 +30,24 @@ export default function App() {
             element={
               <AuthGate>
                 <OrgProvider>
-                  <PreferencesProvider>
-                    <ClauseProvider>
-                      <BookmarkProvider>
-                        <OrgSetupDialog />
-                        <Layout>
-                          <Routes>
-                            <Route path="/" element={<Home />} />
-                            <Route path="/matrix" element={<Matrix />} />
-                            {ENABLE_SCANNER && (
-                              <Route path="/document-scanner" element={<DocumentScanner />} />
-                            )}
-                          </Routes>
-                        </Layout>
-                      </BookmarkProvider>
-                    </ClauseProvider>
-                  </PreferencesProvider>
+                  <ProjectProvider>
+                    <PreferencesProvider>
+                      <ClauseProvider>
+                        <BookmarkProvider>
+                          <OrgSetupDialog />
+                          <Layout>
+                            <Routes>
+                              <Route path="/" element={<Home />} />
+                              <Route path="/matrix" element={<Matrix />} />
+                              {ENABLE_SCANNER && (
+                                <Route path="/document-scanner" element={<DocumentScanner />} />
+                              )}
+                            </Routes>
+                          </Layout>
+                        </BookmarkProvider>
+                      </ClauseProvider>
+                    </PreferencesProvider>
+                  </ProjectProvider>
                 </OrgProvider>
               </AuthGate>
             }

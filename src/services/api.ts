@@ -20,11 +20,17 @@ const protectedEndpoints = [
 ];
 
 const ORG_STORAGE_KEY = 'orgId';
+const PROJECT_STORAGE_KEY = 'projectId';
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 
 const getCurrentOrgId = (): string => {
   if (typeof window === 'undefined') return DEFAULT_ORG_ID;
   return localStorage.getItem(ORG_STORAGE_KEY) || DEFAULT_ORG_ID;
+};
+
+const getCurrentProjectId = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(PROJECT_STORAGE_KEY) || null;
 };
 
 class ApiError extends Error {
@@ -93,6 +99,11 @@ async function getCommonHeaders(requireAuth: boolean = false): Promise<HeadersIn
     }
   }
 
+  headers['x-org-id'] = getCurrentOrgId();
+  if (getCurrentProjectId()) {
+    headers['x-project-id'] = getCurrentProjectId()!;
+  }
+
   return headers;
 }
 
@@ -116,6 +127,7 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
         'Content-Type': 'application/json',
         'x-org-id': getCurrentOrgId(),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...(getCurrentProjectId() ? { 'x-project-id': getCurrentProjectId()! } : {}),
         ...fetchOptions.headers,
       },
       credentials: 'include',  // Add credentials for CORS

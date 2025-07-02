@@ -28,6 +28,8 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { SignIn } from './SignIn';
 import { useNavigate } from 'react-router-dom';
+import { OrgSelector } from './OrgSelector';
+import ProjectSelector from './ProjectSelector';
 
 interface CustomAppBarProps {
   activeTab: number;
@@ -151,8 +153,10 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               {enableScanner && <Tab label="Document Scanner" />}
             </Tabs>
           </Box>
-          {/* Right: Settings and Auth/User Menu */}
-          <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
+          {/* Right: Org selector, Settings and Auth/User Menu */}
+          <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, gap: 1 }}>
+            <ProjectSelector />
+            <OrgSelector />
             <Tooltip title="Settings">
               <IconButton color="inherit" onClick={onSettingsClick}>
                 <SettingsIcon />
