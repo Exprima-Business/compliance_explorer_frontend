@@ -5,6 +5,7 @@ import { clauseService } from '../services/clauseService';
 import { supabase } from '../lib/supabase';
 import { useOrg } from './OrgContext';
 import { useProject } from './ProjectContext';
+import { dlog } from '../utils/debugLog';
 
 interface BookmarkContextValue {
   bookmarks: Bookmark[];
@@ -52,11 +53,16 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           event: '*',
           schema: 'public',
           table: 'bookmarks',
-          filter: `organizationId=eq.${currentOrg.id} AND projectId=eq.${currentProject.id}`
+          filter: `organizationId=eq.${currentOrg.id}`
         },
         (payload) => {
-          // We receive INSERT, UPDATE, DELETE events.
           const b = payload.new as Bookmark;
+          
+          // Only process changes for the current project
+          if (b.projectId !== currentProject.id) {
+            return;
+          }
+          
           if (payload.eventType === 'INSERT') {
             setBookmarks(prev => {
               // avoid duplicates by checking both id and clauseId
@@ -91,6 +97,12 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.warn('toggleBookmark called without currentProject');
       return;
     }
+
+    dlog('toggleBookmark called:', {
+      clauseId,
+      currentProject: currentProject.id,
+      currentOrg: currentOrg?.id
+    });
 
     try {
       const resp = await clauseService.bookmarkClause(clauseId);
