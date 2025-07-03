@@ -41,7 +41,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Realtime subscription: keep bookmarks in sync
   // ---------------------------------------------
   useEffect(() => {
-    if (!currentOrg) return;
+    if (!currentOrg || !currentProject) return;
 
     // Subscribe to all row changes for this organisation
     const channel = supabase
@@ -52,20 +52,21 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           event: '*',
           schema: 'public',
           table: 'bookmarks',
-          filter: `organizationId=eq.${currentOrg.id}`
+          filter: `organizationId=eq.${currentOrg.id} AND projectId=eq.${currentProject.id}`
         },
         (payload) => {
           // We receive INSERT, UPDATE, DELETE events.
+          const b = payload.new as Bookmark;
           if (payload.eventType === 'INSERT') {
             setBookmarks(prev => {
-              const b = payload.new as Bookmark;
-              // avoid duplicates if we already have it
-              return prev.some(item => item.id === b.id) ? prev : [...prev, b];
+              // avoid duplicates by checking both id and clauseId
+              const exists = prev.some(item => item.id === b.id || item.clauseId === b.clauseId);
+              return exists ? prev : [...prev, b];
             });
           } else if (payload.eventType === 'DELETE') {
-            setBookmarks(prev => prev.filter(b => b.id !== (payload.old as any).id));
+            setBookmarks(prev => prev.filter(item => item.id !== (payload.old as any).id));
           } else if (payload.eventType === 'UPDATE') {
-            setBookmarks(prev => prev.map(b => b.id === (payload.new as any).id ? (payload.new as Bookmark) : b));
+            setBookmarks(prev => prev.map(item => item.id === (payload.new as any).id ? (payload.new as Bookmark) : item));
           }
         }
       )
@@ -83,7 +84,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           supabase.removeChannel(channel).catch(() => {/* ignore */});
         });
     };
-  }, [currentOrg]);
+  }, [currentOrg, currentProject]);
 
   const toggleBookmark = async (clauseId: string) => {
     if (!currentProject) {
@@ -97,23 +98,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const msg = typeof resp.error === 'string' ? resp.error : resp.error.message;
         throw new Error(msg);
       }
-      const isBookmarked = resp.data?.isBookmarked ?? false;
-      setBookmarks(prev => {
-        const exists = prev.find(b => b.clauseId === clauseId);
-        if (isBookmarked) {
-          // add if not exists
-          if (!exists) {
-            return [
-              ...prev,
-              { id: resp.data!.id, clauseId, organizationId: currentOrg!.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Bookmark
-            ];
-          }
-          return prev;
-        } else {
-          // remove
-          return prev.filter(b => b.clauseId !== clauseId);
-        }
-      });
+      // Let realtime subscription handle state updates to avoid conflicts
     } catch (err) {
       console.error('toggle bookmark failed', err);
     }
