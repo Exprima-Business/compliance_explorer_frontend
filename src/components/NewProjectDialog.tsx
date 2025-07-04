@@ -34,6 +34,8 @@ const NewProjectDialog: React.FC<Props> = ({ open, onClose }) => {
         <TextField
           autoFocus
           margin="dense"
+          id="new-project-name"
+          name="new-project-name"
           label="Project name"
           fullWidth
           value={name}
@@ -41,6 +43,8 @@ const NewProjectDialog: React.FC<Props> = ({ open, onClose }) => {
         />
         <TextField
           margin="dense"
+          id="new-project-description"
+          name="new-project-description"
           label="Description (optional)"
           fullWidth
           multiline

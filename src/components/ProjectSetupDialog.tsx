@@ -37,6 +37,8 @@ const ProjectSetupDialog: React.FC = () => {
         <Typography sx={{ mb: 2 }}>Enter a name for your project to get started.</Typography>
         <TextField
           fullWidth
+          id="project-name"
+          name="project-name"
           label="Project name"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -45,6 +47,8 @@ const ProjectSetupDialog: React.FC = () => {
         />
         <TextField
           fullWidth
+          id="project-description"
+          name="project-description"
           label="Description (optional)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}

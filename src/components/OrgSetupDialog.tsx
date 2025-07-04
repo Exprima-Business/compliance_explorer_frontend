@@ -36,6 +36,8 @@ const OrgSetupDialog: React.FC = () => {
         <Typography sx={{ mb: 2 }}>Enter a name for your organisation to get started.</Typography>
         <TextField
           fullWidth
+          id="org-name"
+          name="org-name"
           label="Organisation name"
           value={name}
           onChange={(e) => setName(e.target.value)}

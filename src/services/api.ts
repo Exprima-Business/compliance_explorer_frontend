@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiResponse, ApiError as ApiErrorObj } from '../types/api';
 import environment from '../config/environment';
+import { dlog } from '../utils/debugLog';
 
 // API configuration
 const API_URL = environment.api.url;
@@ -121,15 +122,27 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
     } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-org-id': getCurrentOrgId(),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(getCurrentProjectId() ? { 'x-project-id': getCurrentProjectId()! } : {}),
+      ...fetchOptions.headers,
+    };
+
+    // Debug: log headers for bookmark requests
+    if (endpoint.includes('/bookmark')) {
+      dlog('Bookmark request headers:', {
+        endpoint,
+        'x-org-id': headers['x-org-id'],
+        'x-project-id': headers['x-project-id'],
+        hasAuth: !!headers['Authorization']
+      });
+    }
+
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...fetchOptions,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-org-id': getCurrentOrgId(),
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        ...(getCurrentProjectId() ? { 'x-project-id': getCurrentProjectId()! } : {}),
-        ...fetchOptions.headers,
-      },
+      headers,
       credentials: 'include',  // Add credentials for CORS
     });
 

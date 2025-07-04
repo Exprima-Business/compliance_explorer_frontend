@@ -61,6 +61,8 @@ export const SignIn: React.FC = () => {
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
+            id="signin-email"
+            name="signin-email"
             label="Email"
             type="email"
             value={email}
@@ -72,6 +74,8 @@ export const SignIn: React.FC = () => {
 
           <TextField
             fullWidth
+            id="signin-password"
+            name="signin-password"
             label="Password"
             type="password"
             value={password}

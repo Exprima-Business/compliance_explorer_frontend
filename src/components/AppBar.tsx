@@ -29,6 +29,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { SignIn } from './SignIn';
 import { useNavigate } from 'react-router-dom';
 import ProjectSelector from './ProjectSelector';
+import { useBookmarks } from '../contexts/BookmarkContext';
+import ConnectionStatus from './ConnectionStatus';
 
 interface CustomAppBarProps {
   activeTab: number;
@@ -39,6 +41,7 @@ interface CustomAppBarProps {
 
 export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, onSettingsClick, enableScanner }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const { connectionStatus } = useBookmarks();
   const [loginOpen, setLoginOpen] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
   const [signUpEmail, setSignUpEmail] = useState('');
@@ -152,9 +155,10 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               {enableScanner && <Tab label="Document Scanner" />}
             </Tabs>
           </Box>
-          {/* Right: Org selector, Settings and Auth/User Menu */}
+          {/* Right: Org selector, Connection Status, Settings and Auth/User Menu */}
           <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, gap: 1 }}>
             <ProjectSelector />
+            <ConnectionStatus status={connectionStatus} showLabel={false} size="small" />
             <Tooltip title="Settings">
               <IconButton color="inherit" onClick={onSettingsClick}>
                 <SettingsIcon />
@@ -230,6 +234,8 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               <TextField
                 autoFocus
                 margin="dense"
+                id="signup-email"
+                name="signup-email"
                 label="Email Address"
                 type="email"
                 fullWidth
@@ -239,6 +245,8 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               />
               <TextField
                 margin="dense"
+                id="signup-password"
+                name="signup-password"
                 label="Password"
                 type="password"
                 fullWidth

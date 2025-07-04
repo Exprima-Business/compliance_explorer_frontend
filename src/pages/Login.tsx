@@ -59,6 +59,8 @@ const Login: React.FC = () => {
         <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
           <TextField
             fullWidth
+            id="email"
+            name="email"
             label="Email"
             type="email"
             value={email}
@@ -69,6 +71,8 @@ const Login: React.FC = () => {
           />
           <TextField
             fullWidth
+            id="password"
+            name="password"
             label="Password"
             type="password"
             value={password}

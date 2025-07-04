@@ -71,6 +71,8 @@ export const Sidebar: React.FC = () => {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
         <TextField
           fullWidth
+          id="clause-search"
+          name="clause-search"
           variant="outlined"
           placeholder="Search clauses..."
           value={searchQuery}
