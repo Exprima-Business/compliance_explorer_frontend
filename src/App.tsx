@@ -16,8 +16,10 @@ import { ProjectProvider } from './contexts/ProjectContext';
 import AuthGate from './components/AuthGate';
 import OrgSetupDialog from './components/OrgSetupDialog';
 import ProjectGate from './components/ProjectGate';
+import { URLValidation } from './components/URLValidation';
 
 const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
+const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING === 'true';
 
 export default function App() {
   return (
@@ -26,35 +28,71 @@ export default function App() {
       <Router basename={import.meta.env.PROD ? '/app' : undefined}>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route
-            path="/*"
-            element={
-              <AuthGate>
-                <OrgProvider>
-                  <ProjectProvider>
-                    <ProjectGate>
-                      <PreferencesProvider>
-                        <ClauseProvider>
-                          <BookmarkProvider>
-                            <OrgSetupDialog />
-                            <Layout>
-                              <Routes>
-                                <Route path="/" element={<Home />} />
-                                <Route path="/matrix" element={<Matrix />} />
-                                {ENABLE_SCANNER && (
-                                  <Route path="/document-scanner" element={<DocumentScanner />} />
-                                )}
-                              </Routes>
-                            </Layout>
-                          </BookmarkProvider>
-                        </ClauseProvider>
-                      </PreferencesProvider>
-                    </ProjectGate>
-                  </ProjectProvider>
-                </OrgProvider>
-              </AuthGate>
-            }
-          />
+          {ENABLE_URL_BASED_ROUTING ? (
+            // URL-based routing with organization and project slugs
+            <Route
+              path="/:orgSlug/:projectSlug/*"
+              element={
+                <AuthGate>
+                  <OrgProvider>
+                    <ProjectProvider>
+                      <URLValidation>
+                        <ProjectGate>
+                          <PreferencesProvider>
+                            <ClauseProvider>
+                              <BookmarkProvider>
+                                <OrgSetupDialog />
+                                <Layout>
+                                  <Routes>
+                                    <Route path="/" element={<Home />} />
+                                    <Route path="/matrix" element={<Matrix />} />
+                                    {ENABLE_SCANNER && (
+                                      <Route path="/document-scanner" element={<DocumentScanner />} />
+                                    )}
+                                  </Routes>
+                                </Layout>
+                              </BookmarkProvider>
+                            </ClauseProvider>
+                          </PreferencesProvider>
+                        </ProjectGate>
+                      </URLValidation>
+                    </ProjectProvider>
+                  </OrgProvider>
+                </AuthGate>
+              }
+            />
+          ) : (
+            // Header-based routing (current approach)
+            <Route
+              path="/*"
+              element={
+                <AuthGate>
+                  <OrgProvider>
+                    <ProjectProvider>
+                      <ProjectGate>
+                        <PreferencesProvider>
+                          <ClauseProvider>
+                            <BookmarkProvider>
+                              <OrgSetupDialog />
+                              <Layout>
+                                <Routes>
+                                  <Route path="/" element={<Home />} />
+                                  <Route path="/matrix" element={<Matrix />} />
+                                  {ENABLE_SCANNER && (
+                                    <Route path="/document-scanner" element={<DocumentScanner />} />
+                                  )}
+                                </Routes>
+                              </Layout>
+                            </BookmarkProvider>
+                          </ClauseProvider>
+                        </PreferencesProvider>
+                      </ProjectGate>
+                    </ProjectProvider>
+                  </OrgProvider>
+                </AuthGate>
+              }
+            />
+          )}
         </Routes>
       </Router>
     </ThemeProvider>

@@ -3,33 +3,35 @@ import { Box, CssBaseline } from '@mui/material';
 import { AppBar } from './AppBar';
 import { Sidebar } from './Sidebar';
 import { Settings } from './Settings';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { URLDebugInfo } from './URLDebugInfo';
+import { ApiTestComponent } from './ApiTestComponent';
+import { useURLBasedNavigation } from '../hooks/useURLBasedNavigation';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
+const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING === 'true';
 
 export default function Layout({ children }: LayoutProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { navigateTo, getCurrentPath, isActiveTab } = useURLBasedNavigation();
 
   // Update active tab based on current route
   useEffect(() => {
-    const path = location.pathname;
+    const path = getCurrentPath();
     if (path === '/') setActiveTab(0);
     else if (path === '/matrix') setActiveTab(1);
     else if (ENABLE_SCANNER && path === '/document-scanner') setActiveTab(2);
-  }, [location]);
+  }, [getCurrentPath]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
-    if (newValue === 0) navigate('/');
-    else if (newValue === 1) navigate('/matrix');
-    else if (ENABLE_SCANNER && newValue === 2) navigate('/document-scanner');
+    if (newValue === 0) navigateTo('/');
+    else if (newValue === 1) navigateTo('/matrix');
+    else if (ENABLE_SCANNER && newValue === 2) navigateTo('/document-scanner');
   };
 
   const handleSettingsClick = () => {
@@ -71,6 +73,8 @@ export default function Layout({ children }: LayoutProps) {
           overflow: 'auto'
         }}
       >
+        {ENABLE_URL_BASED_ROUTING && <URLDebugInfo />}
+        {ENABLE_URL_BASED_ROUTING && <ApiTestComponent />}
         {children}
       </Box>
       <Settings 
