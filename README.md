@@ -1,6 +1,14 @@
-# Compliance Explorer Backend
+# Compliance Explorer Frontend
 
-This is the backend service for the Compliance Explorer application, providing API endpoints for document scanning, clause management, and data processing.
+This is the frontend application for the Compliance Explorer, built with React, TypeScript, and Vite. The application provides a modern web interface for document scanning, clause management, and compliance analysis.
+
+## Features
+
+- **URL-based routing** - Supports organization and project slugs in URLs for better navigation and sharing
+- **Document scanning** - Upload and analyze documents for compliance clauses
+- **Clause management** - Browse, search, and organize compliance clauses
+- **Matrix view** - Visual representation of clause relationships
+- **Real-time updates** - Live progress tracking for document scanning
 
 ## Setup
 
@@ -9,36 +17,33 @@ This is the backend service for the Compliance Explorer application, providing A
 npm install
 ```
 
-2. Create a `.env` file with the following variables:
-```
-PORT=3001
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_KEY=your_supabase_service_key
-```
+2. Environment variables are managed in Vercel console and shared with Railway and Supabase:
+- `VITE_ENABLE_URL_BASED_ROUTING` - Enable URL-based routing with org/project slugs
+- `VITE_API_URL` - Backend API URL
+- `VITE_SUPABASE_URL` - Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` - Supabase anonymous key
 
 3. Start the development server:
 ```bash
 npm run dev
 ```
 
-## API Endpoints
-
-### Document Scanning
-- `POST /api/scan/document` - Upload and scan a document
-- `GET /api/scan/progress/:id` - Get scan progress
-
-### Clauses
-- `GET /api/clauses` - Get all clauses
-- `GET /api/clauses/:id` - Get a specific clause
-- `GET /api/clauses/families` - Get clause families
-
 ## Development
 
-- The server runs on port 3001 by default
-- TypeScript is used for type safety
-- Express.js is used as the web framework
-- Supabase is used for database and authentication
+- Built with React 18 and TypeScript
+- Uses Vite for fast development and building
+- Material-UI for components and theming
+- React Router for navigation
+- Supabase for authentication and data storage
 
 ## Deployment
 
-The backend is deployed on Vercel as serverless functions. The API routes are automatically configured based on the file structure in the `src/routes` directory.
+The frontend is deployed on Vercel with automatic deployments from the main branch. The application supports both URL-based routing (with org/project slugs) and traditional header-based routing for backward compatibility.
+
+## URL Structure
+
+When URL-based routing is enabled:
+- `/app/login` - Authentication page
+- `/app/org-slug/project-slug/` - Main application
+- `/app/org-slug/project-slug/matrix` - Matrix view
+- `/app/org-slug/project-slug/document-scanner` - Document scanner (if enabled)
