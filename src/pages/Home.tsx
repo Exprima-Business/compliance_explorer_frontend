@@ -90,11 +90,9 @@ const Home: React.FC = () => {
     }));
 
     // Filter links to only include those where both source and target nodes exist
-    const nodeIds = new Set(nodes.map(n => n.id));
-    const validLinks: GraphEdge[] = remoteLinks.filter(link => {
-      const sourceId = typeof link.source === 'string' ? link.source : link.source?.id;
-      const targetId = typeof link.target === 'string' ? link.target : link.target?.id;
-      return sourceId && targetId && nodeIds.has(sourceId) && nodeIds.has(targetId);
+    const nodeIds = new Set<string>(nodes.map((n: GraphNode) => n.id));
+    const validLinks: GraphEdge[] = remoteLinks.filter((link: GraphEdge) => {
+      return link.source && link.target && nodeIds.has(link.source) && nodeIds.has(link.target);
     });
 
     return { nodes, links: validLinks };
