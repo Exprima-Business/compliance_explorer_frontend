@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { useOrg } from '../contexts/OrgContext';
-import { useProject } from '../contexts/ProjectContext';
+import { useOrg, type Organization } from '../contexts/OrgContext';
+import { useProject, type Project } from '../contexts/ProjectContext';
 import { urlBasedApiCall } from '../services/urlBasedApi';
 import type { ApiResponse } from '../types/api';
 

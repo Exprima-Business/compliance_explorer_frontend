@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useOrg } from '../contexts/OrgContext';
-import { useProject } from '../contexts/ProjectContext';
+import { useOrg, type Organization } from '../contexts/OrgContext';
+import { useProject, type Project } from '../contexts/ProjectContext';
 
 const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING === 'true';
 const IS_PRODUCTION = import.meta.env.PROD;

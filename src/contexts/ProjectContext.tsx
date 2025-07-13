@@ -3,7 +3,7 @@ import { apiCall } from '../services/api';
 import { useOrg } from './OrgContext';
 import { dlog } from '../utils/debugLog';
 
-interface Project {
+export interface Project {
   id: string;
   name: string;
   slug: string;

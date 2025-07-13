@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { apiCall } from '../services/api';
 import { dlog } from '../utils/debugLog';
 
-interface Organization {
+export interface Organization {
   id: string;
   name: string;
   slug: string;
