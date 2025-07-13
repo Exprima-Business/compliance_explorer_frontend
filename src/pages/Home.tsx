@@ -4,6 +4,7 @@ import { ClauseGraphD3 as ClauseGraph } from '../components/ClauseGraphD3';
 import { FloatingPanel } from '../components/FloatingPanel';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
+import { useAuth } from '../hooks/useAuth';
 import { clauseService } from '../services/clauseService';
 import type { GraphData, GraphNode, GraphEdge, Clause, ClauseFamily } from '../types/clause';
 import { dlog } from '../utils/debugLog';
@@ -11,6 +12,7 @@ import { dlog } from '../utils/debugLog';
 const Home: React.FC = () => {
   const { clauses, searchQuery, loading, error } = useClause();
   const { bookmarks, toggleBookmark } = useBookmarks();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [snackbar, setSnackbar] = React.useState<{
     open: boolean;
     message: string;
@@ -37,26 +39,42 @@ const Home: React.FC = () => {
   const bookmarkedSet = React.useMemo(() => new Set(bookmarks.map(b=>b.clauseId)), [bookmarks]);
 
   // ------------------------------------------------------------------
-  // Fetch relationship links once (or whenever bookmarks / clauses change)
+  // Fetch relationship links with authentication check
   // ------------------------------------------------------------------
   const [remoteLinks, setRemoteLinks] = React.useState<GraphEdge[]>([]);
+  const [linksLoading, setLinksLoading] = React.useState(true);
 
   React.useEffect(() => {
+    if (!isAuthenticated || authLoading) {
+      setLinksLoading(false);
+      return;
+    }
+
+    setLinksLoading(true);
     (async () => {
       try {
         const resp = await clauseService.getGraphData();
         if (!resp.error && resp.data && Array.isArray(resp.data.links)) {
           setRemoteLinks(resp.data.links);
+          dlog('Graph links loaded successfully', { count: resp.data.links.length });
         } else {
           console.warn('graphData fetch error', resp.error);
+          setRemoteLinks([]);
         }
       } catch (err) {
         console.error('Failed to fetch graph links', err);
+        setRemoteLinks([]);
+      } finally {
+        setLinksLoading(false);
       }
     })();
-  }, []); // call once at mount
+  }, [isAuthenticated, authLoading]); // Re-fetch when auth state changes
 
   const graphData: GraphData = React.useMemo(() => {
+    if (!isAuthenticated || linksLoading) {
+      return { nodes: [], links: [] };
+    }
+
     // Build nodes from currently filtered clauses
     const nodes: GraphNode[] = filtered.map((clause: Clause) => ({
       id: clause.id || '',
@@ -71,26 +89,34 @@ const Home: React.FC = () => {
       color: bookmarkedSet.has(clause.id) ? '#FFD700' : undefined
     }));
 
-    // Links already reference clause UUIDs; D3 will ignore any link whose
-    // endpoints are missing from the node set, so we can forward them as-is.
-    const links: GraphEdge[] = remoteLinks;
+    // Filter links to only include those where both source and target nodes exist
+    const nodeIds = new Set(nodes.map(n => n.id));
+    const validLinks: GraphEdge[] = remoteLinks.filter(link => {
+      const sourceId = typeof link.source === 'string' ? link.source : link.source?.id;
+      const targetId = typeof link.target === 'string' ? link.target : link.target?.id;
+      return sourceId && targetId && nodeIds.has(sourceId) && nodeIds.has(targetId);
+    });
 
-    return { nodes, links };
-  }, [filtered, bookmarkedSet, remoteLinks]);
+    return { nodes, links: validLinks };
+  }, [filtered, bookmarkedSet, remoteLinks, isAuthenticated, linksLoading]);
 
   // ------------------------------------------------------------------
   // DEBUG: Log the graph data size and a sample of the links
   // ------------------------------------------------------------------
   React.useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
-      // Only log in development to avoid console noise in prod builds
       dlog(
         'GRAPH-DEBUG',
-        { nodes: graphData.nodes.length, links: graphData.links.length },
-        graphData.links.slice(0, 10)
+        { 
+          nodes: graphData.nodes.length, 
+          links: graphData.links.length,
+          authenticated: isAuthenticated,
+          linksLoading
+        },
+        graphData.links.slice(0, 5)
       );
     }
-  }, [graphData]);
+  }, [graphData, isAuthenticated, linksLoading]);
 
   const handleNodeClick = (node: GraphNode) => {
     const clause = clauses.find(c => c.id === node.id);

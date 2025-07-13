@@ -70,6 +70,11 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     data: null
   })
 
+  // Force re-render when graph data changes significantly
+  const graphKey = useMemo(() => {
+    return `${graphData.nodes.length}-${graphData.links.length}-${JSON.stringify(graphData.nodes.map(n => n.id).sort())}`
+  }, [graphData])
+
   // Resize observer for container
   useEffect(() => {
     const el = containerRef.current
@@ -532,7 +537,11 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
   }, [hoverNode, relatedNodeIds])
 
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div 
+      ref={containerRef} 
+      key={graphKey}
+      style={{ width: '100%', height: '100%', position: 'relative' }}
+    >
       <svg
         ref={svgRef}
         width={dimensions.width}
