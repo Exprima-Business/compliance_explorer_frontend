@@ -145,7 +145,7 @@ const Home: React.FC = () => {
   };
 
   // Show loading state while auth is loading or graph data is loading
-  if (loading || authLoading || linksLoading) {
+  if (authLoading || linksLoading) {
     dlog('Home: Showing loading state', { loading, authLoading, linksLoading });
     return (
       <Box sx={{ 
@@ -190,13 +190,35 @@ const Home: React.FC = () => {
     );
   }
 
+  // Show loading only for initial clause loading, not for graph data
+  if (loading && clauses.length === 0) {
+    dlog('Home: Showing initial loading state', { loading, clausesLength: clauses.length });
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: 'calc(100vh - 64px)',
+        gap: 2
+      }}>
+        <CircularProgress size={60} />
+        <Typography variant="h6" color="text.secondary">
+          Loading clauses...
+        </Typography>
+      </Box>
+    );
+  }
+
   dlog('Home: Rendering graph', { 
     nodes: graphData.nodes.length, 
     links: graphData.links.length,
     authStable,
     isAuthenticated,
     authLoading,
-    linksLoading
+    linksLoading,
+    loading,
+    clausesLength: clauses.length
   });
 
   return (
