@@ -25,6 +25,11 @@ const Home: React.FC = () => {
 
   const [activeClause, setActiveClause] = React.useState<Clause | null>(null);
 
+  // Auth state stabilization - only proceed when auth is fully loaded
+  const authStable = React.useMemo(() => {
+    return !authLoading && isAuthenticated;
+  }, [authLoading, isAuthenticated]);
+
   const searchLower = searchQuery.toLowerCase();
 
   const filtered = clauses.filter((clause): clause is Clause => {
@@ -39,13 +44,13 @@ const Home: React.FC = () => {
   const bookmarkedSet = React.useMemo(() => new Set(bookmarks.map(b=>b.clauseId)), [bookmarks]);
 
   // ------------------------------------------------------------------
-  // Fetch relationship links with authentication check
+  // Fetch relationship links with stable authentication check
   // ------------------------------------------------------------------
   const [remoteLinks, setRemoteLinks] = React.useState<GraphEdge[]>([]);
   const [linksLoading, setLinksLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!isAuthenticated || authLoading) {
+    if (!authStable) {
       setLinksLoading(false);
       return;
     }
@@ -68,10 +73,10 @@ const Home: React.FC = () => {
         setLinksLoading(false);
       }
     })();
-  }, [isAuthenticated, authLoading]); // Re-fetch when auth state changes
+  }, [authStable]); // Only re-fetch when auth is stable
 
   const graphData: GraphData = React.useMemo(() => {
-    if (!isAuthenticated || linksLoading) {
+    if (!authStable || linksLoading) {
       return { nodes: [], links: [] };
     }
 
@@ -96,7 +101,7 @@ const Home: React.FC = () => {
     });
 
     return { nodes, links: validLinks };
-  }, [filtered, bookmarkedSet, remoteLinks, isAuthenticated, linksLoading]);
+  }, [filtered, bookmarkedSet, remoteLinks, authStable, linksLoading]);
 
   // ------------------------------------------------------------------
   // DEBUG: Log the graph data size and a sample of the links
@@ -109,12 +114,14 @@ const Home: React.FC = () => {
           nodes: graphData.nodes.length, 
           links: graphData.links.length,
           authenticated: isAuthenticated,
+          authLoading,
+          authStable,
           linksLoading
         },
         graphData.links.slice(0, 5)
       );
     }
-  }, [graphData, isAuthenticated, linksLoading]);
+  }, [graphData, isAuthenticated, authLoading, authStable, linksLoading]);
 
   const handleNodeClick = (node: GraphNode) => {
     const clause = clauses.find(c => c.id === node.id);
@@ -123,10 +130,21 @@ const Home: React.FC = () => {
     }
   };
 
-  if (loading) {
+  // Show loading state while auth is loading or graph data is loading
+  if (loading || authLoading || linksLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: 'calc(100vh - 64px)',
+        gap: 2
+      }}>
+        <CircularProgress size={60} />
+        <Typography variant="h6" color="text.secondary">
+          {authLoading ? 'Initializing...' : linksLoading ? 'Loading graph data...' : 'Loading...'}
+        </Typography>
       </Box>
     );
   }
@@ -135,6 +153,22 @@ const Home: React.FC = () => {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
+  // Show empty state if not authenticated
+  if (!authStable) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: 'calc(100vh - 64px)' 
+      }}>
+        <Typography variant="h6" color="text.secondary">
+          Please log in to view the graph
+        </Typography>
       </Box>
     );
   }
