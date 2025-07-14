@@ -139,6 +139,18 @@ const Home: React.FC = () => {
       return { nodes: [], links: [] };
     }
 
+    // Don't create graph data if we have no clauses (nodes)
+    if (filtered.length === 0) {
+      dlog('Home: No clauses available for graph data', { filteredLength: filtered.length });
+      return { nodes: [], links: [] };
+    }
+
+    // Don't create graph data if we have no links
+    if (effectiveLinks.length === 0) {
+      dlog('Home: No links available for graph data', { effectiveLinksLength: effectiveLinks.length });
+      return { nodes: [], links: [] };
+    }
+
     // Build nodes from currently filtered clauses
     const nodes: GraphNode[] = filtered.map((clause: Clause) => ({
       id: clause.id || '',
@@ -153,8 +165,23 @@ const Home: React.FC = () => {
       color: bookmarkedSet.has(clause.id) ? '#FFD700' : undefined
     }));
 
-    // Filter links to only include those where both source and target nodes exist
+    // Debug: Log sample node IDs and link IDs to identify mismatch
     const nodeIds = new Set<string>(nodes.map((n: GraphNode) => n.id));
+    const sampleNodeIds = Array.from(nodeIds).slice(0, 3);
+    const sampleLinkIds = effectiveLinks.slice(0, 3).map(link => ({
+      source: link.source,
+      target: link.target
+    }));
+    
+    dlog('Home: ID format analysis', {
+      nodeIdsCount: nodeIds.size,
+      sampleNodeIds,
+      sampleLinkIds,
+      nodeIdType: typeof sampleNodeIds[0],
+      linkSourceType: typeof sampleLinkIds[0]?.source
+    });
+
+    // Filter links to only include those where both source and target nodes exist
     const validLinks: GraphEdge[] = effectiveLinks.filter((link: GraphEdge) => {
       const isValid = link.source && link.target && nodeIds.has(link.source) && nodeIds.has(link.target);
       if (!isValid) {
@@ -164,6 +191,8 @@ const Home: React.FC = () => {
           hasTarget: !!link.target,
           sourceInNodes: nodeIds.has(link.source),
           targetInNodes: nodeIds.has(link.target),
+          sourceType: typeof link.source,
+          targetType: typeof link.target,
           nodeIds: Array.from(nodeIds)
         });
       }

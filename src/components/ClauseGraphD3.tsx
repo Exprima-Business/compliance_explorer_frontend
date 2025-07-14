@@ -82,20 +82,16 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
 
   // Force re-render when graph data changes significantly
   const graphKey = useMemo(() => {
-    // TEMPORARY: Use stable key to test remounting theory
+    // Use stable key to prevent component remounting
     const stableKey = 'stable-graph-key';
-    const unstableKey = `${graphData.nodes.length}-${graphData.links.length}-${JSON.stringify(graphData.nodes.map(n => n.id).sort())}`;
     
     dlog('ClauseGraphD3: graphKey generated', {
       stableKey,
-      unstableKey,
       nodesLength: graphData.nodes.length,
       linksLength: graphData.links.length,
-      nodeIds: graphData.nodes.map(n => n.id).sort(),
       timestamp: Date.now()
     });
     
-    // Use stable key for now to test theory
     return stableKey;
   }, [graphData]);
 
