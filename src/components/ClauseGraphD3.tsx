@@ -70,6 +70,16 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     data: null
   })
 
+  // Debug logging for graph data
+  useEffect(() => {
+    dlog('ClauseGraphD3: Received graph data', {
+      nodes: graphData.nodes.length,
+      links: graphData.links.length,
+      hasSvgRef: !!svgRef.current,
+      hasContainerRef: !!containerRef.current
+    });
+  }, [graphData]);
+
   // Force re-render when graph data changes significantly
   const graphKey = useMemo(() => {
     return `${graphData.nodes.length}-${graphData.links.length}-${JSON.stringify(graphData.nodes.map(n => n.id).sort())}`

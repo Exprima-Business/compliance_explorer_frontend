@@ -132,6 +132,7 @@ const Home: React.FC = () => {
 
   // Show loading state while auth is loading or graph data is loading
   if (loading || authLoading || linksLoading) {
+    dlog('Home: Showing loading state', { loading, authLoading, linksLoading });
     return (
       <Box sx={{ 
         display: 'flex', 
@@ -150,6 +151,7 @@ const Home: React.FC = () => {
   }
 
   if (error) {
+    dlog('Home: Showing error state', { error });
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error}</Alert>
@@ -159,6 +161,7 @@ const Home: React.FC = () => {
 
   // Show empty state if not authenticated
   if (!authStable) {
+    dlog('Home: Showing not authenticated state', { authStable, isAuthenticated, authLoading });
     return (
       <Box sx={{ 
         display: 'flex', 
@@ -172,6 +175,15 @@ const Home: React.FC = () => {
       </Box>
     );
   }
+
+  dlog('Home: Rendering graph', { 
+    nodes: graphData.nodes.length, 
+    links: graphData.links.length,
+    authStable,
+    isAuthenticated,
+    authLoading,
+    linksLoading
+  });
 
   return (
     <Box sx={{ height: 'calc(100vh - 64px)', position: 'relative' }}>
