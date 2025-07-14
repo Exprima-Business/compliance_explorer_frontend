@@ -14,11 +14,12 @@ const Home: React.FC = () => {
   const { bookmarks, toggleBookmark } = useBookmarks();
   const { isAuthenticated, loading: authLoading } = useAuth();
   
-  // Track render count
+  // Track render count for debugging
   const renderCountRef = React.useRef(0);
   renderCountRef.current += 1;
   
-  dlog('Home: Component render', {
+  dlog('Home: Component render count', {
+    component: 'Home',
     renderCount: renderCountRef.current,
     timestamp: Date.now(),
     clausesLength: clauses.length,
@@ -133,6 +134,17 @@ const Home: React.FC = () => {
     }
   }, [authStable]);
 
+  // Debug: Track component re-render triggers
+  React.useEffect(() => {
+    dlog('Home: Component re-render triggered', {
+      filteredLength: filtered.length,
+      effectiveLinksLength: effectiveLinks.length,
+      authStable,
+      linksLoading,
+      stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
+    });
+  }, [filtered, effectiveLinks, authStable, linksLoading]);
+
   const graphData: GraphData = React.useMemo(() => {
     if (!authStable || linksLoading) {
       dlog('Home: Returning empty graph data', { authStable, linksLoading });
@@ -183,14 +195,21 @@ const Home: React.FC = () => {
 
     // Filter links to only include those where both source and target nodes exist
     const validLinks: GraphEdge[] = effectiveLinks.filter((link: GraphEdge) => {
-      const isValid = link.source && link.target && nodeIds.has(link.source) && nodeIds.has(link.target);
+      // Handle D3.js object transformation - source/target can be objects or strings
+      const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
+      const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
+      
+      const isValid = sourceId && targetId && nodeIds.has(sourceId) && nodeIds.has(targetId);
+      
       if (!isValid) {
         dlog('Home: Filtering out invalid link', {
           link,
-          hasSource: !!link.source,
-          hasTarget: !!link.target,
-          sourceInNodes: nodeIds.has(link.source),
-          targetInNodes: nodeIds.has(link.target),
+          sourceId,
+          targetId,
+          hasSource: !!sourceId,
+          hasTarget: !!targetId,
+          sourceInNodes: nodeIds.has(sourceId),
+          targetInNodes: nodeIds.has(targetId),
           sourceType: typeof link.source,
           targetType: typeof link.target,
           nodeIds: Array.from(nodeIds)

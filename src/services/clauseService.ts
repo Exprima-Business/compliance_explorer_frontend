@@ -23,19 +23,32 @@ export const clauseService = {
 
   getGraphData: async (): Promise<ApiResponse<GraphData>> => {
     try {
+      const requestId = Math.random().toString(36).substr(2, 9);
+      const startTime = Date.now();
+      
       dlog('[API] getGraphData called', {
-        timestamp: Date.now(),
+        timestamp: startTime,
+        requestId,
         stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
       });
       
       const response = await apiCall<GraphData>('/api/clauses/graph');
       
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      
       dlog('[API] getGraphData response', {
+        requestId,
+        duration,
         hasError: !!response.error,
         hasData: !!response.data,
         nodesLength: response.data?.nodes?.length || 0,
         linksLength: response.data?.links?.length || 0,
-        timestamp: Date.now()
+        timestamp: endTime,
+        responseType: typeof response,
+        dataType: typeof response.data,
+        linksType: typeof response.data?.links,
+        sampleLinks: response.data?.links?.slice(0, 3) || []
       });
       
       return response;

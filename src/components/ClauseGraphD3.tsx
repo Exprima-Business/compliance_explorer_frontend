@@ -80,6 +80,16 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     });
   }, [graphData]);
 
+  // Track render count for debugging
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+
+  dlog('ClauseGraphD3: Component render count', {
+    component: 'D3',
+    renderCount: renderCountRef.current,
+    timestamp: Date.now()
+  });
+
   // Force re-render when graph data changes significantly
   const graphKey = useMemo(() => {
     // Use stable key to prevent component remounting
@@ -152,6 +162,17 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     
     return { nodes: Array.from(nodeMap.values()), links }
   }, [graphData])
+
+  // Debug: Track component re-render triggers
+  useEffect(() => {
+    dlog('D3: Component re-render triggered', {
+      graphDataNodesLength: graphData.nodes.length,
+      graphDataLinksLength: graphData.links.length,
+      transformedDataNodesLength: transformedData.nodes.length,
+      transformedDataLinksLength: transformedData.links.length,
+      stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
+    });
+  }, [graphData, transformedData]);
 
   // Color function
   const getNodeColor = (node: GraphNode): string => {
@@ -340,6 +361,29 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     // Store simulation reference
     simulationRef.current = simulation
 
+    // Debug: Log links before and after force simulation setup
+    dlog('D3: Links before force simulation', {
+      sampleLinks: transformedData.links.slice(0, 3),
+      linkTypes: transformedData.links.slice(0, 3).map(l => ({
+        sourceType: typeof l.source,
+        targetType: typeof l.target,
+        source: l.source,
+        target: l.target
+      }))
+    });
+
+    // Debug: Log force link setup
+    const forceLink = d3.forceLink<D3Node, GraphEdge>(transformedData.links)
+      .id((d: D3Node) => d.id)
+      .distance(60);
+
+    dlog('D3: Force link setup', {
+      originalLinksLength: transformedData.links.length,
+      forceLinkLinksLength: forceLink.links()?.length || 0,
+      sampleOriginalLinks: transformedData.links.slice(0, 3),
+      sampleForceLinks: forceLink.links()?.slice(0, 3) || []
+    });
+
     // --------------------------------------------------
     // DEBUG: Log link data before rendering
     // --------------------------------------------------
@@ -505,6 +549,18 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
 
     // Update positions on simulation tick
     simulation.on('tick', () => {
+      // Debug: Log link mutation check during simulation
+      dlog('D3: Simulation tick - link mutation check', {
+        sampleLinks: transformedData.links.slice(0, 3).map(l => ({
+          sourceType: typeof l.source,
+          targetType: typeof l.target,
+          sourceHasId: l.source && typeof l.source === 'object' && 'id' in l.source,
+          targetHasId: l.target && typeof l.target === 'object' && 'id' in l.target,
+          sourceId: typeof l.source === 'object' ? (l.source as any).id : l.source,
+          targetId: typeof l.target === 'object' ? (l.target as any).id : l.target
+        }))
+      });
+
       links
         .attr('x1', (d: any) => d.source.x)
         .attr('y1', (d: any) => d.source.y)
