@@ -13,6 +13,19 @@ const Home: React.FC = () => {
   const { clauses, searchQuery, loading, error } = useClause();
   const { bookmarks, toggleBookmark } = useBookmarks();
   const { isAuthenticated, loading: authLoading } = useAuth();
+  
+  // Track render count
+  const renderCountRef = React.useRef(0);
+  renderCountRef.current += 1;
+  
+  dlog('Home: Component render', {
+    renderCount: renderCountRef.current,
+    timestamp: Date.now(),
+    clausesLength: clauses.length,
+    isAuthenticated,
+    authLoading
+  });
+
   const [snackbar, setSnackbar] = React.useState<{
     open: boolean;
     message: string;
@@ -49,6 +62,18 @@ const Home: React.FC = () => {
   const [remoteLinks, setRemoteLinks] = React.useState<GraphEdge[]>([]);
   const [linksLoading, setLinksLoading] = React.useState(true);
   const hasFetchedRef = React.useRef(false);
+  const persistedLinksRef = React.useRef<GraphEdge[]>([]);
+
+  // Persist links in ref to prevent loss during re-renders
+  React.useEffect(() => {
+    if (remoteLinks.length > 0) {
+      persistedLinksRef.current = remoteLinks;
+      dlog('Home: Links persisted to ref', { count: remoteLinks.length });
+    }
+  }, [remoteLinks]);
+
+  // Use persisted links if current links are empty but we have persisted data
+  const effectiveLinks = remoteLinks.length > 0 ? remoteLinks : persistedLinksRef.current;
 
   React.useEffect(() => {
     if (!authStable) {
@@ -58,17 +83,27 @@ const Home: React.FC = () => {
 
     // Only fetch once when auth becomes stable
     if (hasFetchedRef.current) {
+      dlog('Home: Skipping graph links fetch - already fetched', { hasFetched: hasFetchedRef.current });
       return;
     }
 
     hasFetchedRef.current = true;
     setLinksLoading(true);
+    dlog('Home: Starting graph links fetch', { authStable, hasFetched: hasFetchedRef.current });
+    
     (async () => {
       try {
         const resp = await clauseService.getGraphData();
+        dlog('Home: Graph links API response received', {
+          hasError: !!resp.error,
+          hasData: !!resp.data,
+          linksLength: resp.data?.links?.length || 0,
+          sampleLinks: resp.data?.links?.slice(0, 3) || []
+        });
+        
         if (!resp.error && resp.data && Array.isArray(resp.data.links)) {
           setRemoteLinks(resp.data.links);
-          dlog('Graph links loaded successfully', { count: resp.data.links.length });
+          dlog('Home: Graph links loaded successfully', { count: resp.data.links.length });
         } else {
           console.warn('graphData fetch error', resp.error);
           setRemoteLinks([]);
@@ -82,6 +117,15 @@ const Home: React.FC = () => {
     })();
   }, [authStable]); // Only re-fetch when auth is stable
 
+  // Debug remoteLinks state changes
+  React.useEffect(() => {
+    dlog('Home: remoteLinks state changed', {
+      linksLength: remoteLinks.length,
+      sampleLinks: remoteLinks.slice(0, 3),
+      timestamp: Date.now()
+    });
+  }, [remoteLinks]);
+
   // Reset fetch flag when auth becomes unstable
   React.useEffect(() => {
     if (!authStable) {
@@ -91,6 +135,7 @@ const Home: React.FC = () => {
 
   const graphData: GraphData = React.useMemo(() => {
     if (!authStable || linksLoading) {
+      dlog('Home: Returning empty graph data', { authStable, linksLoading });
       return { nodes: [], links: [] };
     }
 
@@ -110,12 +155,32 @@ const Home: React.FC = () => {
 
     // Filter links to only include those where both source and target nodes exist
     const nodeIds = new Set<string>(nodes.map((n: GraphNode) => n.id));
-    const validLinks: GraphEdge[] = remoteLinks.filter((link: GraphEdge) => {
-      return link.source && link.target && nodeIds.has(link.source) && nodeIds.has(link.target);
+    const validLinks: GraphEdge[] = effectiveLinks.filter((link: GraphEdge) => {
+      const isValid = link.source && link.target && nodeIds.has(link.source) && nodeIds.has(link.target);
+      if (!isValid) {
+        dlog('Home: Filtering out invalid link', {
+          link,
+          hasSource: !!link.source,
+          hasTarget: !!link.target,
+          sourceInNodes: nodeIds.has(link.source),
+          targetInNodes: nodeIds.has(link.target),
+          nodeIds: Array.from(nodeIds)
+        });
+      }
+      return isValid;
+    });
+
+    dlog('Home: Graph data created', {
+      nodesLength: nodes.length,
+      remoteLinksLength: effectiveLinks.length,
+      validLinksLength: validLinks.length,
+      filteredOut: effectiveLinks.length - validLinks.length,
+      nodeIds: Array.from(nodeIds),
+      sampleLinks: effectiveLinks.slice(0, 3)
     });
 
     return { nodes, links: validLinks };
-  }, [filtered, bookmarkedSet, remoteLinks, authStable, linksLoading]);
+  }, [filtered, bookmarkedSet, effectiveLinks, authStable, linksLoading]);
 
   // ------------------------------------------------------------------
   // DEBUG: Log the graph data size and a sample of the links

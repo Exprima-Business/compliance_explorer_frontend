@@ -82,8 +82,41 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
 
   // Force re-render when graph data changes significantly
   const graphKey = useMemo(() => {
-    return `${graphData.nodes.length}-${graphData.links.length}-${JSON.stringify(graphData.nodes.map(n => n.id).sort())}`
-  }, [graphData])
+    // TEMPORARY: Use stable key to test remounting theory
+    const stableKey = 'stable-graph-key';
+    const unstableKey = `${graphData.nodes.length}-${graphData.links.length}-${JSON.stringify(graphData.nodes.map(n => n.id).sort())}`;
+    
+    dlog('ClauseGraphD3: graphKey generated', {
+      stableKey,
+      unstableKey,
+      nodesLength: graphData.nodes.length,
+      linksLength: graphData.links.length,
+      nodeIds: graphData.nodes.map(n => n.id).sort(),
+      timestamp: Date.now()
+    });
+    
+    // Use stable key for now to test theory
+    return stableKey;
+  }, [graphData]);
+
+  // Debug component lifecycle
+  useEffect(() => {
+    dlog('ClauseGraphD3: Component mounted/remounted', {
+      graphKey,
+      nodesLength: graphData.nodes.length,
+      linksLength: graphData.links.length,
+      timestamp: Date.now()
+    });
+
+    return () => {
+      dlog('ClauseGraphD3: Component unmounting', {
+        graphKey,
+        nodesLength: graphData.nodes.length,
+        linksLength: graphData.links.length,
+        timestamp: Date.now()
+      });
+    };
+  }, [graphKey, graphData.nodes.length, graphData.links.length]);
 
   // Resize observer for container
   useEffect(() => {
@@ -110,6 +143,17 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
       if (!nodeMap.has(n.id)) nodeMap.set(n.id, { ...n } as D3Node)
     })
     const links: GraphEdge[] = graphData.links ?? [];
+    
+    dlog('ClauseGraphD3: Data transformation', {
+      inputNodes: graphData.nodes.length,
+      inputLinks: graphData.links?.length || 0,
+      outputNodes: Array.from(nodeMap.values()).length,
+      outputLinks: links.length,
+      hasGraphDataLinks: !!graphData.links,
+      graphDataLinksType: typeof graphData.links,
+      sampleLinks: links.slice(0, 3)
+    });
+    
     return { nodes: Array.from(nodeMap.values()), links }
   }, [graphData])
 

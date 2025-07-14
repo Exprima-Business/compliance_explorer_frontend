@@ -23,7 +23,21 @@ export const clauseService = {
 
   getGraphData: async (): Promise<ApiResponse<GraphData>> => {
     try {
+      dlog('[API] getGraphData called', {
+        timestamp: Date.now(),
+        stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
+      });
+      
       const response = await apiCall<GraphData>('/api/clauses/graph');
+      
+      dlog('[API] getGraphData response', {
+        hasError: !!response.error,
+        hasData: !!response.data,
+        nodesLength: response.data?.nodes?.length || 0,
+        linksLength: response.data?.links?.length || 0,
+        timestamp: Date.now()
+      });
+      
       return response;
     } catch (error) {
       console.error('Error fetching graph data:', error);
