@@ -48,6 +48,7 @@ const Home: React.FC = () => {
   // ------------------------------------------------------------------
   const [remoteLinks, setRemoteLinks] = React.useState<GraphEdge[]>([]);
   const [linksLoading, setLinksLoading] = React.useState(true);
+  const hasFetchedRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!authStable) {
@@ -55,6 +56,12 @@ const Home: React.FC = () => {
       return;
     }
 
+    // Only fetch once when auth becomes stable
+    if (hasFetchedRef.current) {
+      return;
+    }
+
+    hasFetchedRef.current = true;
     setLinksLoading(true);
     (async () => {
       try {
@@ -74,6 +81,13 @@ const Home: React.FC = () => {
       }
     })();
   }, [authStable]); // Only re-fetch when auth is stable
+
+  // Reset fetch flag when auth becomes unstable
+  React.useEffect(() => {
+    if (!authStable) {
+      hasFetchedRef.current = false;
+    }
+  }, [authStable]);
 
   const graphData: GraphData = React.useMemo(() => {
     if (!authStable || linksLoading) {
