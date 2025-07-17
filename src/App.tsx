@@ -6,7 +6,7 @@ import { theme } from './theme';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Login from './pages/Login';
-import DocumentScanner from './pages/DocumentScanner';
+import { DocumentScanner } from './components/DocumentScanner';
 import Matrix from './pages/Matrix';
 import { PreferencesProvider } from './contexts/PreferencesContext';
 import { ClauseProvider } from './contexts/ClauseContext';
