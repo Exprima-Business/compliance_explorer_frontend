@@ -65,19 +65,30 @@ main (production)
 
 ## Environment Variables
 
-### Staging Environment
+### Vercel Configuration
+Environment variables are configured in Vercel Dashboard → Project Settings → Environment Variables:
+
+#### Production Environment (main branch)
 ```env
-VITE_API_URL=https://api-staging.clauseatlas.com
-VITE_SUPABASE_URL=https://staging-project.supabase.co
-VITE_SUPABASE_ANON_KEY=staging_anon_key
+VITE_API_URL=https://api.clauseatlas.com
+VITE_SUPABASE_URL=https://uqisvouvfslfplbjfiox.supabase.co
+VITE_SUPABASE_ANON_KEY=your_production_key
 VITE_ENABLE_SCANNER=true
 ```
 
-### Production Environment
+#### Preview Environment (staging and feature branches)
 ```env
-VITE_API_URL=https://api.clauseatlas.com
-VITE_SUPABASE_URL=https://production-project.supabase.co
-VITE_SUPABASE_ANON_KEY=production_anon_key
+VITE_API_URL=https://api-staging.clauseatlas.com
+VITE_SUPABASE_URL=https://uqisvouvfslfplbjfiox.supabase.co
+VITE_SUPABASE_ANON_KEY=your_production_key
+VITE_ENABLE_SCANNER=true
+```
+
+### Local Development
+```env
+VITE_API_URL=http://localhost:3001
+VITE_SUPABASE_URL=https://uqisvouvfslfplbjfiox.supabase.co
+VITE_SUPABASE_ANON_KEY=your_production_key
 VITE_ENABLE_SCANNER=true
 ```
 
