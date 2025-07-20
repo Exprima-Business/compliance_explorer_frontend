@@ -1,4 +1,4 @@
-# Compliance Explorer Frontend
+# Compliance Explorer Frontend.
 
 This is the frontend application for the Compliance Explorer, built with React, TypeScript, and Vite. The application provides a modern web interface for document scanning, clause management, and compliance analysis.
 

@@ -508,7 +508,7 @@ export const DocumentScanner: React.FC = () => {
           }}
         >
           Upload compliance documents to automatically detect IT security clauses using advanced AI analysis
-        </Typography>
+      </Typography>
       </Box>
 
       {/* Test Mode Toggle */}
@@ -523,12 +523,12 @@ export const DocumentScanner: React.FC = () => {
             borderColor: 'divider'
           }}
         >
-          <FormControlLabel
-            control={
-              <Switch
-                checked={isTestMode}
-                onChange={(e) => setIsTestMode(e.target.checked)}
-                color="primary"
+      <FormControlLabel
+        control={
+          <Switch
+            checked={isTestMode}
+            onChange={(e) => setIsTestMode(e.target.checked)}
+            color="primary"
                 sx={{
                   '& .MuiSwitch-switchBase.Mui-checked': {
                     color: '#6366f1',
@@ -563,38 +563,38 @@ export const DocumentScanner: React.FC = () => {
               Authentication Required
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-              Please sign in to upload and analyze documents
-            </Typography>
-          </Box>
+            Please sign in to upload and analyze documents
+          </Typography>
+        </Box>
         </Fade>
       ) : (
         <>
           {/* File Upload Zone */}
           {uploadState.status === 'idle' && (
             <Slide direction="up" in={true} timeout={600}>
-              <Box
-                {...getRootProps()}
-                sx={{
+          <Box
+            {...getRootProps()}
+            sx={{
                   border: '3px dashed',
-                  borderColor: isDragActive ? 'primary.main' : 'grey.300',
+              borderColor: isDragActive ? 'primary.main' : 'grey.300',
                   borderRadius: 4,
                   p: 6,
-                  textAlign: 'center',
+              textAlign: 'center',
                   cursor: 'pointer',
                   background: isDragActive 
                     ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(14, 165, 233, 0.1) 100%)'
                     : 'linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(241, 245, 249, 0.6) 100%)',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   backdropFilter: 'blur(8px)',
-                  '&:hover': {
-                    borderColor: 'primary.main',
+              '&:hover': {
+                borderColor: 'primary.main',
                     background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(14, 165, 233, 0.15) 100%)',
                     transform: 'translateY(-2px)',
                     boxShadow: '0 8px 32px rgba(99, 102, 241, 0.15)',
-                  },
-                }}
-              >
-                <input {...getInputProps()} />
+              },
+            }}
+          >
+            <input {...getInputProps()} />
                 <UploadIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
                 <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
                   {isDragActive ? 'Drop your document here' : 'Upload Document for AI Analysis'}
@@ -612,7 +612,7 @@ export const DocumentScanner: React.FC = () => {
                 </Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
                   Maximum file size: 50MB
-                </Typography>
+                  </Typography>
               </Box>
             </Slide>
           )}
@@ -674,8 +674,8 @@ export const DocumentScanner: React.FC = () => {
                 }
               >
                 <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                  {error}
-                </Typography>
+              {error}
+            </Typography>
               </Alert>
             </Slide>
           )}
@@ -734,7 +734,7 @@ export const DocumentScanner: React.FC = () => {
                     Create Project from Results
                   </Button>
                 )}
-              </Box>
+            </Box>
             </Grow>
           )}
         </>
