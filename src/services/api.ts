@@ -70,7 +70,7 @@ async function handleApiResponse<T>(response: Response): Promise<T> {
   }
 }
 
-async function getAuthToken(): Promise<string | null> {
+export async function getAuthToken(): Promise<string | null> {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error) {
@@ -122,13 +122,38 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
     } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
 
-    const headers = {
-      'Content-Type': 'application/json',
+    const baseHeaders: Record<string, string> = {
       'x-org-id': getCurrentOrgId(),
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(getCurrentProjectId() ? { 'x-project-id': getCurrentProjectId()! } : {}),
-      ...fetchOptions.headers,
     };
+
+    // Only add Content-Type for non-FormData requests
+    if (!(fetchOptions.body instanceof FormData)) {
+      baseHeaders['Content-Type'] = 'application/json';
+    }
+
+    // Merge with any additional headers from options
+    const headers = {
+      ...baseHeaders,
+      ...(fetchOptions.headers as Record<string, string> || {})
+    };
+
+    // Debug: log request details for scan uploads
+    if (endpoint.includes('/scans')) {
+      console.log('Scan API request:', {
+        endpoint,
+        method: fetchOptions.method || 'GET',
+        hasBody: !!fetchOptions.body,
+        bodyType: fetchOptions.body ? (fetchOptions.body instanceof FormData ? 'FormData' : 'JSON') : 'None',
+        headers: {
+          'x-org-id': headers['x-org-id'],
+          'x-project-id': headers['x-project-id'],
+          hasAuth: !!headers['Authorization'],
+          contentType: headers['Content-Type']
+        }
+      });
+    }
 
     // Debug: log headers for bookmark requests
     if (endpoint.includes('/bookmark')) {

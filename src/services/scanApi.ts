@@ -148,14 +148,24 @@ export const scanApi = {
       formData.append('file', file);
       formData.append('organizationId', organizationId);
       
+      // Debug logging
+      console.log('Uploading document:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        organizationId,
+        endpoint: '/api/scans'
+      });
+      
+      // Log FormData contents for debugging
+      for (let [key, value] of formData.entries()) {
+        console.log(`FormData - ${key}:`, value);
+      }
+      
       return await apiCall<{ scanId: string; status: string; estimatedTime: number; sseUrl: string }>('/api/scans', {
         method: 'POST',
         body: formData,
-        requireAuth: true,
-        headers: {
-          // Don't set Content-Type for FormData, let browser set it
-          'Content-Type': undefined as any,
-        }
+        requireAuth: true
       });
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -270,24 +280,27 @@ export class ScanSSEConnection {
     private onComplete: () => void
   ) {}
 
-  connect(): void {
+  async connect(): Promise<void> {
     try {
       // Get auth token for SSE connection
-      const token = localStorage.getItem('supabase.auth.token');
-      const headers: Record<string, string> = {};
-      
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      let token: string | null = null;
+      try {
+        // Dynamically import getAuthToken to avoid circular dependency
+        const { getAuthToken } = await import('./api');
+        token = await getAuthToken();
+      } catch (e) {
+        // fallback to localStorage if needed
+        token = localStorage.getItem('supabase.auth.token');
       }
       
-      // Add organization ID
-      const orgId = localStorage.getItem('orgId');
-      if (orgId) {
-        headers['X-Organization-ID'] = orgId;
-      }
+      // Add organization ID (not used in SSE URL, but kept for reference)
+      // const orgId = localStorage.getItem('orgId');
 
-      // Create EventSource with auth headers
-      const url = `${environment.api.url}/api/scans/${this.scanId}/stream`;
+      // Create EventSource with token as query parameter
+      let url = `${environment.api.url}/api/scans/${this.scanId}/stream`;
+      if (token) {
+        url += `?token=${encodeURIComponent(token)}`;
+      }
       this.eventSource = new EventSource(url);
 
       this.eventSource.onopen = () => {
