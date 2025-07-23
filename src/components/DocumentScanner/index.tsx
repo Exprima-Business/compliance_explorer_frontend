@@ -203,18 +203,23 @@ export const DocumentScanner: React.FC = () => {
       setCurrentScan(scanSession);
       setMainResults(scanSession.results);
       setInProgressResults([]);
+      // Defensive: Check for metadata presence
+      const meta = scanSession.metadata;
+      if (!meta) {
+        console.warn('SSE complete event missing metadata field:', scanSession);
+      }
       setUploadState({ 
         status: 'complete', 
         message: 'Analysis completed successfully',
         progress: {
           scanId: scanSession.id,
-          current: scanSession.metadata.chunksProcessed,
-          total: scanSession.metadata.totalChunks,
+          current: meta?.chunksProcessed ?? 0,
+          total: meta?.totalChunks ?? 0,
           status: 'complete',
           message: 'Analysis completed',
           estimatedTimeRemaining: 0,
-          pagesProcessed: scanSession.metadata.totalPages,
-          totalPages: scanSession.metadata.totalPages
+          pagesProcessed: meta?.totalPages ?? 0,
+          totalPages: meta?.totalPages ?? 0
         }
       });
     }
