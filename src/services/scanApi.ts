@@ -1,6 +1,7 @@
 import { apiCall } from './api';
 import type { ApiResponse } from '../types/api';
 import environment from '../config/environment';
+import { supabase } from '../lib/supabase';
 
 // Scan API Types
 export interface ScanSession {
@@ -157,9 +158,11 @@ export const scanApi = {
         endpoint: '/api/scans'
       });
       
-      // Log FormData contents for debugging
-      for (let [key, value] of formData.entries()) {
-        console.log(`FormData - ${key}:`, value);
+      // Guarded debug log for FormData entries (production safe)
+      if (typeof (formData as any).entries === 'function') {
+        for (let [key, value] of (formData as any).entries()) {
+          console.log(`FormData - ${key}:`, value);
+        }
       }
       
       return await apiCall<{ scanId: string; status: string; estimatedTime: number; sseUrl: string }>('/api/scans', {
@@ -282,25 +285,36 @@ export class ScanSSEConnection {
 
   async connect(): Promise<void> {
     try {
+      // Log the full session object before SSE connection (1)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('[SSE DEBUG] Session before SSE connect:', session);
+      } catch (e) {
+        console.warn('[SSE DEBUG] Could not log session before SSE connect:', e);
+      }
       // Get auth token for SSE connection
       let token: string | null = null;
       try {
-        // Dynamically import getAuthToken to avoid circular dependency
         const { getAuthToken } = await import('./api');
         token = await getAuthToken();
+        console.log('[SSE DEBUG] Token source: getAuthToken()', token);
       } catch (e) {
-        // fallback to localStorage if needed
+        console.warn('[SSE DEBUG] getAuthToken() failed, falling back to localStorage:', e);
         token = localStorage.getItem('supabase.auth.token');
+        console.log('[SSE DEBUG] Token source: localStorage', token);
       }
-      
-      // Add organization ID (not used in SSE URL, but kept for reference)
-      // const orgId = localStorage.getItem('orgId');
-
-      // Create EventSource with token as query parameter
-      let url = `${environment.api.url}/api/scans/${this.scanId}/stream`;
-      if (token) {
-        url += `?token=${encodeURIComponent(token)}`;
+      // Get orgId and projectId from localStorage
+      const orgId = localStorage.getItem('orgId');
+      const projectId = localStorage.getItem('projectId');
+      // Create EventSource with token, orgId, and projectId as query parameters
+      let url = `${environment.api.url}/api/scans/${this.scanId}/stream?token=${encodeURIComponent(token ?? '')}`;
+      if (orgId) {
+        url += `&orgId=${encodeURIComponent(orgId)}`;
       }
+      if (projectId) {
+        url += `&projectId=${encodeURIComponent(projectId)}`;
+      }
+      console.log('[SSE DEBUG] EventSource URL:', url);
       this.eventSource = new EventSource(url);
 
       this.eventSource.onopen = () => {
