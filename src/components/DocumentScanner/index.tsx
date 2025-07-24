@@ -40,6 +40,7 @@ import {
   type ScanSession,
   type ProgressiveResults
 } from '../../services/scanApi';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface UploadState {
   status: 'idle' | 'uploading' | 'processing' | 'complete' | 'error';
@@ -50,6 +51,8 @@ interface UploadState {
 export const DocumentScanner: React.FC = () => {
   const { user } = useAuth();
   const organization = { id: localStorage.getItem('orgId') || '00000000-0000-0000-0000-000000000000' };
+  const navigate = useNavigate();
+  const { scanId: urlScanId } = useParams<{ scanId?: string }>();
   const [uploadState, setUploadState] = useState<UploadState>({ status: 'idle' });
   const [currentScan, setCurrentScan] = useState<ScanSession | null>(null);
   const [mainResults, setMainResults] = useState<DetectedClause[]>([]);
@@ -88,6 +91,64 @@ export const DocumentScanner: React.FC = () => {
     
     return { isSaving, lastSaved };
   };
+
+  // Fetch scan details if scanId is present in URL (for persistence)
+  useEffect(() => {
+    if (urlScanId) {
+      (async () => {
+        try {
+          setUploadState({ status: 'processing', message: 'Loading scan results...' });
+          setError(null);
+          const response = await scanApi.getScan(urlScanId);
+          console.log('[DEBUG] Fetched scan session from BE:', response);
+          if (response.error || !response.data) {
+            let errorMsg = 'Failed to fetch scan results';
+            if (response.error) {
+              if (typeof response.error === 'object' && 'message' in response.error) {
+                errorMsg = (response.error as { message: string }).message;
+              } else {
+                errorMsg = String(response.error);
+              }
+            }
+            console.error('[DEBUG] Error fetching scan session:', errorMsg);
+            throw new Error(errorMsg);
+          }
+          const scanSession = response.data;
+          if (!scanSession) {
+            console.error('[DEBUG] Scan session not found for scanId:', urlScanId);
+            throw new Error('Scan session not found');
+          }
+          console.log('[DEBUG] Setting currentScan:', scanSession);
+          setCurrentScan(scanSession);
+          console.log('[DEBUG] Setting mainResults:', scanSession.results);
+          setMainResults(scanSession.results);
+          setInProgressResults([]);
+          setUploadState({
+            status: scanSession.status === 'complete' ? 'complete' : 'processing',
+            message: scanSession.status === 'complete' ? 'Analysis completed successfully' : 'Processing document...',
+            progress: {
+              scanId: scanSession.id,
+              current: scanSession.metadata?.chunksProcessed ?? 0,
+              total: scanSession.metadata?.totalChunks ?? 0,
+              status: scanSession.status === 'complete' ? 'complete' : 'processing',
+              message: scanSession.status === 'complete' ? 'Analysis completed' : 'Processing...',
+              estimatedTimeRemaining: 0,
+              pagesProcessed: scanSession.metadata?.totalPages ?? 0,
+              totalPages: scanSession.metadata?.totalPages ?? 0
+            }
+          });
+          console.log('[DEBUG] Set uploadState after BE fetch:', {
+            status: scanSession.status === 'complete' ? 'complete' : 'processing',
+            message: scanSession.status === 'complete' ? 'Analysis completed successfully' : 'Processing document...'
+          });
+        } catch (err) {
+          console.error('[DEBUG] Error in scan fetch useEffect:', err);
+          setError(err instanceof Error ? err.message : 'Failed to load scan results');
+          setUploadState({ status: 'error', message: 'Failed to load scan results' });
+        }
+      })();
+    }
+  }, [urlScanId]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     if (!user || !organization) {
@@ -146,7 +207,8 @@ export const DocumentScanner: React.FC = () => {
           totalPages: 0
         }
       });
-
+      // Update URL for persistence
+      navigate(`/document-scanner/${scanId}`, { replace: false });
       // Establish SSE connection
       establishSSEConnection(scanId);
 
@@ -156,7 +218,7 @@ export const DocumentScanner: React.FC = () => {
       setError(errorMessage);
       setUploadState({ status: 'error', message: errorMessage });
     }
-  }, [user, organization, isTestMode]);
+  }, [user, organization, isTestMode, navigate]);
 
   const establishSSEConnection = (scanId: string) => {
     // Clean up existing connection
@@ -176,37 +238,45 @@ export const DocumentScanner: React.FC = () => {
   };
 
   const handleSSEMessage = (data: any) => {
-    console.log('SSE message received:', data);
+    console.log('[DEBUG] SSE message received:', data);
 
     if (data.type === 'progress') {
-      setUploadState(prev => ({
-        ...prev,
-        progress: data.data,
-        message: data.data.message
-      }));
+      setUploadState(prev => {
+        const newState = {
+          ...prev,
+          progress: data.data,
+          message: data.data.message
+        };
+        console.log('[DEBUG] SSE progress update, new uploadState:', newState);
+        return newState;
+      });
     } else if (data.type === 'progressive_update') {
       const progressiveData: ProgressiveResults = data.data;
+      console.log('[DEBUG] SSE progressive_update:', progressiveData);
       setInProgressResults(progressiveData.partialResults);
-      
-      // Update progress with page information
-      setUploadState(prev => ({
-        ...prev,
-        progress: {
-          ...prev.progress!,
-          pagesProcessed: progressiveData.pagesProcessed,
-          totalPages: progressiveData.totalPages,
-          estimatedTimeRemaining: progressiveData.estimatedTimeRemaining
-        }
-      }));
+      setUploadState(prev => {
+        const newState = {
+          ...prev,
+          progress: {
+            ...prev.progress!,
+            pagesProcessed: progressiveData.pagesProcessed,
+            totalPages: progressiveData.totalPages,
+            estimatedTimeRemaining: progressiveData.estimatedTimeRemaining
+          }
+        };
+        console.log('[DEBUG] SSE progressive_update, new uploadState:', newState);
+        return newState;
+      });
     } else if (data.type === 'complete') {
       const scanSession: ScanSession = data.data;
+      console.log('[DEBUG] SSE complete event, scanSession:', scanSession);
       setCurrentScan(scanSession);
       setMainResults(scanSession.results);
       setInProgressResults([]);
       // Defensive: Check for metadata presence
       const meta = scanSession.metadata;
       if (!meta) {
-        console.warn('SSE complete event missing metadata field:', scanSession);
+        console.warn('[DEBUG] SSE complete event missing metadata field:', scanSession);
       }
       setUploadState({ 
         status: 'complete', 
@@ -222,6 +292,12 @@ export const DocumentScanner: React.FC = () => {
           totalPages: meta?.totalPages ?? 0
         }
       });
+      console.log('[DEBUG] Set uploadState after SSE complete:', {
+        status: 'complete',
+        message: 'Analysis completed successfully'
+      });
+      // Update URL for persistence
+      navigate(`/document-scanner/${scanSession.id}`, { replace: false });
     }
   };
 
@@ -402,6 +478,7 @@ export const DocumentScanner: React.FC = () => {
   };
 
   const renderResults = () => {
+    console.log('[DEBUG] renderResults: mainResults', mainResults, 'inProgressResults', inProgressResults);
     if (mainResults.length === 0 && inProgressResults.length === 0) return null;
 
     // Helper to map ScanProgress status for ScanResults
@@ -477,6 +554,7 @@ export const DocumentScanner: React.FC = () => {
     );
   };
 
+  console.log('[DEBUG] Render: uploadState', uploadState, 'mainResults', mainResults, 'currentScan', currentScan, 'error', error);
   return (
     <Box sx={{ 
       width: '100%', 
@@ -575,31 +653,31 @@ export const DocumentScanner: React.FC = () => {
       ) : (
         <>
           {/* File Upload Zone */}
-          {uploadState.status === 'idle' && (
+          {uploadState.status === 'idle' && !urlScanId && (
             <Slide direction="up" in={true} timeout={600}>
-          <Box
-            {...getRootProps()}
-            sx={{
+              <Box
+                {...getRootProps()}
+                sx={{
                   border: '3px dashed',
-              borderColor: isDragActive ? 'primary.main' : 'grey.300',
+                  borderColor: isDragActive ? 'primary.main' : 'grey.300',
                   borderRadius: 4,
                   p: 6,
-              textAlign: 'center',
+                  textAlign: 'center',
                   cursor: 'pointer',
                   background: isDragActive 
                     ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(14, 165, 233, 0.1) 100%)'
                     : 'linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(241, 245, 249, 0.6) 100%)',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   backdropFilter: 'blur(8px)',
-              '&:hover': {
-                borderColor: 'primary.main',
+                  '&:hover': {
+                    borderColor: 'primary.main',
                     background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(14, 165, 233, 0.15) 100%)',
                     transform: 'translateY(-2px)',
                     boxShadow: '0 8px 32px rgba(99, 102, 241, 0.15)',
-              },
-            }}
-          >
-            <input {...getInputProps()} />
+                  },
+                }}
+              >
+                <input {...getInputProps()} />
                 <UploadIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
                 <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
                   {isDragActive ? 'Drop your document here' : 'Upload Document for AI Analysis'}
@@ -617,7 +695,7 @@ export const DocumentScanner: React.FC = () => {
                 </Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
                   Maximum file size: 50MB
-                  </Typography>
+                </Typography>
               </Box>
             </Slide>
           )}
@@ -652,6 +730,22 @@ export const DocumentScanner: React.FC = () => {
                 {renderProgress()}
               </Box>
             </Fade>
+          )}
+
+          {/* Debug: Show current state for troubleshooting */}
+          {process.env.NODE_ENV === 'development' && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1, fontSize: '12px' }}>
+              <pre style={{ margin: 0 }}>
+                {JSON.stringify({
+                  uploadState,
+                  mainResultsLength: mainResults.length,
+                  inProgressResultsLength: inProgressResults.length,
+                  currentScan,
+                  error,
+                  urlScanId
+                }, null, 2)}
+              </pre>
+            </Box>
           )}
 
           {/* Error Display */}
