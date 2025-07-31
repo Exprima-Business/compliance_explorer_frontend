@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import * as d3 from 'd3'
 import type { GraphData, GraphNode, GraphEdge } from '../types/clause'
+import { useBookmarks } from '../contexts/BookmarkContext'
 import { dlog } from '../utils/debugLog'
 
 // Constants
@@ -52,6 +53,7 @@ function hashColor(str: string) {
 }
 
 export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeClick }) => {
+  const { isClauseBookmarked } = useBookmarks();
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const simulationRef = useRef<d3.Simulation<D3Node, GraphEdge> | null>(null)
@@ -84,11 +86,11 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
 
-  dlog('ClauseGraphD3: Component render count', {
-    component: 'D3',
-    renderCount: renderCountRef.current,
-    timestamp: Date.now()
-  });
+  // dlog('ClauseGraphD3: Component render count', {
+  //   component: 'D3',
+  //   renderCount: renderCountRef.current,
+  //   timestamp: Date.now()
+  // });
 
   // Force re-render when graph data changes significantly
   const graphKey = useMemo(() => {
@@ -164,15 +166,15 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
   }, [graphData])
 
   // Debug: Track component re-render triggers
-  useEffect(() => {
-    dlog('D3: Component re-render triggered', {
-      graphDataNodesLength: graphData.nodes.length,
-      graphDataLinksLength: graphData.links.length,
-      transformedDataNodesLength: transformedData.nodes.length,
-      transformedDataLinksLength: transformedData.links.length,
-      stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
-    });
-  }, [graphData, transformedData]);
+  // useEffect(() => {
+  //   dlog('D3: Component re-render triggered', {
+  //     graphDataNodesLength: graphData.nodes.length,
+  //     graphDataLinksLength: graphData.links.length,
+  //     transformedDataNodesLength: transformedData.nodes.length,
+  //     transformedDataLinksLength: transformedData.links.length,
+  //     stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
+  //   });
+  // }, [graphData, transformedData]);
 
   // Color function
   const getNodeColor = (node: GraphNode): string => {
@@ -431,8 +433,8 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
         const family = (d as any).family?.name || (d as any).family?.id || (d as any).family || 'Default'
         return `url(#gradient-${family})`
       })
-      .attr('stroke', (d: GraphNode) => (d as any).isBookmarked ? '#FFD700' : 'none')
-      .attr('stroke-width', (d: GraphNode) => (d as any).isBookmarked ? 3 : 0)
+      .attr('stroke', (d: GraphNode) => isClauseBookmarked(d.id) ? '#FFD700' : 'none')
+      .attr('stroke-width', (d: GraphNode) => isClauseBookmarked(d.id) ? 3 : 0)
       .style('cursor', 'pointer')
       .style('filter', 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2))')
       .style('transition', 'all 0.3s ease')
@@ -550,16 +552,16 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     // Update positions on simulation tick
     simulation.on('tick', () => {
       // Debug: Log link mutation check during simulation
-      dlog('D3: Simulation tick - link mutation check', {
-        sampleLinks: transformedData.links.slice(0, 3).map(l => ({
-          sourceType: typeof l.source,
-          targetType: typeof l.target,
-          sourceHasId: l.source && typeof l.source === 'object' && 'id' in l.source,
-          targetHasId: l.target && typeof l.target === 'object' && 'id' in l.target,
-          sourceId: typeof l.source === 'object' ? (l.source as any).id : l.source,
-          targetId: typeof l.target === 'object' ? (l.target as any).id : l.target
-        }))
-      });
+      // dlog('D3: Simulation tick - link mutation check', {
+      //   sampleLinks: transformedData.links.slice(0, 3).map(l => ({
+      //     sourceType: typeof l.source,
+      //     targetType: typeof l.target,
+      //     sourceHasId: l.source && typeof l.source === 'object' && 'id' in l.source,
+      //     targetHasId: l.target && typeof l.target === 'object' && 'id' in l.target,
+      //     sourceId: typeof l.source === 'object' ? (l.source as any).id : l.source,
+      //     targetId: typeof l.target === 'object' ? (l.target as any).id : l.target
+      //   }))
+      // });
 
       links
         .attr('x1', (d: any) => d.source.x)

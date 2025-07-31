@@ -378,4 +378,122 @@ describe('DocumentScanner', () => {
       expect(screen.getByText(/Drag and drop a document here/)).toBeInTheDocument();
     });
   });
+
+  describe('Persistence Improvements', () => {
+    it('should show loading state when fetching from BE with no results', async () => {
+      // Mock the scanApi.getScan to return processing status with empty results
+      mockScanApi.getScan = vi.fn().mockResolvedValue({
+        data: {
+          id: 'test-scan-id',
+          status: 'processing',
+          results: [],
+          metadata: {
+            totalTokens: 0,
+            estimatedCost: 0,
+            processingTime: 0,
+            totalPages: 0,
+            modelUsed: 'gpt-3.5-turbo',
+            chunksProcessed: 0,
+            totalChunks: 0
+          }
+        },
+        error: null
+      });
+
+      // Mock useParams to return a scanId
+      vi.doMock('react-router-dom', async () => {
+        const actual = await vi.importActual('react-router-dom');
+        return {
+          ...actual,
+          useParams: () => ({ scanId: 'test-scan-id' }),
+          useNavigate: () => vi.fn()
+        };
+      });
+
+      render(<DocumentScanner />);
+
+      // Should show loading state
+      await waitFor(() => {
+        expect(screen.getByText('Loading scan results...')).toBeInTheDocument();
+      });
+    });
+
+    it('should show processing state with refresh button when scan is processing', async () => {
+      // Mock the scanApi.getScan to return processing status with empty results
+      mockScanApi.getScan = vi.fn().mockResolvedValue({
+        data: {
+          id: 'test-scan-id',
+          status: 'processing',
+          results: [],
+          metadata: {
+            totalTokens: 0,
+            estimatedCost: 0,
+            processingTime: 0,
+            totalPages: 0,
+            modelUsed: 'gpt-3.5-turbo',
+            chunksProcessed: 0,
+            totalChunks: 0
+          }
+        },
+        error: null
+      });
+
+      // Mock useParams to return a scanId
+      vi.doMock('react-router-dom', async () => {
+        const actual = await vi.importActual('react-router-dom');
+        return {
+          ...actual,
+          useParams: () => ({ scanId: 'test-scan-id' }),
+          useNavigate: () => vi.fn()
+        };
+      });
+
+      render(<DocumentScanner />);
+
+      // Should show processing state with refresh button
+      await waitFor(() => {
+        expect(screen.getByText('Processing document...')).toBeInTheDocument();
+        expect(screen.getByText('Refresh Results')).toBeInTheDocument();
+      });
+    });
+
+    it('should show manual refresh button when scanId exists but no results', async () => {
+      // Mock the scanApi.getScan to return complete status with empty results
+      mockScanApi.getScan = vi.fn().mockResolvedValue({
+        data: {
+          id: 'test-scan-id',
+          status: 'complete',
+          results: [],
+          metadata: {
+            totalTokens: 0,
+            estimatedCost: 0,
+            processingTime: 0,
+            totalPages: 0,
+            modelUsed: 'gpt-3.5-turbo',
+            chunksProcessed: 0,
+            totalChunks: 0
+          }
+        },
+        error: null
+      });
+
+      // Mock useParams to return a scanId
+      vi.doMock('react-router-dom', async () => {
+        const actual = await vi.importActual('react-router-dom');
+        return {
+          ...actual,
+          useParams: () => ({ scanId: 'test-scan-id' }),
+          useNavigate: () => vi.fn()
+        };
+      });
+
+      render(<DocumentScanner />);
+
+      // Should show manual refresh button
+      await waitFor(() => {
+        expect(screen.getByText('No results found for this scan.')).toBeInTheDocument();
+        expect(screen.getByText('Refresh')).toBeInTheDocument();
+      });
+    });
+  });
 }); 

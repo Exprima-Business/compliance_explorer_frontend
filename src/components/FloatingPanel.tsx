@@ -6,14 +6,12 @@ import type { Clause } from '../types/clause';
 interface FloatingPanelProps {
   clause: Clause | null;
   onClose: () => void;
-  isBookmarked?: boolean;
   onBookmarkToggle?: () => void;
 }
 
 export const FloatingPanel = ({ 
   clause, 
   onClose, 
-  isBookmarked = false,
   onBookmarkToggle 
 }: FloatingPanelProps) => {
   if (!clause) return null;
@@ -38,7 +36,6 @@ export const FloatingPanel = ({
       <Box sx={{ p: 2, flex: 1 }}>
         <ClauseCard 
           clause={clause} 
-          isBookmarked={isBookmarked}
           onBookmarkToggle={onBookmarkToggle}
           onClose={onClose}
         />

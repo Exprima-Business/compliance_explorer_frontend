@@ -10,17 +10,29 @@ import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import CloseIcon from '@mui/icons-material/Close';
 import type { Clause } from '../types/clause';
+import { useBookmarks } from '../contexts/BookmarkContext';
 
 interface ClauseCardProps {
   clause: Clause;
-  isBookmarked?: boolean;
   onBookmarkToggle?: () => void;
   onClose?: () => void;
   sx?: SxProps<Theme>;
   compact?: boolean;
 }
 
-export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, onClose, sx, compact = false }: ClauseCardProps) => {
+export const ClauseCard = ({ clause, onBookmarkToggle, onClose, sx, compact = false }: ClauseCardProps) => {
+  const { isClauseBookmarked, toggleBookmark } = useBookmarks();
+  
+  // Determine bookmark status from BookmarkContext
+  const isBookmarked = isClauseBookmarked(clause.id);
+  
+  const handleBookmarkToggle = () => {
+    if (onBookmarkToggle) {
+      onBookmarkToggle();
+    } else {
+      toggleBookmark(clause.id);
+    }
+  };
   const renderField = (label: string, value: string | string[]) => {
     if (!value) return null;
     
@@ -200,7 +212,7 @@ export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, onC
             </Box>
             <Box sx={{ display: 'flex', gap: 0.5 }}>
               <IconButton
-                onClick={onBookmarkToggle}
+                onClick={handleBookmarkToggle}
                 sx={{
                   color: isBookmarked ? 'secondary.main' : 'text.secondary',
                   transition: 'all 0.2s ease-in-out',
@@ -297,7 +309,7 @@ export const ClauseCard = ({ clause, isBookmarked = false, onBookmarkToggle, onC
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {onBookmarkToggle && (
                   <IconButton 
-                    onClick={onBookmarkToggle}
+                    onClick={handleBookmarkToggle}
                     sx={{ 
                       color: isBookmarked ? 'primary.main' : 'text.secondary',
                       transition: 'transform 0.18s cubic-bezier(0.4,0,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1)',

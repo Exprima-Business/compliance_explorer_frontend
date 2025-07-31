@@ -47,7 +47,10 @@ export default function App() {
                                     <Route path="/" element={<Home />} />
                                     <Route path="/matrix" element={<Matrix />} />
                                     {ENABLE_SCANNER && (
-                                      <Route path="/document-scanner" element={<DocumentScanner />} />
+                                      <>
+                                        <Route path="/document-scanner" element={<DocumentScanner />} />
+                                        <Route path="/document-scanner/:scanId" element={<DocumentScanner />} />
+                                      </>
                                     )}
                                   </Routes>
                                 </Layout>
@@ -79,7 +82,10 @@ export default function App() {
                                   <Route path="/" element={<Home />} />
                                   <Route path="/matrix" element={<Matrix />} />
                                   {ENABLE_SCANNER && (
-                                    <Route path="/document-scanner" element={<DocumentScanner />} />
+                                    <>
+                                      <Route path="/document-scanner" element={<DocumentScanner />} />
+                                      <Route path="/document-scanner/:scanId" element={<DocumentScanner />} />
+                                    </>
                                   )}
                                 </Routes>
                               </Layout>

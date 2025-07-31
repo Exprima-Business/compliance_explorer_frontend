@@ -42,7 +42,6 @@ export interface Clause {
   relationships: ClauseRelationship[];
   parentClause?: string;
   siblings?: string[];
-  isBookmarked: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -97,7 +96,6 @@ export interface GraphNode {
   val: number;
   color?: string;
   family?: ClauseFamily;
-  isBookmarked?: boolean;
 }
 
 export interface GraphEdge {

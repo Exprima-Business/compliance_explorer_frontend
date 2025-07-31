@@ -12,6 +12,7 @@ interface BookmarkContextValue {
   loading: boolean;
   toggleBookmark: (clauseId: string) => Promise<void>;
   connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
+  isClauseBookmarked: (clauseId: string) => boolean;
 }
 
 const BookmarkContext = createContext<BookmarkContextValue | undefined>(undefined);
@@ -221,54 +222,11 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               return [...prev, b];
             });
           } else if (payload.eventType === 'DELETE') {
-            if (!payload.old) {
-              dlog('DELETE event received but payload.old is null – falling back to full reload');
-              // In some replica configurations Postgres omits the OLD row. Just reload list.
-              load();
-              return;
-            }
-
-            const oldBookmark = payload.old as Bookmark;
-            dlog('Processing DELETE event:', { 
-              bookmark: oldBookmark, 
-              currentProject: currentProject.id,
-              availableFields: Object.keys(oldBookmark)
-            });
-
-            // Check if we have projectId in the old row
-            if (oldBookmark.projectId === undefined) {
-              dlog('DELETE event missing projectId - falling back to clauseId-based removal');
-              // Fallback: remove by clauseId since we know which clause was toggled
-              setBookmarks(prev => {
-                const newState = prev.filter(item => item.clauseId !== oldBookmark.clauseId);
-                dlog('Removing bookmark by clauseId:', {
-                  clauseId: oldBookmark.clauseId,
-                  oldCount: prev.length,
-                  newCount: newState.length,
-                  removed: prev.length - newState.length
-                });
-                return newState;
-              });
-              return;
-            }
-
-            // Only process changes for the current project
-            if (oldBookmark.projectId !== currentProject.id) {
-              dlog('Skipping DELETE - wrong project:', { bookmarkProject: oldBookmark.projectId, currentProject: currentProject.id });
-              return;
-            }
-
-            setBookmarks(prev => {
-              const newState = prev.filter(item => item.id !== oldBookmark.id);
-              dlog('Removing bookmark from state:', {
-                bookmarkId: oldBookmark.id,
-                clauseId: oldBookmark.clauseId,
-                oldCount: prev.length,
-                newCount: newState.length,
-                removed: prev.length - newState.length
-              });
-              return newState;
-            });
+            // Since we now handle UI updates immediately via API response,
+            // DELETE events are mainly for multi-user synchronization
+            // We can safely ignore them since the UI is already updated
+            dlog('DELETE event received - UI already updated via API response, skipping');
+            return;
           } else if (payload.eventType === 'UPDATE') {
             const b = payload.new as Bookmark;
             dlog('Processing UPDATE event:', { bookmark: b, currentProject: currentProject.id });
@@ -396,21 +354,72 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
       // ---------------------------------------------
-      // REMOVED: Optimistic UI update for testing
+      // IMMEDIATE UI UPDATE USING API RESPONSE
       // ---------------------------------------------
-      // Now relying purely on realtime events to update the UI
-      // This will help us verify that DELETE events are working after
-      // the REPLICA IDENTITY FULL change
+      // Use the API response to update UI immediately, then let realtime events
+      // handle multi-user synchronization and verification
+      if (resp.data) {
+        const { id: responseClauseId, isBookmarked } = resp.data;
+        
+        if (isBookmarked) {
+          // Add bookmark to state immediately
+          setBookmarks(prev => {
+            // Check if bookmark already exists
+            const exists = prev.some(item => item.clauseId === responseClauseId);
+            if (exists) {
+              dlog('Bookmark already exists in state, skipping add:', { clauseId: responseClauseId });
+              return prev;
+            }
+            
+            // Create a minimal bookmark object for immediate UI update
+            const newBookmark: Bookmark = {
+              id: '', // Will be filled by realtime event
+              clauseId: responseClauseId,
+              organizationId: currentOrg?.id || '',
+              projectId: currentProject.id,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            
+            dlog('Adding bookmark to state immediately:', { 
+              clauseId: responseClauseId, 
+              newCount: prev.length + 1 
+            });
+            return [...prev, newBookmark];
+          });
+        } else {
+          // Remove bookmark from state immediately
+          setBookmarks(prev => {
+            const newState = prev.filter(item => item.clauseId !== responseClauseId);
+            const removed = prev.length - newState.length;
+            
+            dlog('Removing bookmark from state immediately:', {
+              clauseId: responseClauseId,
+              oldCount: prev.length,
+              newCount: newState.length,
+              removed
+            });
+            
+            return newState;
+          });
+        }
+      }
     } catch (err) {
       console.error('toggle bookmark failed', err);
     }
   };
 
+  // Helper function to check if a clause is bookmarked
+  const isClauseBookmarked = useCallback((clauseId: string): boolean => {
+    return bookmarks.some(bookmark => bookmark.clauseId === clauseId);
+  }, [bookmarks]);
+
   const value: BookmarkContextValue = { 
     bookmarks, 
     loading, 
     toggleBookmark,
-    connectionStatus 
+    connectionStatus,
+    isClauseBookmarked
   };
   
   return <BookmarkContext.Provider value={value}>{children}</BookmarkContext.Provider>;
