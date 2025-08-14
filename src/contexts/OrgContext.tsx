@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { apiCall } from '../services/api';
 import { dlog } from '../utils/debugLog';
+import { JWTClaimsManager } from '../utils/jwtClaimsManager';
 
 export interface Organization {
   id: string;
@@ -43,9 +44,11 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const storedId = localStorage.getItem(ORG_KEY);
       const match = resp.data.find(o => o.id === storedId) || resp.data[0] || null;
       if (match) {
-        setCurrentOrgState(match);
-        localStorage.setItem(ORG_KEY, match.id);
-        dlog('OrgProvider: current org set', { orgId: match.id, orgName: match.name });
+        await setCurrentOrg(match); // This now updates JWT claims
+        dlog('OrgProvider: current org restored with JWT claims', { 
+          orgId: match.id, 
+          orgName: match.name 
+        });
       } else {
         setCurrentOrgState(null);
         localStorage.removeItem(ORG_KEY);
@@ -61,9 +64,29 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     refreshOrgs();
   }, [refreshOrgs]);
 
-  const setCurrentOrg = (org: Organization) => {
-    setCurrentOrgState(org);
-    localStorage.setItem(ORG_KEY, org.id);
+  const setCurrentOrg = async (org: Organization) => {
+    try {
+      // Update JWT with custom claims (REQUIRED for backend validation)
+      const claimsResult = await JWTClaimsManager.updateClaims(org);
+      
+      if (!claimsResult.success) {
+        throw new Error(claimsResult.error || 'Failed to update authentication context');
+      }
+
+      // Update local state only after successful JWT update
+      setCurrentOrgState(org);
+      localStorage.setItem(ORG_KEY, org.id);
+      
+      dlog('Organization context updated with JWT claims', { 
+        orgId: org.id, 
+        orgName: org.name,
+        claimsUpdated: true
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      dlog('Error updating organization context:', errorMessage);
+      throw new Error(`Organization selection failed: ${errorMessage}`);
+    }
   };
 
   // Create organization via backend and refresh list

@@ -1,4 +1,5 @@
-import type { Clause, ClauseFamily, ClauseFamilyGroup, ApiResponse, GraphData } from '../types/clause';
+import type { Clause, ClauseFamily, ClauseFamilyGroup, GraphData } from '../types/clause';
+import type { ApiResponse } from '../types/api';
 export declare const clauseService: {
     getAllClauses: () => Promise<ApiResponse<Clause[]>>;
     getGraphData: () => Promise<ApiResponse<GraphData>>;

@@ -3,9 +3,6 @@ import { Box, Typography, Paper, Stack, IconButton } from '@mui/material';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 export var BookmarkedClauses = function (_a) {
     var bookmarkedClauses = _a.bookmarkedClauses, onClauseClick = _a.onClauseClick, onBookmarkToggle = _a.onBookmarkToggle;
-    if (bookmarkedClauses.length === 0) {
-        return null;
-    }
     return (_jsxs(Box, { sx: { mt: 3 }, children: [_jsxs(Typography, { variant: "subtitle1", sx: {
                     fontWeight: 600,
                     mb: 2,
@@ -13,7 +10,11 @@ export var BookmarkedClauses = function (_a) {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1
-                }, children: [_jsx(BookmarkIcon, { sx: { fontSize: 20 } }), "Bookmarked Clauses"] }), _jsx(Stack, { spacing: 2, children: bookmarkedClauses.map(function (clause) {
+                }, children: [_jsx(BookmarkIcon, { sx: { fontSize: 20 } }), "Bookmarked Clauses ", bookmarkedClauses.length > 0 && "(".concat(bookmarkedClauses.length, ")")] }), bookmarkedClauses.length === 0 ? (_jsx(Typography, { variant: "body2", color: "text.secondary", sx: {
+                    fontStyle: 'italic',
+                    textAlign: 'center',
+                    py: 2
+                }, children: "No bookmarked clauses yet. Click the bookmark icon on any clause to add it here." })) : (_jsx(Stack, { spacing: 2, children: bookmarkedClauses.map(function (clause) {
                     var _a;
                     return (_jsx(Paper, { elevation: 0, sx: {
                             p: 2,
@@ -31,17 +32,21 @@ export var BookmarkedClauses = function (_a) {
                                                 fontWeight: 600,
                                                 color: 'primary.main',
                                                 mb: 0.5
-                                            }, children: clause.clauseId }), _jsx(Typography, { variant: "body2", sx: {
+                                            }, children: clause.clauseCode || clause.clauseId }), _jsx(Typography, { variant: "body2", sx: {
                                                 color: 'text.primary',
                                                 mb: 1,
                                                 display: '-webkit-box',
                                                 WebkitLineClamp: 2,
                                                 WebkitBoxOrient: 'vertical',
                                                 overflow: 'hidden'
-                                            }, children: clause.title }), _jsxs(Box, { sx: { display: 'flex', gap: 2 }, children: [_jsx(Typography, { variant: "body2", color: "text.secondary", children: ((_a = clause.family) === null || _a === void 0 ? void 0 : _a.name) || 'No Family' }), _jsx(Typography, { variant: "caption", sx: {
-                                                        color: clause.riskClassification === 'HIGH' ? 'error.main' : 'warning.main',
+                                            }, children: clause.title }), _jsxs(Box, { sx: { display: 'flex', gap: 2, flexWrap: 'wrap' }, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", children: [_jsx("strong", { children: "Family:" }), " ", ((_a = clause.family) === null || _a === void 0 ? void 0 : _a.name) || 'No Family'] }), _jsxs(Typography, { variant: "caption", sx: {
+                                                        color: clause.riskClassification === 'HIGH'
+                                                            ? 'error.main'
+                                                            : clause.riskClassification === 'MEDIUM'
+                                                                ? 'warning.main'
+                                                                : 'success.main',
                                                         fontWeight: 500
-                                                    }, children: clause.riskClassification })] })] }), _jsx(IconButton, { size: "small", onClick: function (e) {
+                                                    }, children: [_jsx("strong", { children: "Risk:" }), " ", clause.riskClassification] })] })] }), _jsx(IconButton, { size: "small", onClick: function (e) {
                                         e.stopPropagation();
                                         onBookmarkToggle(clause);
                                     }, sx: {
@@ -50,5 +55,5 @@ export var BookmarkedClauses = function (_a) {
                                             color: 'primary.dark',
                                         }
                                     }, children: _jsx(BookmarkIcon, { fontSize: "small" }) })] }) }, clause.id));
-                }) })] }));
+                }) }))] }));
 };

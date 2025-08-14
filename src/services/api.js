@@ -73,6 +73,8 @@ var __rest = (this && this.__rest) || function (s, e) {
 };
 import { supabase } from '../lib/supabase';
 import environment from '../config/environment';
+import { dlog } from '../utils/debugLog';
+import { JWTClaimsManager } from '../utils/jwtClaimsManager';
 // API configuration
 var API_URL = environment.api.url;
 var publicEndpoints = [
@@ -85,6 +87,19 @@ var publicEndpoints = [
 var protectedEndpoints = [
     '/api/documents'
 ];
+var ORG_STORAGE_KEY = 'orgId';
+var PROJECT_STORAGE_KEY = 'projectId';
+var DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
+var getCurrentOrgId = function () {
+    if (typeof window === 'undefined')
+        return DEFAULT_ORG_ID;
+    return localStorage.getItem(ORG_STORAGE_KEY) || DEFAULT_ORG_ID;
+};
+var getCurrentProjectId = function () {
+    if (typeof window === 'undefined')
+        return null;
+    return localStorage.getItem(PROJECT_STORAGE_KEY) || null;
+};
 var ApiError = /** @class */ (function (_super) {
     __extends(ApiError, _super);
     function ApiError(message, status, data) {
@@ -138,7 +153,7 @@ function handleApiResponse(response) {
         });
     });
 }
-function getAuthToken() {
+export function getAuthToken() {
     var _a;
     return __awaiter(this, void 0, void 0, function () {
         var _b, session, error, error_1;
@@ -186,7 +201,12 @@ function getCommonHeaders(requireAuth) {
                         console.warn('Auth token not available for protected endpoint');
                     }
                     _a.label = 2;
-                case 2: return [2 /*return*/, headers];
+                case 2:
+                    headers['x-org-id'] = getCurrentOrgId();
+                    if (getCurrentProjectId()) {
+                        headers['x-project-id'] = getCurrentProjectId();
+                    }
+                    return [2 /*return*/, headers];
             }
         });
     });
@@ -194,16 +214,69 @@ function getCommonHeaders(requireAuth) {
 export var apiCall = function (endpoint, options) {
     if (options === void 0) { options = {}; }
     return __awaiter(void 0, void 0, void 0, function () {
-        var _a, requireAuth, fetchOptions, response, errorData, errorMessage, responseData, error_2;
+        var _a, requireAuth, fetchOptions, session, accessToken, claimsResult, baseHeaders, headers, response, errorData, errObj, responseData, error_2, err;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
                     _a = options.requireAuth, requireAuth = _a === void 0 ? false : _a, fetchOptions = __rest(options, ["requireAuth"]);
                     _b.label = 1;
                 case 1:
-                    _b.trys.push([1, 6, , 7]);
-                    return [4 /*yield*/, fetch("".concat(API_URL).concat(endpoint), __assign(__assign({}, fetchOptions), { headers: __assign({ 'Content-Type': 'application/json' }, fetchOptions.headers), credentials: 'include' }))];
+                    _b.trys.push([1, 9, , 10]);
+                    return [4 /*yield*/, supabase.auth.getSession()];
                 case 2:
+                    session = (_b.sent()).data.session;
+                    accessToken = session === null || session === void 0 ? void 0 : session.access_token;
+                    if (!((session === null || session === void 0 ? void 0 : session.user) && endpoint !== '/api/organizations')) return [3 /*break*/, 4];
+                    return [4 /*yield*/, JWTClaimsManager.validateCurrentClaims()];
+                case 3:
+                    claimsResult = _b.sent();
+                    if (!claimsResult.isValid) {
+                        dlog('JWT claims validation failed for endpoint:', {
+                            endpoint: endpoint,
+                            error: claimsResult.error
+                        });
+                        return [2 /*return*/, {
+                                data: null,
+                                error: {
+                                    code: 'MISSING_CLAIMS',
+                                    message: 'Organization context required. Please select an organization and try again.'
+                                }
+                            }];
+                    }
+                    _b.label = 4;
+                case 4:
+                    baseHeaders = __assign(__assign({ 'x-org-id': getCurrentOrgId() }, (accessToken ? { Authorization: "Bearer ".concat(accessToken) } : {})), (getCurrentProjectId() ? { 'x-project-id': getCurrentProjectId() } : {}));
+                    // Only add Content-Type for non-FormData requests
+                    if (!(fetchOptions.body instanceof FormData)) {
+                        baseHeaders['Content-Type'] = 'application/json';
+                    }
+                    headers = __assign(__assign({}, baseHeaders), (fetchOptions.headers || {}));
+                    // Debug: log request details for scan uploads
+                    if (endpoint.includes('/scans')) {
+                        console.log('Scan API request:', {
+                            endpoint: endpoint,
+                            method: fetchOptions.method || 'GET',
+                            hasBody: !!fetchOptions.body,
+                            bodyType: fetchOptions.body ? (fetchOptions.body instanceof FormData ? 'FormData' : 'JSON') : 'None',
+                            headers: {
+                                'x-org-id': headers['x-org-id'],
+                                'x-project-id': headers['x-project-id'],
+                                hasAuth: !!headers['Authorization'],
+                                contentType: headers['Content-Type']
+                            }
+                        });
+                    }
+                    // Debug: log headers for bookmark requests
+                    if (endpoint.includes('/bookmark')) {
+                        dlog('Bookmark request headers:', {
+                            endpoint: endpoint,
+                            'x-org-id': headers['x-org-id'],
+                            'x-project-id': headers['x-project-id'],
+                            hasAuth: !!headers['Authorization']
+                        });
+                    }
+                    return [4 /*yield*/, fetch("".concat(API_URL).concat(endpoint), __assign(__assign({}, fetchOptions), { headers: headers, credentials: 'include' }))];
+                case 5:
                     response = _b.sent();
                     // Handle CORS errors
                     if (response.type === 'opaque' || response.status === 0) {
@@ -213,21 +286,26 @@ export var apiCall = function (endpoint, options) {
                                 error: 'Unable to access the API. Please check CORS configuration.'
                             }];
                     }
-                    if (!!response.ok) return [3 /*break*/, 4];
+                    if (!!response.ok) return [3 /*break*/, 7];
                     return [4 /*yield*/, response.json().catch(function () { return ({}); })];
-                case 3:
+                case 6:
                     errorData = _b.sent();
-                    errorMessage = errorData.message || "HTTP error! status: ".concat(response.status);
+                    errObj = typeof errorData === 'object' && errorData !== null && 'message' in errorData
+                        ? {
+                            code: errorData.code || 'UNKNOWN',
+                            message: errorData.message || 'Request failed',
+                        }
+                        : { code: 'UNKNOWN', message: "HTTP error! status: ".concat(response.status) };
                     // Log detailed error information
                     console.error('API Error:', {
                         endpoint: endpoint,
                         status: response.status,
                         statusText: response.statusText,
-                        error: errorData
+                        error: errObj,
                     });
-                    throw new Error(errorMessage);
-                case 4: return [4 /*yield*/, response.json()];
-                case 5:
+                    throw new Error(errObj.message);
+                case 7: return [4 /*yield*/, response.json()];
+                case 8:
                     responseData = _b.sent();
                     // If the response is already in ApiResponse format, return it directly
                     if (responseData && typeof responseData === 'object' && 'data' in responseData && 'error' in responseData) {
@@ -236,20 +314,23 @@ export var apiCall = function (endpoint, options) {
                     // Otherwise, wrap the response in ApiResponse format
                     return [2 /*return*/, {
                             data: responseData,
-                            error: null
+                            error: null,
                         }];
-                case 6:
+                case 9:
                     error_2 = _b.sent();
                     console.error('API call failed:', {
                         endpoint: endpoint,
                         error: error_2 instanceof Error ? error_2.message : 'Unknown error',
                         stack: error_2 instanceof Error ? error_2.stack : undefined
                     });
+                    err = error_2 && error_2 instanceof Error
+                        ? { code: 'UNKNOWN', message: error_2.message }
+                        : { code: 'UNKNOWN', message: 'An error occurred' };
                     return [2 /*return*/, {
                             data: null,
-                            error: error_2 instanceof Error ? error_2.message : 'An error occurred'
+                            error: err,
                         }];
-                case 7: return [2 /*return*/];
+                case 10: return [2 /*return*/];
             }
         });
     });

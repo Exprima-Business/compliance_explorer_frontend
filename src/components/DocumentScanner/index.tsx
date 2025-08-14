@@ -3,8 +3,6 @@ import {
   Box, 
   Typography, 
   CircularProgress, 
-  FormControlLabel, 
-  Switch,
   Alert,
   Button,
   Chip,
@@ -86,7 +84,20 @@ export const DocumentScanner: React.FC = () => {
   const [mainResults, setMainResults] = useState<DetectedClause[]>([]);
   const [inProgressResults, setInProgressResults] = useState<DetectedClause[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [isTestMode, setIsTestMode] = useState(true);
+  
+  // Safe error setter that ensures we always set a string
+  const setErrorSafe = (errorValue: any) => {
+    if (errorValue === null || errorValue === undefined) {
+      setError(null);
+    } else if (typeof errorValue === 'string') {
+      setError(errorValue);
+    } else if (errorValue instanceof Error) {
+      setError(errorValue.message);
+    } else {
+      setError(JSON.stringify(errorValue));
+    }
+  };
+
   const sseConnectionRef = useRef<ScanSSEConnection | null>(null);
 
   // Navigation debugging (suppressed - no longer needed after persistence fixes)
@@ -142,14 +153,9 @@ export const DocumentScanner: React.FC = () => {
     return { isSaving, lastSaved };
   };
 
-  // Defensive: Only fetch if scanId is valid
+  // Load existing scan data on mount (no polling during processing)
   useEffect(() => {
-    let retryCount = 0;
-    const maxRetries = 10;
-    const retryDelay = 2000; // 2 seconds
-    let retryTimeout: NodeJS.Timeout | null = null;
-
-    const fetchScan = async () => {
+    const loadExistingScan = async () => {
       // Check if we have a scanId from URL or localStorage
       let scanIdToFetch: string | undefined = urlScanId;
       
@@ -165,141 +171,91 @@ export const DocumentScanner: React.FC = () => {
       }
       
       if (scanIdToFetch && scanIdToFetch !== 'undefined') {
-        console.log('[DEBUG] Fetching scan for scanId:', scanIdToFetch, 'retry', retryCount);
-        console.log('[BE FETCH DEBUG] Starting BE API call for scanId:', scanIdToFetch);
+        console.log('[DEBUG] Loading existing scan for scanId:', scanIdToFetch);
         try {
           setUploadState({ status: 'loading-from-be', message: 'Loading scan results...' });
-          if (retryCount === 0) setError(null); // Only clear error on first attempt
+          setErrorSafe(null);
+          
           const response = await scanApi.getScan(scanIdToFetch);
-          console.log('[BE RESPONSE DEBUG] Full response:', response);
-          console.log('[BE RESPONSE DEBUG] Response data:', response.data);
-          console.log('[BE RESPONSE DEBUG] Scan results count:', response.data?.results?.length);
-          console.log('[BE RESPONSE DEBUG] Scan status:', response.data?.status);
-          console.log('[DEBUG] Fetched scan session from BE:', response);
+          
           if (response.error || !response.data) {
-            let errorMsg = 'Failed to fetch scan results';
-            if (response.error) {
-              if (typeof response.error === 'object' && 'message' in response.error) {
-                errorMsg = (response.error as { message: string }).message;
-              } else {
-                errorMsg = String(response.error);
-              }
-            }
-            const statusCode = (response as any).status || (response.error && (response.error as any).status);
-            // If 404/403, show processing and retry after delay (for smoother UX)
-            if ((statusCode === 404 || statusCode === 403) && retryCount < maxRetries) {
-              console.warn('[DEBUG] Scan not found or forbidden yet, retrying in 2s:', urlScanId, 'retry', retryCount);
-              setUploadState({ status: 'loading-from-be', message: 'Processing document... (waiting for results)' });
-              retryCount++;
-              retryTimeout = setTimeout(fetchScan, retryDelay);
-              return;
-            }
-            // Only show error if max retries exceeded or other error (not timing related)
-            if (statusCode === 404 || statusCode === 403) {
-              console.error('[DEBUG] Error fetching scan session after max retries:', errorMsg);
-              setError('The scan is not available. Please try again or contact support.');
-              setUploadState({ status: 'error', message: 'The scan is not available. Please try again or contact support.' });
-              return;
-            }
-            // For other errors (e.g., network), show immediately
-            console.error('[DEBUG] Error fetching scan session (non-timing):', errorMsg);
-            setError(errorMsg);
-            setUploadState({ status: 'error', message: errorMsg });
+            console.error('[DEBUG] Error loading scan:', response.error);
+            setErrorSafe('Failed to load scan results. Please try again or contact support.');
+            setUploadState({ status: 'error', message: 'Failed to load scan results' });
             return;
           }
+          
           const scanSession = response.data;
-          if (!scanSession) {
-            console.error('[DEBUG] Scan session not found for scanId:', urlScanId);
-            setError('Scan session not found');
-            setUploadState({ status: 'error', message: 'Scan session not found' });
-            return;
-          }
-          // Check for empty results and retry if needed
-          if (!scanSession.results || scanSession.results.length === 0) {
-            console.log('[RETRY DEBUG] Empty results from BE, retrying in 2s');
-            if (retryCount < maxRetries) {
-              retryCount++;
-              retryTimeout = setTimeout(fetchScan, retryDelay);
-              return;
-            } else {
-              // After max retries, show a helpful message instead of error
-              console.log('[RETRY DEBUG] Max retries reached, showing processing state');
-              setUploadState({ 
-                status: 'processing', 
-                message: 'Analysis may still be in progress. Results will appear when complete.',
-                progress: {
-                  scanId: (scanSession as any).scanId || scanSession.id,
-                  current: scanSession.metadata?.chunksProcessed ?? 0,
-                  total: scanSession.metadata?.totalChunks ?? 0,
-                  status: 'processing',
-                  message: 'Processing...',
-                  estimatedTimeRemaining: 0,
-                  pagesProcessed: scanSession.metadata?.totalPages ?? 0,
-                  totalPages: scanSession.metadata?.totalPages ?? 0
-                }
-              });
-              setCurrentScan(scanSession);
-              setMainResults([]);
-              setInProgressResults([]);
-              setError(null);
-              return;
-            }
-          }
-          console.log('[STATE RESTORE DEBUG] Restoring state from BE:', scanSession);
-          console.log('[DEBUG] Setting currentScan:', scanSession);
+          console.log('[DEBUG] Loaded scan session:', scanSession);
+          
+          // Set the scan data
           setCurrentScan(scanSession);
-          console.log('[DEBUG] Setting mainResults:', scanSession.results);
-          setMainResults(scanSession.results);
+          setMainResults(scanSession.results || []);
           setInProgressResults([]);
-          setError(null); // Clear any previous error state on success
+          setErrorSafe(null);
           
-          // If scan is still processing, re-establish SSE connection to get real-time updates
-          if (scanSession.status === 'processing') {
-            console.log('[SSE DEBUG] Scan is processing, re-establishing SSE connection for scanId:', scanSession.id);
+          if (scanSession.status === 'complete') {
+            // Scan is complete, show results
+            console.log('[DEBUG] Scan is complete, showing results');
+            setUploadState({
+              status: 'complete',
+              message: scanSession.results && scanSession.results.length > 0 
+                ? 'Analysis completed successfully' 
+                : 'Analysis completed. No relevant clauses found in this document.',
+              progress: {
+                scanId: scanSession.id,
+                current: scanSession.metadata?.chunksProcessed ?? 0,
+                total: scanSession.metadata?.totalChunks ?? 0,
+                status: 'complete',
+                message: 'Analysis completed',
+                estimatedTimeRemaining: 0,
+                pagesProcessed: scanSession.metadata?.totalPages ?? 0,
+                totalPages: scanSession.metadata?.totalPages ?? 0
+              }
+            });
+          } else if (scanSession.status === 'processing') {
+            // Scan is still processing, establish SSE connection for real-time updates
+            console.log('[DEBUG] Scan is processing, establishing SSE connection');
+            setUploadState({
+              status: 'processing',
+              message: 'Analysis in progress...',
+              progress: {
+                scanId: scanSession.id,
+                current: scanSession.metadata?.chunksProcessed ?? 0,
+                total: scanSession.metadata?.totalChunks ?? 0,
+                status: 'processing',
+                message: 'Processing...',
+                estimatedTimeRemaining: 0,
+                pagesProcessed: scanSession.metadata?.totalPages ?? 0,
+                totalPages: scanSession.metadata?.totalPages ?? 0
+              }
+            });
             establishSSEConnection(scanSession.id);
+          } else {
+            // Unknown status
+            console.error('[DEBUG] Unknown scan status:', scanSession.status);
+            setErrorSafe('Unknown scan status. Please try again or contact support.');
+            setUploadState({ status: 'error', message: 'Unknown scan status' });
           }
-          
-          setUploadState({
-            status: scanSession.status === 'complete' ? 'complete' : 'processing',
-            message: scanSession.status === 'complete' ? 'Analysis completed successfully' : 'Processing document...',
-            progress: {
-              scanId: (scanSession as any).scanId || scanSession.id,
-              current: scanSession.metadata?.chunksProcessed ?? 0,
-              total: scanSession.metadata?.totalChunks ?? 0,
-              status: scanSession.status === 'complete' ? 'complete' : 'processing',
-              message: scanSession.status === 'complete' ? 'Analysis completed' : 'Processing...',
-              estimatedTimeRemaining: 0,
-              pagesProcessed: scanSession.metadata?.totalPages ?? 0,
-              totalPages: scanSession.metadata?.totalPages ?? 0
-            }
-          });
-          console.log('[DEBUG] Set uploadState after BE fetch:', {
-            status: scanSession.status === 'complete' ? 'complete' : 'processing',
-            message: scanSession.status === 'complete' ? 'Analysis completed successfully' : 'Processing document...'
-          });
         } catch (err) {
-          console.error('[DEBUG] Error in scan fetch useEffect:', err);
-          setError(err instanceof Error ? err.message : 'Failed to load scan results');
+          console.error('[DEBUG] Error loading scan:', err);
+          setErrorSafe(err instanceof Error ? err.message : 'Failed to load scan results');
           setUploadState({ status: 'error', message: 'Failed to load scan results' });
-        } finally {
-          // setIsLoadingFromBE(false); // This state is removed, so this line is removed
         }
       } else if (urlScanId === 'undefined') {
-        // Fail loudly and clearly if scanId is invalid
+        // Invalid scanId
         console.error('[DEBUG] Invalid scanId in URL:', urlScanId);
-        setError('Invalid scan ID. Please try again or contact support.');
+        setErrorSafe('Invalid scan ID. Please try again or contact support.');
         setUploadState({ status: 'error', message: 'Invalid scan ID.' });
       }
     };
-    fetchScan();
-    return () => {
-      if (retryTimeout) clearTimeout(retryTimeout);
-    };
-  }, [urlScanId]);
+    
+    loadExistingScan();
+  }, [urlScanId, navigate]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     if (!user || !organization) {
-      setError('Authentication required. Please sign in and try again.');
+              setErrorSafe('Authentication required. Please sign in and try again.');
       return;
     }
 
@@ -308,7 +264,7 @@ export const DocumentScanner: React.FC = () => {
       validateFile(file);
       
       setUploadState({ status: 'uploading', message: 'Uploading document...' });
-      setError(null);
+      setErrorSafe(null);
       setMainResults([]);
       setInProgressResults([]);
 
@@ -340,7 +296,7 @@ export const DocumentScanner: React.FC = () => {
           estimatedCost: 0,
           processingTime: 0,
           totalPages: 0,
-          modelUsed: isTestMode ? 'gpt-3.5-turbo' : 'gpt-4',
+          modelUsed: 'gpt-4',
           chunksProcessed: 0,
           totalChunks: 0
         },
@@ -369,10 +325,10 @@ export const DocumentScanner: React.FC = () => {
     } catch (err) {
       console.error('Upload error:', err);
       const errorMessage = handleScanError(err);
-      setError(errorMessage);
+      setErrorSafe(errorMessage);
       setUploadState({ status: 'error', message: errorMessage });
     }
-  }, [user, organization, isTestMode, navigate]);
+  }, [user, organization, navigate]);
 
   const establishSSEConnection = (scanId: string) => {
     // Clean up existing connection
@@ -391,10 +347,30 @@ export const DocumentScanner: React.FC = () => {
     sseConnectionRef.current.connect();
   };
 
-  const handleSSEMessage = (data: any) => {
+  const handleSSEMessage = async (data: any) => {
     console.log('[DEBUG] SSE message received:', data);
 
-    if (data.type === 'progress') {
+    // Handle direct progress messages (current backend format)
+    if (data.progress !== undefined && data.status) {
+      setUploadState(prev => {
+        const newState = {
+          ...prev,
+          progress: {
+            scanId: data.scanId,
+            current: data.currentChunk || 0,
+            total: data.totalChunks || 1,
+            status: 'processing' as const, // Always 'processing' during analysis, not 'error'
+            message: data.status === 'analyzing' ? 'Analyzing document...' : data.message || 'Processing...',
+            estimatedTimeRemaining: data.estimatedTimeRemaining || 0,
+            pagesProcessed: data.pagesProcessed || 0,
+            totalPages: data.totalPages || 0
+          },
+          message: data.status === 'analyzing' ? 'Analyzing document...' : data.message || 'Processing...'
+        };
+        console.log('[DEBUG] SSE progress update, new uploadState:', newState);
+        return newState;
+      });
+    } else if (data.type === 'progress') {
       setUploadState(prev => {
         const newState = {
           ...prev,
@@ -413,6 +389,7 @@ export const DocumentScanner: React.FC = () => {
           ...prev,
           progress: {
             ...prev.progress!,
+            status: 'processing' as const, // Ensure status is 'processing' during analysis
             pagesProcessed: progressiveData.pagesProcessed,
             totalPages: progressiveData.totalPages,
             estimatedTimeRemaining: progressiveData.estimatedTimeRemaining
@@ -422,58 +399,75 @@ export const DocumentScanner: React.FC = () => {
         return newState;
       });
     } else if (data.type === 'complete') {
-      const scanSession: ScanSession = data.data;
-      console.log('[DEBUG] SSE complete event, scanSession:', scanSession);
-      setCurrentScan(scanSession);
-      setMainResults(scanSession.results);
-      setInProgressResults([]);
-      // Defensive: Check for metadata presence
-      const meta = scanSession.metadata;
-      if (!meta) {
-        console.warn('[DEBUG] SSE complete event missing metadata field:', scanSession);
+      // SSE completion event - just signals that processing is done
+      // We'll fetch the actual results from the API
+      const scanId = data.data?.scanId || data.data?.id;
+      console.log('[DEBUG] SSE complete event received for scanId:', scanId);
+      
+      if (!scanId || scanId === 'undefined') {
+        console.error('[DEBUG] SSE complete event missing valid scanId:', data);
+        setError('Invalid scan ID received from server. Please try again or contact support.');
+        setUploadState({ status: 'error', message: 'Invalid scan ID.' });
+        return;
       }
+      
+      // Set upload state to complete
       setUploadState({ 
         status: 'complete', 
         message: 'Analysis completed successfully',
         progress: {
-          scanId: (scanSession as any).scanId || scanSession.id,
-          current: meta?.chunksProcessed ?? 0,
-          total: meta?.totalChunks ?? 0,
+          scanId: scanId,
+          current: 100,
+          total: 100,
           status: 'complete',
           message: 'Analysis completed',
           estimatedTimeRemaining: 0,
-          pagesProcessed: meta?.totalPages ?? 0,
-          totalPages: meta?.totalPages ?? 0
+          pagesProcessed: 0,
+          totalPages: 0
         }
       });
-      console.log('[DEBUG] Set uploadState after SSE complete:', {
-        status: 'complete',
-        message: 'Analysis completed successfully'
-      });
       
-      // Clear localStorage when scan is complete (optional - user can still navigate back)
+      // Clear localStorage
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentScanId');
         console.log('[PERSISTENCE DEBUG] Cleared scanId from localStorage after completion');
       }
       
-      // Defensive: Only navigate if scanId is valid
-      const navScanId = (scanSession as any).scanId || scanSession.id;
-      if (navScanId && navScanId !== 'undefined') {
-        console.log('[DEBUG] Navigating to scanId:', navScanId);
-        setError(null); // Clear any previous error state on success
-        navigate(`/document-scanner/${navScanId}`, { replace: false });
-      } else {
-        console.error('[DEBUG] SSE complete event missing valid scanId:', scanSession);
-        setError('Invalid scan ID received from server. Please try again or contact support.');
-        setUploadState({ status: 'error', message: 'Invalid scan ID.' });
+      // Navigate to results page
+      console.log('[DEBUG] Navigating to scanId:', scanId);
+      setErrorSafe(null);
+      navigate(`/document-scanner/${scanId}`, { replace: false });
+      
+      // Fetch final results from API (authoritative source)
+      try {
+        console.log('[DEBUG] Fetching final results from API after SSE completion');
+        const response = await scanApi.getScan(scanId);
+        if (response.error) {
+          console.error('[DEBUG] Error fetching final results:', response.error);
+          setErrorSafe('Failed to load scan results. Please try refreshing the page.');
+          return;
+        }
+        
+        const finalScanSession = response.data;
+        if (finalScanSession) {
+          console.log('[DEBUG] Final results from API:', finalScanSession.results);
+          console.log('[DEBUG] Results count:', finalScanSession.results?.length || 0);
+          setMainResults(finalScanSession.results || []);
+          setCurrentScan(finalScanSession);
+        } else {
+          console.error('[DEBUG] No scan session data returned from API');
+          setErrorSafe('No scan data found. Please try again or contact support.');
+        }
+      } catch (err) {
+        console.error('[DEBUG] Error fetching final results after SSE completion:', err);
+        setErrorSafe('Failed to load scan results. Please try refreshing the page.');
       }
     }
   };
 
   const handleSSEError = (error: string) => {
     console.error('SSE error:', error);
-    setError(error);
+    setErrorSafe(error);
     setUploadState({ status: 'error', message: error });
   };
 
@@ -489,7 +483,7 @@ export const DocumentScanner: React.FC = () => {
     if (!currentScan) return;
 
     try {
-      setError(null);
+      setErrorSafe(null);
       setUploadState({ status: 'processing', message: 'Retrying scan...' });
       
       const response = await scanApi.retryScan(currentScan.id);
@@ -504,7 +498,7 @@ export const DocumentScanner: React.FC = () => {
     } catch (err) {
       console.error('Retry error:', err);
       const errorMessage = handleScanError(err);
-      setError(errorMessage);
+      setErrorSafe(errorMessage);
       setUploadState({ status: 'error', message: errorMessage });
     }
   };
@@ -515,7 +509,7 @@ export const DocumentScanner: React.FC = () => {
     console.log('[MANUAL REFRESH] User triggered manual refresh for scanId:', urlScanId);
     
     try {
-      setError(null);
+      setErrorSafe(null);
       setUploadState({ status: 'loading-from-be', message: 'Refreshing scan results...' });
       
       // Clear existing results to show loading state
@@ -560,7 +554,7 @@ export const DocumentScanner: React.FC = () => {
     } catch (err) {
       console.error('[MANUAL REFRESH] Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to refresh results';
-      setError(errorMessage);
+      setErrorSafe(errorMessage);
       setUploadState({ status: 'error', message: errorMessage });
     } finally {
       // setIsLoadingFromBE(false); // This state is removed, so this line is removed
@@ -572,7 +566,7 @@ export const DocumentScanner: React.FC = () => {
     setCurrentScan(null);
     setMainResults([]);
     setInProgressResults([]);
-    setError(null);
+    setErrorSafe(null);
     
     // Clear localStorage when resetting
     if (typeof window !== 'undefined') {
@@ -584,6 +578,15 @@ export const DocumentScanner: React.FC = () => {
       sseConnectionRef.current.disconnect();
       sseConnectionRef.current = null;
     }
+    
+    // Navigate to the base document scanner URL to show the upload interface
+    navigate('/document-scanner');
+  };
+
+  // Function to clear all scan results and return to initial state
+  const clearAllResults = () => {
+    console.log('[DEBUG] Clearing all scan results and returning to initial state');
+    handleReset();
   };
 
   // Cleanup on unmount
@@ -594,6 +597,21 @@ export const DocumentScanner: React.FC = () => {
       }
     };
   }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Escape key to clear results and return to upload state
+      if (event.key === 'Escape' && (error || currentScan || mainResults.length > 0)) {
+        event.preventDefault();
+        console.log('[DEBUG] Escape key pressed - clearing results');
+        clearAllResults();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [error, currentScan, mainResults.length]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
@@ -651,8 +669,18 @@ export const DocumentScanner: React.FC = () => {
                 </Typography>
               </Box>
               <Chip 
-                label={status === 'processing' ? 'Analyzing' : status === 'complete' ? 'Complete' : 'Error'}
-                color={status === 'processing' ? 'primary' : status === 'complete' ? 'success' : 'error'}
+                label={
+                  status === 'processing' ? 'Analyzing' : 
+                  status === 'complete' ? 'Complete' : 
+                  status === 'error' ? 'Error' : 
+                  'Processing'
+                }
+                color={
+                  status === 'processing' ? 'primary' : 
+                  status === 'complete' ? 'success' : 
+                  status === 'error' ? 'error' : 
+                  'default'
+                }
                 size="small"
                 sx={{ 
                   fontWeight: 600,
@@ -688,6 +716,16 @@ export const DocumentScanner: React.FC = () => {
                     }
                   }}
                 />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Chunk {current} of {total}
+                  </Typography>
+                  {estimatedTimeRemaining && estimatedTimeRemaining > 0 && (
+                    <Typography variant="body2" color="text.secondary">
+                      ~{Math.ceil(estimatedTimeRemaining / 60)} min remaining
+                    </Typography>
+                  )}
+                </Box>
               </Box>
             )}
 
@@ -737,22 +775,7 @@ export const DocumentScanner: React.FC = () => {
             Analysis Results
           </Typography>
           
-          {isTestMode && (
-            <Alert 
-              severity="info" 
-              sx={{ 
-                mb: 3,
-                borderRadius: 2,
-                background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%)',
-                border: '1px solid',
-                borderColor: 'primary.light'
-              }}
-            >
-              <Typography variant="body2">
-                Document processed with GPT-3.5 (cost-optimized mode)
-              </Typography>
-            </Alert>
-          )}
+
 
           {/* In-Progress Results */}
           {inProgressResults.length > 0 && (
@@ -833,7 +856,7 @@ export const DocumentScanner: React.FC = () => {
       </Typography>
       </Box>
 
-      {/* Test Mode Toggle */}
+      
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
         <Paper 
           sx={{ 
@@ -845,28 +868,7 @@ export const DocumentScanner: React.FC = () => {
             borderColor: 'divider'
           }}
         >
-      <FormControlLabel
-        control={
-          <Switch
-            checked={isTestMode}
-            onChange={(e) => setIsTestMode(e.target.checked)}
-            color="primary"
-                sx={{
-                  '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: '#6366f1',
-                  },
-                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: '#6366f1',
-                  },
-                }}
-              />
-            }
-            label={
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                Test Mode (GPT-3.5 - Cost Optimized)
-              </Typography>
-            }
-          />
+      
         </Paper>
       </Box>
 
@@ -996,19 +998,30 @@ export const DocumentScanner: React.FC = () => {
                   borderColor: 'error.main'
                 }}
                 action={
-                  <Button 
-                    color="inherit" 
-                    size="small" 
-                    onClick={handleRetry}
-                    startIcon={<RefreshIcon />}
-                    sx={{ fontWeight: 600 }}
-                  >
-                    Retry
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button 
+                      color="inherit" 
+                      size="small" 
+                      onClick={handleRetry}
+                      startIcon={<RefreshIcon />}
+                      sx={{ fontWeight: 600 }}
+                    >
+                      Retry
+                    </Button>
+                    <Button 
+                      color="inherit" 
+                      size="small" 
+                      onClick={clearAllResults}
+                      startIcon={<AddIcon />}
+                      sx={{ fontWeight: 600 }}
+                    >
+                      Start Fresh
+                    </Button>
+                  </Box>
                 }
               >
                 <Typography variant="body1" sx={{ fontWeight: 500 }}>
-              {error}
+              {typeof error === 'string' ? error : JSON.stringify(error)}
             </Typography>
               </Alert>
             </Slide>

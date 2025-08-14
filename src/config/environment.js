@@ -1,3 +1,4 @@
+import { dlog } from '../utils/debugLog';
 var environment = {
     supabase: {
         url: import.meta.env.VITE_SUPABASE_URL,
@@ -8,7 +9,7 @@ var environment = {
     }
 };
 // Log environment configuration for debugging
-console.log('Environment:', {
+dlog('Environment:', {
     isProd: import.meta.env.PROD,
     apiUrl: environment.api.url,
     supabaseUrl: environment.supabase.url,

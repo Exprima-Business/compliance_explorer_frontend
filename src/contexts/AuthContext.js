@@ -37,6 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 import { jsx as _jsx } from "react/jsx-runtime";
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { JWTClaimsManager } from '../utils/jwtClaimsManager';
 export var AuthContext = createContext(undefined);
 export var AuthProvider = function (_a) {
     var children = _a.children;
@@ -44,23 +45,80 @@ export var AuthProvider = function (_a) {
     var _c = useState(true), loading = _c[0], setLoading = _c[1];
     var _d = useState(null), error = _d[0], setError = _d[1];
     useEffect(function () {
-        // Check active sessions and sets the user
-        supabase.auth.getSession().then(function (_a) {
-            var _b;
-            var session = _a.data.session;
-            setUser((_b = session === null || session === void 0 ? void 0 : session.user) !== null && _b !== void 0 ? _b : null);
-            setLoading(false);
-        });
-        // Listen for changes on auth state (logged in, signed out, etc.)
-        var subscription = supabase.auth.onAuthStateChange(function (_event, session) {
+        var initializeAuth = function () { return __awaiter(void 0, void 0, void 0, function () {
+            var session, claimsResult, restoreResult, error_1;
             var _a;
-            setUser((_a = session === null || session === void 0 ? void 0 : session.user) !== null && _a !== void 0 ? _a : null);
-            setLoading(false);
-        }).data.subscription;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        _b.trys.push([0, 5, , 6]);
+                        return [4 /*yield*/, supabase.auth.getSession()];
+                    case 1:
+                        session = (_b.sent()).data.session;
+                        setUser((_a = session === null || session === void 0 ? void 0 : session.user) !== null && _a !== void 0 ? _a : null);
+                        if (!(session === null || session === void 0 ? void 0 : session.user)) return [3 /*break*/, 4];
+                        return [4 /*yield*/, JWTClaimsManager.validateCurrentClaims()];
+                    case 2:
+                        claimsResult = _b.sent();
+                        if (!!claimsResult.isValid) return [3 /*break*/, 4];
+                        return [4 /*yield*/, JWTClaimsManager.restoreClaims()];
+                    case 3:
+                        restoreResult = _b.sent();
+                        if (!restoreResult.success) {
+                            console.warn('JWT claims validation failed:', claimsResult.error);
+                            // Don't fail auth, but mark as needing organization selection
+                        }
+                        _b.label = 4;
+                    case 4:
+                        setLoading(false);
+                        return [3 /*break*/, 6];
+                    case 5:
+                        error_1 = _b.sent();
+                        console.error('Auth initialization error:', error_1);
+                        setError('Authentication initialization failed');
+                        setLoading(false);
+                        return [3 /*break*/, 6];
+                    case 6: return [2 /*return*/];
+                }
+            });
+        }); };
+        initializeAuth();
+        // Listen for changes on auth state
+        var subscription = supabase.auth.onAuthStateChange(function (event, session) { return __awaiter(void 0, void 0, void 0, function () {
+            var claimsResult, restoreResult;
+            var _a;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        setUser((_a = session === null || session === void 0 ? void 0 : session.user) !== null && _a !== void 0 ? _a : null);
+                        if (!((session === null || session === void 0 ? void 0 : session.user) && event === 'SIGNED_IN')) return [3 /*break*/, 4];
+                        return [4 /*yield*/, JWTClaimsManager.validateCurrentClaims()];
+                    case 1:
+                        claimsResult = _b.sent();
+                        if (!!claimsResult.isValid) return [3 /*break*/, 3];
+                        return [4 /*yield*/, JWTClaimsManager.restoreClaims()];
+                    case 2:
+                        restoreResult = _b.sent();
+                        if (!restoreResult.success) {
+                            console.warn('Failed to restore claims after sign-in');
+                        }
+                        _b.label = 3;
+                    case 3: return [3 /*break*/, 5];
+                    case 4:
+                        if (event === 'SIGNED_OUT') {
+                            JWTClaimsManager.clearStoredClaims();
+                        }
+                        _b.label = 5;
+                    case 5:
+                        setLoading(false);
+                        return [2 /*return*/];
+                }
+            });
+        }); }).data.subscription;
         return function () { return subscription.unsubscribe(); };
     }, []);
     var signIn = function (email, password) { return __awaiter(void 0, void 0, void 0, function () {
-        var error_1, err_1;
+        var error_2, err_1;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -68,9 +126,9 @@ export var AuthProvider = function (_a) {
                     setError(null);
                     return [4 /*yield*/, supabase.auth.signInWithPassword({ email: email, password: password })];
                 case 1:
-                    error_1 = (_a.sent()).error;
-                    if (error_1)
-                        throw error_1;
+                    error_2 = (_a.sent()).error;
+                    if (error_2)
+                        throw error_2;
                     return [3 /*break*/, 3];
                 case 2:
                     err_1 = _a.sent();
@@ -81,7 +139,7 @@ export var AuthProvider = function (_a) {
         });
     }); };
     var signUp = function (email, password) { return __awaiter(void 0, void 0, void 0, function () {
-        var error_2, err_2;
+        var error_3, err_2;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -89,9 +147,9 @@ export var AuthProvider = function (_a) {
                     setError(null);
                     return [4 /*yield*/, supabase.auth.signUp({ email: email, password: password })];
                 case 1:
-                    error_2 = (_a.sent()).error;
-                    if (error_2)
-                        throw error_2;
+                    error_3 = (_a.sent()).error;
+                    if (error_3)
+                        throw error_3;
                     return [3 /*break*/, 3];
                 case 2:
                     err_2 = _a.sent();
@@ -102,7 +160,7 @@ export var AuthProvider = function (_a) {
         });
     }); };
     var signOut = function () { return __awaiter(void 0, void 0, void 0, function () {
-        var error_3, err_3;
+        var error_4, err_3;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -110,9 +168,9 @@ export var AuthProvider = function (_a) {
                     setError(null);
                     return [4 /*yield*/, supabase.auth.signOut()];
                 case 1:
-                    error_3 = (_a.sent()).error;
-                    if (error_3)
-                        throw error_3;
+                    error_4 = (_a.sent()).error;
+                    if (error_4)
+                        throw error_4;
                     return [3 /*break*/, 3];
                 case 2:
                     err_3 = _a.sent();

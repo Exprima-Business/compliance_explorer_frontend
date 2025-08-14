@@ -4,6 +4,7 @@ import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiResponse, ApiError as ApiErrorObj } from '../types/api';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
+import { JWTClaimsManager } from '../utils/jwtClaimsManager';
 
 // API configuration
 const API_URL = environment.api.url;
@@ -121,6 +122,26 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
       data: { session },
     } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
+
+    // Validate JWT claims for protected endpoints
+    if (session?.user && endpoint !== '/api/organizations') {
+      const claimsResult = await JWTClaimsManager.validateCurrentClaims();
+      
+      if (!claimsResult.isValid) {
+        dlog('JWT claims validation failed for endpoint:', { 
+          endpoint, 
+          error: claimsResult.error 
+        });
+        
+        return {
+          data: null as unknown as T,
+          error: {
+            code: 'MISSING_CLAIMS',
+            message: 'Organization context required. Please select an organization and try again.'
+          }
+        };
+      }
+    }
 
     const baseHeaders: Record<string, string> = {
       'x-org-id': getCurrentOrgId(),

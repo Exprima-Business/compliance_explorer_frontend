@@ -12,6 +12,8 @@ var __assign = (this && this.__assign) || function () {
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useMemo, useRef, useState, useEffect } from 'react';
 import * as d3 from 'd3';
+import { useBookmarks } from '../contexts/BookmarkContext';
+import { dlog } from '../utils/debugLog';
 // Constants
 var NODE_RADIUS = 45;
 var SIDEBAR_WIDTH = 320;
@@ -46,6 +48,7 @@ function hashColor(str) {
 }
 export var ClauseGraphD3 = function (_a) {
     var graphData = _a.graphData, onNodeClick = _a.onNodeClick;
+    var isClauseBookmarked = useBookmarks().isClauseBookmarked;
     var svgRef = useRef(null);
     var containerRef = useRef(null);
     var simulationRef = useRef(null);
@@ -58,6 +61,52 @@ export var ClauseGraphD3 = function (_a) {
         y: 0,
         data: null
     }), tooltip = _d[0], setTooltip = _d[1];
+    // Debug logging for graph data
+    useEffect(function () {
+        dlog('ClauseGraphD3: Received graph data', {
+            nodes: graphData.nodes.length,
+            links: graphData.links.length,
+            hasSvgRef: !!svgRef.current,
+            hasContainerRef: !!containerRef.current
+        });
+    }, [graphData]);
+    // Track render count for debugging
+    var renderCountRef = useRef(0);
+    renderCountRef.current += 1;
+    // dlog('ClauseGraphD3: Component render count', {
+    //   component: 'D3',
+    //   renderCount: renderCountRef.current,
+    //   timestamp: Date.now()
+    // });
+    // Force re-render when graph data changes significantly
+    var graphKey = useMemo(function () {
+        // Use stable key to prevent component remounting
+        var stableKey = 'stable-graph-key';
+        dlog('ClauseGraphD3: graphKey generated', {
+            stableKey: stableKey,
+            nodesLength: graphData.nodes.length,
+            linksLength: graphData.links.length,
+            timestamp: Date.now()
+        });
+        return stableKey;
+    }, [graphData]);
+    // Debug component lifecycle
+    useEffect(function () {
+        dlog('ClauseGraphD3: Component mounted/remounted', {
+            graphKey: graphKey,
+            nodesLength: graphData.nodes.length,
+            linksLength: graphData.links.length,
+            timestamp: Date.now()
+        });
+        return function () {
+            dlog('ClauseGraphD3: Component unmounting', {
+                graphKey: graphKey,
+                nodesLength: graphData.nodes.length,
+                linksLength: graphData.links.length,
+                timestamp: Date.now()
+            });
+        };
+    }, [graphKey, graphData.nodes.length, graphData.links.length]);
     // Resize observer for container
     useEffect(function () {
         var el = containerRef.current;
@@ -75,15 +124,34 @@ export var ClauseGraphD3 = function (_a) {
     }, []);
     // Transform data (deduplicate nodes)
     var transformedData = useMemo(function () {
-        var _a;
+        var _a, _b;
         var nodeMap = new Map();
         graphData.nodes.forEach(function (n) {
             if (!nodeMap.has(n.id))
                 nodeMap.set(n.id, __assign({}, n));
         });
         var links = (_a = graphData.links) !== null && _a !== void 0 ? _a : [];
+        dlog('ClauseGraphD3: Data transformation', {
+            inputNodes: graphData.nodes.length,
+            inputLinks: ((_b = graphData.links) === null || _b === void 0 ? void 0 : _b.length) || 0,
+            outputNodes: Array.from(nodeMap.values()).length,
+            outputLinks: links.length,
+            hasGraphDataLinks: !!graphData.links,
+            graphDataLinksType: typeof graphData.links,
+            sampleLinks: links.slice(0, 3)
+        });
         return { nodes: Array.from(nodeMap.values()), links: links };
     }, [graphData]);
+    // Debug: Track component re-render triggers
+    // useEffect(() => {
+    //   dlog('D3: Component re-render triggered', {
+    //     graphDataNodesLength: graphData.nodes.length,
+    //     graphDataLinksLength: graphData.links.length,
+    //     transformedDataNodesLength: transformedData.nodes.length,
+    //     transformedDataLinksLength: transformedData.links.length,
+    //     stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
+    //   });
+    // }, [graphData, transformedData]);
     // Color function
     var getNodeColor = function (node) {
         // Use family color if available, otherwise fallback to default
@@ -111,6 +179,7 @@ export var ClauseGraphD3 = function (_a) {
     }, [hoverNode, transformedData.links]);
     // D3 Graph Rendering
     useEffect(function () {
+        var _a, _b;
         if (!svgRef.current || !transformedData.nodes.length)
             return;
         var svg = d3.select(svgRef.current);
@@ -223,29 +292,75 @@ export var ClauseGraphD3 = function (_a) {
             .attr('height', dimensions.height)
             .attr('fill', 'url(#grid)')
             .style('pointer-events', 'none');
-        // Create simulation with stable configuration
-        var simulation = d3.forceSimulation(transformedData.nodes)
-            .force('link', d3.forceLink(transformedData.links).id(function (d) { return d.id; }).distance(50))
-            .force('charge', d3.forceManyBody().strength(-100))
+        // ---------------------------------------
+        // Force-directed simulation
+        // ---------------------------------------
+        var simulation = d3
+            .forceSimulation(transformedData.nodes)
+            .force('link', d3
+            .forceLink(transformedData.links)
+            .id(function (d) { return d.id; })
+            .distance(60))
+            .force('charge', d3
+            .forceManyBody()
+            .strength(-80) // user-requested repulsion strength
+            .distanceMax(Math.min(dimensions.width, dimensions.height) / 2) // no repulsion past half the viewport
+        )
             .force('center', d3.forceCenter(dimensions.width / 2, dimensions.height / 2))
-            .force('collision', d3.forceCollide(NODE_RADIUS * 1.2))
+            .force('attractX', d3.forceX(dimensions.width / 2).strength(0.03))
+            .force('attractY', d3.forceY(dimensions.height / 2).strength(0.03))
+            .force('collision', d3.forceCollide(NODE_RADIUS * 1.6))
             .alphaDecay(0.02) // Slower decay for more stability
             .velocityDecay(0.4); // Higher velocity decay for less bouncing
         // Store simulation reference
         simulationRef.current = simulation;
+        // Debug: Log links before and after force simulation setup
+        dlog('D3: Links before force simulation', {
+            sampleLinks: transformedData.links.slice(0, 3),
+            linkTypes: transformedData.links.slice(0, 3).map(function (l) { return ({
+                sourceType: typeof l.source,
+                targetType: typeof l.target,
+                source: l.source,
+                target: l.target
+            }); })
+        });
+        // Debug: Log force link setup
+        var forceLink = d3.forceLink(transformedData.links)
+            .id(function (d) { return d.id; })
+            .distance(60);
+        dlog('D3: Force link setup', {
+            originalLinksLength: transformedData.links.length,
+            forceLinkLinksLength: ((_a = forceLink.links()) === null || _a === void 0 ? void 0 : _a.length) || 0,
+            sampleOriginalLinks: transformedData.links.slice(0, 3),
+            sampleForceLinks: ((_b = forceLink.links()) === null || _b === void 0 ? void 0 : _b.slice(0, 3)) || []
+        });
+        // --------------------------------------------------
+        // DEBUG: Log link data before rendering
+        // --------------------------------------------------
+        if (process.env.NODE_ENV !== 'production') {
+            dlog('D3-LINKS', transformedData.links.length, transformedData.links.slice(0, 10));
+        }
         // Create links with enhanced styling
         var links = g.append('g')
             .selectAll('line')
             .data(transformedData.links)
             .enter()
             .append('line')
-            .attr('stroke', '#999')
-            .attr('stroke-width', function (d) {
-            // Make PARENT relationships bolder than SIBLING
-            var relationshipType = d.relationshipType || 'SIBLING';
-            return relationshipType === 'PARENT' ? 4 : 2;
+            .attr('stroke', function (d) {
+            var rel = (d.relationshipType || 'sibling').toLowerCase();
+            // Distinct colors help users spot different relationship kinds
+            if (rel === 'parent')
+                return '#6366f1'; // Primary blue for parent edges
+            if (rel === 'child')
+                return '#0ea5e9'; // Lighter blue for child (if present)
+            return '#94a3b8'; // Grayish for sibling
         })
-            .attr('opacity', 0.6)
+            .attr('stroke-width', function (d) {
+            // Make parent/child relationships bolder than sibling
+            var rel = (d.relationshipType || 'sibling').toLowerCase();
+            return rel === 'parent' || rel === 'child' ? 3 : 2;
+        })
+            .attr('opacity', 0.9)
             .style('filter', 'drop-shadow(0 0 2px rgba(153, 153, 153, 0.3))');
         // Create nodes with clean design
         var nodes = g.append('g')
@@ -266,8 +381,8 @@ export var ClauseGraphD3 = function (_a) {
             var family = ((_a = d.family) === null || _a === void 0 ? void 0 : _a.name) || ((_b = d.family) === null || _b === void 0 ? void 0 : _b.id) || d.family || 'Default';
             return "url(#gradient-".concat(family, ")");
         })
-            .attr('stroke', function (d) { return d.isBookmarked ? '#FFD700' : 'none'; })
-            .attr('stroke-width', function (d) { return d.isBookmarked ? 3 : 0; })
+            .attr('stroke', function (d) { return isClauseBookmarked(d.id) ? '#FFD700' : 'none'; })
+            .attr('stroke-width', function (d) { return isClauseBookmarked(d.id) ? 3 : 0; })
             .style('cursor', 'pointer')
             .style('filter', 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2))')
             .style('transition', 'all 0.3s ease');
@@ -364,6 +479,17 @@ export var ClauseGraphD3 = function (_a) {
         }
         // Update positions on simulation tick
         simulation.on('tick', function () {
+            // Debug: Log link mutation check during simulation
+            // dlog('D3: Simulation tick - link mutation check', {
+            //   sampleLinks: transformedData.links.slice(0, 3).map(l => ({
+            //     sourceType: typeof l.source,
+            //     targetType: typeof l.target,
+            //     sourceHasId: l.source && typeof l.source === 'object' && 'id' in l.source,
+            //     targetHasId: l.target && typeof l.target === 'object' && 'id' in l.target,
+            //     sourceId: typeof l.source === 'object' ? (l.source as any).id : l.source,
+            //     targetId: typeof l.target === 'object' ? (l.target as any).id : l.target
+            //   }))
+            // });
             links
                 .attr('x1', function (d) { return d.source.x; })
                 .attr('y1', function (d) { return d.source.y; })
@@ -490,5 +616,5 @@ export var ClauseGraphD3 = function (_a) {
                                     fontSize: '12px',
                                     color: '#6b7280'
                                 }, children: [_jsxs("div", { children: [_jsx("strong", { style: { color: '#6366f1' }, children: "Risk:" }), " ", tooltip.data.riskClassification || 'Unknown'] }), _jsxs("div", { children: [_jsx("strong", { style: { color: '#6366f1' }, children: "Family:" }), " ", ((_a = tooltip.data.family) === null || _a === void 0 ? void 0 : _a.name) || 'Unknown'] })] })] }));
-                })() }))] }));
+                })() }))] }, graphKey));
 };

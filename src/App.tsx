@@ -17,6 +17,7 @@ import AuthGate from './components/AuthGate';
 import OrgSetupDialog from './components/OrgSetupDialog';
 import ProjectGate from './components/ProjectGate';
 import { URLValidation } from './components/URLValidation';
+import { OrgSelectionWrapper } from './components/OrgSelectionWrapper';
 
 const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
 const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING === 'true';
@@ -42,18 +43,20 @@ export default function App() {
                             <ClauseProvider>
                               <BookmarkProvider>
                                 <OrgSetupDialog />
-                                <Layout>
-                                  <Routes>
-                                    <Route path="/" element={<Home />} />
-                                    <Route path="/matrix" element={<Matrix />} />
-                                    {ENABLE_SCANNER && (
-                                      <>
-                                        <Route path="/document-scanner" element={<DocumentScanner />} />
-                                        <Route path="/document-scanner/:scanId" element={<DocumentScanner />} />
-                                      </>
-                                    )}
-                                  </Routes>
-                                </Layout>
+                                <OrgSelectionWrapper>
+                                  <Layout>
+                                    <Routes>
+                                      <Route path="/" element={<Home />} />
+                                      <Route path="/matrix" element={<Matrix />} />
+                                      {ENABLE_SCANNER && (
+                                        <>
+                                          <Route path="/document-scanner" element={<DocumentScanner />} />
+                                          <Route path="/document-scanner/:scanId" element={<DocumentScanner />} />
+                                        </>
+                                      )}
+                                    </Routes>
+                                  </Layout>
+                                </OrgSelectionWrapper>
                               </BookmarkProvider>
                             </ClauseProvider>
                           </PreferencesProvider>
@@ -77,18 +80,20 @@ export default function App() {
                           <ClauseProvider>
                             <BookmarkProvider>
                               <OrgSetupDialog />
-                              <Layout>
-                                <Routes>
-                                  <Route path="/" element={<Home />} />
-                                  <Route path="/matrix" element={<Matrix />} />
-                                  {ENABLE_SCANNER && (
-                                    <>
-                                      <Route path="/document-scanner" element={<DocumentScanner />} />
-                                      <Route path="/document-scanner/:scanId" element={<DocumentScanner />} />
-                                    </>
-                                  )}
-                                </Routes>
-                              </Layout>
+                              <OrgSelectionWrapper>
+                                <Layout>
+                                  <Routes>
+                                    <Route path="/" element={<Home />} />
+                                    <Route path="/matrix" element={<Matrix />} />
+                                    {ENABLE_SCANNER && (
+                                      <>
+                                        <Route path="/document-scanner" element={<DocumentScanner />} />
+                                        <Route path="/document-scanner/:scanId" element={<DocumentScanner />} />
+                                      </>
+                                    )}
+                                  </Routes>
+                                </Layout>
+                              </OrgSelectionWrapper>
                             </BookmarkProvider>
                           </ClauseProvider>
                         </PreferencesProvider>

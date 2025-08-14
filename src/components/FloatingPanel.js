@@ -2,7 +2,7 @@ import { jsx as _jsx } from "react/jsx-runtime";
 import { Box, Paper } from '@mui/material';
 import { ClauseCard } from './ClauseCard';
 export var FloatingPanel = function (_a) {
-    var clause = _a.clause, onClose = _a.onClose, _b = _a.isBookmarked, isBookmarked = _b === void 0 ? false : _b, onBookmarkToggle = _a.onBookmarkToggle;
+    var clause = _a.clause, onClose = _a.onClose, onBookmarkToggle = _a.onBookmarkToggle;
     if (!clause)
         return null;
     return (_jsx(Paper, { elevation: 3, sx: {
@@ -17,5 +17,5 @@ export var FloatingPanel = function (_a) {
             flexDirection: 'column',
             bgcolor: 'background.paper',
             borderRadius: 2,
-        }, children: _jsx(Box, { sx: { p: 2, flex: 1 }, children: _jsx(ClauseCard, { clause: clause, isBookmarked: isBookmarked, onBookmarkToggle: onBookmarkToggle, onClose: onClose }) }) }));
+        }, children: _jsx(Box, { sx: { p: 2, flex: 1 }, children: _jsx(ClauseCard, { clause: clause, onBookmarkToggle: onBookmarkToggle, onClose: onClose }) }) }));
 };

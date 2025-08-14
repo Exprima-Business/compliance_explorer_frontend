@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import environment from '../config/environment';
+import { dlog } from '../utils/debugLog';
 // Enhanced error checking with detailed messages
 if (!environment.supabase.url) {
     console.error('Supabase URL is missing. Current value:', environment.supabase.url);
@@ -9,28 +10,20 @@ if (!environment.supabase.anonKey) {
     console.error('Supabase anon key is missing. Current value:', environment.supabase.anonKey ? '***' : 'undefined');
     throw new Error('Missing Supabase anon key environment variable');
 }
-// Log successful initialization (without sensitive data)
-console.log('Supabase client initializing with URL:', environment.supabase.url);
+// Log successful initialization (without sensitive data) in dev mode
+dlog('Supabase client initializing with URL:', environment.supabase.url);
 // Create the Supabase client with error handling
 var supabase;
 try {
     supabase = createClient(environment.supabase.url, environment.supabase.anonKey, {
         auth: {
-            autoRefreshToken: true,
+            autoRefreshToken: true, // Enable auto-refresh - AuthContext will handle session state
             persistSession: true,
             detectSessionInUrl: true
         }
     });
-    // Test the connection
-    supabase.auth.getSession().then(function (_a) {
-        var session = _a.data.session, error = _a.error;
-        if (error) {
-            console.error('Supabase connection test failed:', error.message);
-        }
-        else {
-            console.log('Supabase connection test successful');
-        }
-    });
+    // Simple connection test - session management is handled by AuthContext
+    dlog('Supabase client initialized successfully');
 }
 catch (error) {
     console.error('Failed to initialize Supabase client:', error);

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
+import { JWTClaimsManager } from '../utils/jwtClaimsManager';
 
 export interface AuthContextValue {
   user: User | null;
@@ -20,15 +21,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const initializeAuth = async () => {
+      try {
+        // Check active sessions and sets the user
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          // Validate and restore claims if needed
+          const claimsResult = await JWTClaimsManager.validateCurrentClaims();
+          
+          if (!claimsResult.isValid) {
+            // Try to restore claims from localStorage
+            const restoreResult = await JWTClaimsManager.restoreClaims();
+            if (!restoreResult.success) {
+              console.warn('JWT claims validation failed:', claimsResult.error);
+              // Don't fail auth, but mark as needing organization selection
+            }
+          }
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        setError('Authentication initialization failed');
+        setLoading(false);
+      }
+    };
 
-    // Listen for changes on auth state (logged in, signed out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    initializeAuth();
+
+    // Listen for changes on auth state
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
+      
+      if (session?.user && event === 'SIGNED_IN') {
+        // Handle claims validation on sign-in
+        const claimsResult = await JWTClaimsManager.validateCurrentClaims();
+        if (!claimsResult.isValid) {
+          const restoreResult = await JWTClaimsManager.restoreClaims();
+          if (!restoreResult.success) {
+            console.warn('Failed to restore claims after sign-in');
+          }
+        }
+      } else if (event === 'SIGNED_OUT') {
+        JWTClaimsManager.clearStoredClaims();
+      }
+      
       setLoading(false);
     });
 

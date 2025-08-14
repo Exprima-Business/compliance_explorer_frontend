@@ -94,6 +94,19 @@ if (typeof window !== 'undefined') {
   console.log('[SUPABASE DEBUG] Call window.debugRefreshSession() in the console to manually refresh and log session.');
 }
 
+// --- JWT Claims debugging utility ---
+if (typeof window !== 'undefined') {
+  (window as any).debugJWTCustomClaims = async () => {
+    try {
+      const { JWTClaimsManager } = await import('./utils/jwtClaimsManager');
+      await JWTClaimsManager.debugCurrentClaims();
+    } catch (e) {
+      console.error('[JWT CLAIMS DEBUG ERROR]', e);
+    }
+  };
+  console.log('[JWT CLAIMS DEBUG] Call window.debugJWTCustomClaims() in the console to debug JWT custom claims.');
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>

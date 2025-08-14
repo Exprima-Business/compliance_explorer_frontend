@@ -69,6 +69,18 @@ import { saveAs } from 'file-saver';
 var ensureString = function (value) {
     if (value === undefined || value === null)
         return '';
+    // Handle arrays gracefully
+    if (Array.isArray(value)) {
+        return value.join(', ');
+    }
+    // Handle objects – if there is a `name` field, prefer that, otherwise JSON stringify
+    if (typeof value === 'object') {
+        if ('name' in value && typeof value.name === 'string') {
+            return value.name;
+        }
+        // Fallback: stringify the object so that it is at least readable
+        return JSON.stringify(value);
+    }
     return String(value);
 };
 export var ComplianceMatrix = function (_a) {
@@ -146,9 +158,14 @@ export var ComplianceMatrix = function (_a) {
     var formatCellValue = function (value) {
         if (value === null || value === undefined)
             return '';
+        // Handle arrays first
+        if (Array.isArray(value)) {
+            return value.join(', ');
+        }
+        // Handle objects – show `name` if present, otherwise JSON stringify
         if (typeof value === 'object') {
-            if (Array.isArray(value)) {
-                return value.join(', ');
+            if ('name' in value && typeof value.name === 'string') {
+                return value.name;
             }
             return JSON.stringify(value);
         }

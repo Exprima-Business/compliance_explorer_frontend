@@ -66,18 +66,20 @@ var Login = function () {
         });
     }); };
     return (_jsx(Box, { sx: {
+            width: '100vw',
             minHeight: '100vh',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: 'background.default',
+            bgcolor: 'grey.100',
+            p: 2,
         }, children: _jsxs(Paper, { elevation: 3, sx: {
                 p: 4,
                 width: '100%',
-                maxWidth: 400,
+                maxWidth: 420,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 2,
-            }, children: [_jsx(Typography, { variant: "h4", component: "h1", gutterBottom: true, align: "center", children: "Sign In" }), auth.error && (_jsx(Alert, { severity: "error", sx: { mb: 2 }, children: auth.error })), _jsxs("form", { onSubmit: handleSubmit, children: [_jsx(TextField, { fullWidth: true, label: "Email", type: "email", value: email, onChange: function (e) { return setEmail(e.target.value); }, required: true, margin: "normal" }), _jsx(TextField, { fullWidth: true, label: "Password", type: "password", value: password, onChange: function (e) { return setPassword(e.target.value); }, required: true, margin: "normal" }), _jsx(Button, { type: "submit", fullWidth: true, variant: "contained", size: "large", sx: { mt: 2 }, children: "Sign In" })] })] }) }));
+                alignItems: 'center',
+            }, children: [_jsx(Box, { sx: { mb: 2 }, children: _jsx("img", { src: "/ClauseAtlasLogoSM.png", alt: "ClauseAtlas logo", style: { width: 240, height: 'auto' } }) }), _jsx(Typography, { variant: "h5", component: "h1", gutterBottom: true, children: "Sign in to ClauseAtlas" }), auth.error && (_jsx(Alert, { severity: "error", sx: { width: '100%', mb: 2 }, children: auth.error })), _jsxs(Box, { component: "form", onSubmit: handleSubmit, sx: { width: '100%' }, children: [_jsx(TextField, { fullWidth: true, id: "email", name: "email", label: "Email", type: "email", value: email, onChange: function (e) { return setEmail(e.target.value); }, required: true, margin: "normal", autoComplete: "email" }), _jsx(TextField, { fullWidth: true, id: "password", name: "password", label: "Password", type: "password", value: password, onChange: function (e) { return setPassword(e.target.value); }, required: true, margin: "normal", autoComplete: "current-password" }), _jsx(Button, { type: "submit", fullWidth: true, variant: "contained", size: "large", sx: { mt: 2 }, children: "Sign In" })] })] }) }));
 };
 export default Login;

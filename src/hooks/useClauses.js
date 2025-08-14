@@ -58,13 +58,15 @@ export function useClauses() {
                     case 1:
                         _a = _b.sent(), clausesResponse = _a[0], familiesResponse = _a[1];
                         if (clausesResponse.error) {
-                            throw new Error(clausesResponse.error);
+                            throw new Error(typeof clausesResponse.error === 'string' ? clausesResponse.error : clausesResponse.error.message);
                         }
                         if (familiesResponse.error) {
-                            throw new Error(familiesResponse.error);
+                            throw new Error(typeof familiesResponse.error === 'string' ? familiesResponse.error : familiesResponse.error.message);
                         }
-                        setClauses(clausesResponse.data);
-                        setFamilies(familiesResponse.data);
+                        if (clausesResponse.data)
+                            setClauses(clausesResponse.data);
+                        if (familiesResponse.data)
+                            setFamilies(familiesResponse.data);
                         return [3 /*break*/, 4];
                     case 2:
                         err_1 = _b.sent();
@@ -90,9 +92,10 @@ export function useClauses() {
                 case 1:
                     response = _a.sent();
                     if (response.error) {
-                        throw new Error(response.error);
+                        throw new Error(typeof response.error === 'string' ? response.error : response.error.message);
                     }
-                    setClauses(response.data);
+                    if (response.data)
+                        setClauses(response.data);
                     setSelectedFamily(family);
                     return [3 /*break*/, 4];
                 case 2:
@@ -117,9 +120,10 @@ export function useClauses() {
                 case 1:
                     response = _a.sent();
                     if (response.error) {
-                        throw new Error(response.error);
+                        throw new Error(typeof response.error === 'string' ? response.error : response.error.message);
                     }
-                    setClauses(response.data);
+                    if (response.data)
+                        setClauses(response.data);
                     return [3 /*break*/, 4];
                 case 2:
                     err_3 = _a.sent();

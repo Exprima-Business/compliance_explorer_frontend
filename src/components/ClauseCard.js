@@ -17,9 +17,21 @@ import LinkIcon from '@mui/icons-material/Link';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import CloseIcon from '@mui/icons-material/Close';
+import { useBookmarks } from '../contexts/BookmarkContext';
 export var ClauseCard = function (_a) {
     var _b, _c;
-    var clause = _a.clause, _d = _a.isBookmarked, isBookmarked = _d === void 0 ? false : _d, onBookmarkToggle = _a.onBookmarkToggle, onClose = _a.onClose, sx = _a.sx, _e = _a.compact, compact = _e === void 0 ? false : _e;
+    var clause = _a.clause, onBookmarkToggle = _a.onBookmarkToggle, onClose = _a.onClose, sx = _a.sx, _d = _a.compact, compact = _d === void 0 ? false : _d;
+    var _e = useBookmarks(), isClauseBookmarked = _e.isClauseBookmarked, toggleBookmark = _e.toggleBookmark;
+    // Determine bookmark status from BookmarkContext
+    var isBookmarked = isClauseBookmarked(clause.id);
+    var handleBookmarkToggle = function () {
+        if (onBookmarkToggle) {
+            onBookmarkToggle();
+        }
+        else {
+            toggleBookmark(clause.id);
+        }
+    };
     var renderField = function (label, value) {
         if (!value)
             return null;
@@ -113,7 +125,7 @@ export var ClauseCard = function (_a) {
                                                         color: clause.riskClassification === 'HIGH' ? 'error.main' : 'warning.main',
                                                         fontSize: '0.75rem',
                                                         transition: 'color 0.2s ease-in-out',
-                                                    }, children: clause.riskClassification })] })] })] }), _jsxs(Box, { sx: { display: 'flex', gap: 0.5 }, children: [_jsx(IconButton, { onClick: onBookmarkToggle, sx: {
+                                                    }, children: clause.riskClassification })] })] })] }), _jsxs(Box, { sx: { display: 'flex', gap: 0.5 }, children: [_jsx(IconButton, { onClick: handleBookmarkToggle, sx: {
                                         color: isBookmarked ? 'secondary.main' : 'text.secondary',
                                         transition: 'all 0.2s ease-in-out',
                                         '&:hover': {
@@ -151,7 +163,7 @@ export var ClauseCard = function (_a) {
                                                 }, children: clause.clauseCode }), _jsx(Typography, { variant: "h6", sx: {
                                                     fontWeight: 600,
                                                     color: 'text.primary',
-                                                }, children: clause.title })] }), _jsxs(Box, { sx: { display: 'flex', gap: 1 }, children: [onBookmarkToggle && (_jsx(IconButton, { onClick: onBookmarkToggle, sx: {
+                                                }, children: clause.title })] }), _jsxs(Box, { sx: { display: 'flex', gap: 1 }, children: [onBookmarkToggle && (_jsx(IconButton, { onClick: handleBookmarkToggle, sx: {
                                                     color: isBookmarked ? 'primary.main' : 'text.secondary',
                                                     transition: 'transform 0.18s cubic-bezier(0.4,0,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1)',
                                                     '&:hover, &:focus': {

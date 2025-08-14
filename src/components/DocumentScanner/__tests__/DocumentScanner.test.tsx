@@ -231,25 +231,7 @@ describe('DocumentScanner', () => {
     });
   });
 
-  describe('Test Mode Toggle', () => {
-    it('should have test mode enabled by default', () => {
-      render(<DocumentScanner />);
-      
-      const testModeSwitch = screen.getByRole('checkbox');
-      expect(testModeSwitch).toBeChecked();
-    });
 
-    it('should toggle test mode when clicked', async () => {
-      const user = userEvent.setup();
-      render(<DocumentScanner />);
-      
-      const testModeSwitch = screen.getByRole('checkbox');
-      expect(testModeSwitch).toBeChecked();
-      
-      await user.click(testModeSwitch);
-      expect(testModeSwitch).not.toBeChecked();
-    });
-  });
 
   describe('Progress Display', () => {
     it('should show progress during upload', async () => {
@@ -332,7 +314,7 @@ describe('DocumentScanner', () => {
   });
 
   describe('Results Display', () => {
-    it('should show test mode info when processing', async () => {
+    it('should show processing state when document is being analyzed', async () => {
       mockScanApi.uploadDocument.mockResolvedValue({
         data: {
           scanId: 'test-scan-id',
@@ -392,7 +374,7 @@ describe('DocumentScanner', () => {
             estimatedCost: 0,
             processingTime: 0,
             totalPages: 0,
-            modelUsed: 'gpt-3.5-turbo',
+            modelUsed: 'gpt-4',
             chunksProcessed: 0,
             totalChunks: 0
           }
@@ -430,7 +412,7 @@ describe('DocumentScanner', () => {
             estimatedCost: 0,
             processingTime: 0,
             totalPages: 0,
-            modelUsed: 'gpt-3.5-turbo',
+            modelUsed: 'gpt-4',
             chunksProcessed: 0,
             totalChunks: 0
           }
@@ -469,7 +451,7 @@ describe('DocumentScanner', () => {
             estimatedCost: 0,
             processingTime: 0,
             totalPages: 0,
-            modelUsed: 'gpt-3.5-turbo',
+            modelUsed: 'gpt-4',
             chunksProcessed: 0,
             totalChunks: 0
           }

@@ -8,13 +8,14 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 import { DEBUG_LOG } from '../config/debug';
+// Development-only logger. Emits to console when VITE_DEBUG_LOG=1
 export function dlog() {
     var args = [];
     for (var _i = 0; _i < arguments.length; _i++) {
         args[_i] = arguments[_i];
     }
-    if (DEBUG_LOG) {
-        // eslint-disable-next-line no-console
+    /* eslint-disable no-console */
+    if (DEBUG_LOG)
         console.log.apply(console, __spreadArray(['[DEBUG]'], args, false));
-    }
+    /* eslint-enable no-console */
 }

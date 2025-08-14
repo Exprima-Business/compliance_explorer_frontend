@@ -37,7 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 import { apiCall } from './api';
 export var bookmarkService = {
     getBookmarks: function (orgId) { return __awaiter(void 0, void 0, void 0, function () {
-        var resp, payload;
+        var resp, msg, payload;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, apiCall('/api/bookmarks', {
@@ -48,7 +48,8 @@ export var bookmarkService = {
                 case 1:
                     resp = _a.sent();
                     if (resp.error) {
-                        throw new Error(resp.error);
+                        msg = typeof resp.error === 'string' ? resp.error : resp.error.message;
+                        throw new Error(msg);
                     }
                     payload = resp.data;
                     // Case 1: payload is already an array of bookmarks

@@ -24,23 +24,15 @@ try {
     environment.supabase.anonKey,
     {
       auth: {
-        autoRefreshToken: true,
+        autoRefreshToken: true, // Enable auto-refresh - AuthContext will handle session state
         persistSession: true,
         detectSessionInUrl: true
       }
     }
   );
 
-  // Test the connection
-  supabase.auth.getSession().then(
-    ({ data: { session }, error }) => {
-      if (error) {
-        console.error('Supabase connection test failed:', error.message);
-      } else {
-        dlog('Supabase connection test successful');
-      }
-    }
-  );
+  // Simple connection test - session management is handled by AuthContext
+  dlog('Supabase client initialized successfully');
 } catch (error) {
   console.error('Failed to initialize Supabase client:', error);
   throw error;

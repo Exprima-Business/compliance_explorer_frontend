@@ -63,17 +63,40 @@ export var clauseService = {
         });
     }); },
     getGraphData: function () { return __awaiter(void 0, void 0, void 0, function () {
-        var response, error_2;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var requestId, startTime, response, endTime, duration, error_2;
+        var _a, _b, _c, _d, _e, _f, _g, _h;
+        return __generator(this, function (_j) {
+            switch (_j.label) {
                 case 0:
-                    _a.trys.push([0, 2, , 3]);
+                    _j.trys.push([0, 2, , 3]);
+                    requestId = Math.random().toString(36).substr(2, 9);
+                    startTime = Date.now();
+                    dlog('[API] getGraphData called', {
+                        timestamp: startTime,
+                        requestId: requestId,
+                        stack: (_a = new Error().stack) === null || _a === void 0 ? void 0 : _a.split('\n').slice(1, 4).join('\n')
+                    });
                     return [4 /*yield*/, apiCall('/api/clauses/graph')];
                 case 1:
-                    response = _a.sent();
+                    response = _j.sent();
+                    endTime = Date.now();
+                    duration = endTime - startTime;
+                    dlog('[API] getGraphData response', {
+                        requestId: requestId,
+                        duration: duration,
+                        hasError: !!response.error,
+                        hasData: !!response.data,
+                        nodesLength: ((_c = (_b = response.data) === null || _b === void 0 ? void 0 : _b.nodes) === null || _c === void 0 ? void 0 : _c.length) || 0,
+                        linksLength: ((_e = (_d = response.data) === null || _d === void 0 ? void 0 : _d.links) === null || _e === void 0 ? void 0 : _e.length) || 0,
+                        timestamp: endTime,
+                        responseType: typeof response,
+                        dataType: typeof response.data,
+                        linksType: typeof ((_f = response.data) === null || _f === void 0 ? void 0 : _f.links),
+                        sampleLinks: ((_h = (_g = response.data) === null || _g === void 0 ? void 0 : _g.links) === null || _h === void 0 ? void 0 : _h.slice(0, 3)) || []
+                    });
                     return [2 /*return*/, response];
                 case 2:
-                    error_2 = _a.sent();
+                    error_2 = _j.sent();
                     console.error('Error fetching graph data:', error_2);
                     return [2 /*return*/, {
                             data: { nodes: [], links: [] },

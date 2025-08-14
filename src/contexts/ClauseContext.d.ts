@@ -5,7 +5,6 @@ export interface ClauseContextValue {
     families: ClauseFamilyGroup[];
     loading: boolean;
     error: string | null;
-    bookmarkClause: (clauseId: string) => Promise<void>;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
     selectedFamily: ClauseFamily | null;

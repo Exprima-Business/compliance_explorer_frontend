@@ -52,10 +52,10 @@ export var Sidebar = function () {
             return Boolean(fg && fg.family && fg.family.id && fg.family.name);
         })
         : [];
-    // Get bookmarked clauses
-    var bookmarkedClauses = bookmarks
-        .map(function (b) { return clauses.find(function (c) { return c.id === b.clauseId; }); })
-        .filter(function (c) { return Boolean(c); });
+    // Get bookmarked clauses using BookmarkContext as authority
+    var bookmarkedClauses = clauses.filter(function (clause) {
+        return bookmarks.some(function (bookmark) { return bookmark.clauseId === clause.id; });
+    });
     var handleClauseClick = function (clause) {
         // This could trigger opening the clause in the main view
         // For now, we'll just log it
@@ -82,7 +82,7 @@ export var Sidebar = function () {
                 borderRight: '1px solid rgba(148, 163, 184, 0.1)',
                 padding: 2,
             },
-        }, children: _jsxs(Box, { sx: { display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }, children: [_jsx(TextField, { fullWidth: true, variant: "outlined", placeholder: "Search clauses...", value: searchQuery, onChange: function (e) { return setSearchQuery(e.target.value); }, InputProps: {
+        }, children: _jsxs(Box, { sx: { display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }, children: [_jsx(TextField, { fullWidth: true, id: "clause-search", name: "clause-search", variant: "outlined", placeholder: "Search clauses...", value: searchQuery, onChange: function (e) { return setSearchQuery(e.target.value); }, InputProps: {
                         startAdornment: _jsx(SearchIcon, { sx: { color: 'text.secondary', mr: 1 } }),
                     } }), _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Filter by Family" }), _jsxs(Select, { value: (selectedFamily === null || selectedFamily === void 0 ? void 0 : selectedFamily.id) || '', label: "Filter by Family", onChange: function (e) {
                                 var familyId = e.target.value;
