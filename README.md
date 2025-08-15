@@ -40,7 +40,7 @@ npm run dev
 
 The frontend is deployed on Vercel with automatic deployments from the main branch. The application supports both URL-based routing (with org/project slugs) and traditional header-based routing for backward compatibility.
 
-**Last updated:** $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+**Last updated:** 2025-08-14 14:00:00 - JWT Claims Implementation Complete
 
 ## URL Structure
 
