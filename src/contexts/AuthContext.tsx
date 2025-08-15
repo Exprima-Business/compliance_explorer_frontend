@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import { JWTClaimsManager } from '../utils/jwtClaimsManager';
+import { OrganizationValidationService } from '../services/organizationValidationService';
 
 export interface AuthContextValue {
   user: User | null;
@@ -28,16 +28,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Validate and restore claims if needed
-          const claimsResult = await JWTClaimsManager.validateCurrentClaims();
+          // Check if user has valid organization context
+          const hasValidContext = await OrganizationValidationService.hasValidOrganizationContext();
           
-          if (!claimsResult.isValid) {
-            // Try to restore claims from localStorage
-            const restoreResult = await JWTClaimsManager.restoreClaims();
-            if (!restoreResult.success) {
-              console.warn('JWT claims validation failed:', claimsResult.error);
-              // Don't fail auth, but mark as needing organization selection
-            }
+          if (!hasValidContext) {
+            console.warn('User does not have valid organization context');
+            // Don't fail auth, but mark as needing organization validation
           }
         }
         
@@ -56,16 +52,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user && event === 'SIGNED_IN') {
-        // Handle claims validation on sign-in
-        const claimsResult = await JWTClaimsManager.validateCurrentClaims();
-        if (!claimsResult.isValid) {
-          const restoreResult = await JWTClaimsManager.restoreClaims();
-          if (!restoreResult.success) {
-            console.warn('Failed to restore claims after sign-in');
-          }
+        // Check organization context on sign-in
+        const hasValidContext = await OrganizationValidationService.hasValidOrganizationContext();
+        if (!hasValidContext) {
+          console.warn('User signed in but lacks organization context');
         }
       } else if (event === 'SIGNED_OUT') {
-        JWTClaimsManager.clearStoredClaims();
+        // Clear any stored organization context
+        localStorage.removeItem('orgId');
       }
       
       setLoading(false);

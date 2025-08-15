@@ -94,17 +94,22 @@ if (typeof window !== 'undefined') {
   console.log('[SUPABASE DEBUG] Call window.debugRefreshSession() in the console to manually refresh and log session.');
 }
 
-// --- JWT Claims debugging utility ---
+// --- Organization Validation debugging utility ---
 if (typeof window !== 'undefined') {
-  (window as any).debugJWTCustomClaims = async () => {
+  (window as any).debugOrganizationValidation = async () => {
     try {
-      const { JWTClaimsManager } = await import('./utils/jwtClaimsManager');
-      await JWTClaimsManager.debugCurrentClaims();
+      const { OrganizationValidationService } = await import('./services/organizationValidationService');
+      const hasContext = await OrganizationValidationService.hasValidOrganizationContext();
+      const userOrgs = await OrganizationValidationService.getUserOrganizations();
+      console.log('[ORGANIZATION VALIDATION DEBUG]', {
+        hasValidContext: hasContext,
+        userOrganizations: userOrgs
+      });
     } catch (e) {
-      console.error('[JWT CLAIMS DEBUG ERROR]', e);
+      console.error('[ORGANIZATION VALIDATION DEBUG ERROR]', e);
     }
   };
-  console.log('[JWT CLAIMS DEBUG] Call window.debugJWTCustomClaims() in the console to debug JWT custom claims.');
+  console.log('[ORGANIZATION VALIDATION DEBUG] Call window.debugOrganizationValidation() in the console to debug organization validation.');
 }
 
 createRoot(document.getElementById('root')!).render(

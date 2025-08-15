@@ -37,7 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 import { jsx as _jsx } from "react/jsx-runtime";
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { JWTClaimsManager } from '../utils/jwtClaimsManager';
+import { OrganizationValidationService } from '../services/organizationValidationService';
 export var AuthContext = createContext(undefined);
 export var AuthProvider = function (_a) {
     var children = _a.children;
@@ -46,70 +46,62 @@ export var AuthProvider = function (_a) {
     var _d = useState(null), error = _d[0], setError = _d[1];
     useEffect(function () {
         var initializeAuth = function () { return __awaiter(void 0, void 0, void 0, function () {
-            var session, claimsResult, restoreResult, error_1;
+            var session, hasValidContext, error_1;
             var _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _b.trys.push([0, 5, , 6]);
+                        _b.trys.push([0, 4, , 5]);
                         return [4 /*yield*/, supabase.auth.getSession()];
                     case 1:
                         session = (_b.sent()).data.session;
                         setUser((_a = session === null || session === void 0 ? void 0 : session.user) !== null && _a !== void 0 ? _a : null);
-                        if (!(session === null || session === void 0 ? void 0 : session.user)) return [3 /*break*/, 4];
-                        return [4 /*yield*/, JWTClaimsManager.validateCurrentClaims()];
+                        if (!(session === null || session === void 0 ? void 0 : session.user)) return [3 /*break*/, 3];
+                        return [4 /*yield*/, OrganizationValidationService.hasValidOrganizationContext()];
                     case 2:
-                        claimsResult = _b.sent();
-                        if (!!claimsResult.isValid) return [3 /*break*/, 4];
-                        return [4 /*yield*/, JWTClaimsManager.restoreClaims()];
-                    case 3:
-                        restoreResult = _b.sent();
-                        if (!restoreResult.success) {
-                            console.warn('JWT claims validation failed:', claimsResult.error);
-                            // Don't fail auth, but mark as needing organization selection
+                        hasValidContext = _b.sent();
+                        if (!hasValidContext) {
+                            console.warn('User does not have valid organization context');
+                            // Don't fail auth, but mark as needing organization validation
                         }
-                        _b.label = 4;
-                    case 4:
+                        _b.label = 3;
+                    case 3:
                         setLoading(false);
-                        return [3 /*break*/, 6];
-                    case 5:
+                        return [3 /*break*/, 5];
+                    case 4:
                         error_1 = _b.sent();
                         console.error('Auth initialization error:', error_1);
                         setError('Authentication initialization failed');
                         setLoading(false);
-                        return [3 /*break*/, 6];
-                    case 6: return [2 /*return*/];
+                        return [3 /*break*/, 5];
+                    case 5: return [2 /*return*/];
                 }
             });
         }); };
         initializeAuth();
         // Listen for changes on auth state
         var subscription = supabase.auth.onAuthStateChange(function (event, session) { return __awaiter(void 0, void 0, void 0, function () {
-            var claimsResult, restoreResult;
+            var hasValidContext;
             var _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         setUser((_a = session === null || session === void 0 ? void 0 : session.user) !== null && _a !== void 0 ? _a : null);
-                        if (!((session === null || session === void 0 ? void 0 : session.user) && event === 'SIGNED_IN')) return [3 /*break*/, 4];
-                        return [4 /*yield*/, JWTClaimsManager.validateCurrentClaims()];
+                        if (!((session === null || session === void 0 ? void 0 : session.user) && event === 'SIGNED_IN')) return [3 /*break*/, 2];
+                        return [4 /*yield*/, OrganizationValidationService.hasValidOrganizationContext()];
                     case 1:
-                        claimsResult = _b.sent();
-                        if (!!claimsResult.isValid) return [3 /*break*/, 3];
-                        return [4 /*yield*/, JWTClaimsManager.restoreClaims()];
+                        hasValidContext = _b.sent();
+                        if (!hasValidContext) {
+                            console.warn('User signed in but lacks organization context');
+                        }
+                        return [3 /*break*/, 3];
                     case 2:
-                        restoreResult = _b.sent();
-                        if (!restoreResult.success) {
-                            console.warn('Failed to restore claims after sign-in');
+                        if (event === 'SIGNED_OUT') {
+                            // Clear any stored organization context
+                            localStorage.removeItem('orgId');
                         }
                         _b.label = 3;
-                    case 3: return [3 /*break*/, 5];
-                    case 4:
-                        if (event === 'SIGNED_OUT') {
-                            JWTClaimsManager.clearStoredClaims();
-                        }
-                        _b.label = 5;
-                    case 5:
+                    case 3:
                         setLoading(false);
                         return [2 /*return*/];
                 }

@@ -157,29 +157,36 @@ if (typeof window !== 'undefined') {
     }); };
     console.log('[SUPABASE DEBUG] Call window.debugRefreshSession() in the console to manually refresh and log session.');
 }
-// --- JWT Claims debugging utility ---
+// --- Organization Validation debugging utility ---
 if (typeof window !== 'undefined') {
-    window.debugJWTCustomClaims = function () { return __awaiter(void 0, void 0, void 0, function () {
-        var JWTClaimsManager, e_3;
+    window.debugOrganizationValidation = function () { return __awaiter(void 0, void 0, void 0, function () {
+        var OrganizationValidationService, hasContext, userOrgs, e_3;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    _a.trys.push([0, 3, , 4]);
-                    return [4 /*yield*/, import('./utils/jwtClaimsManager')];
+                    _a.trys.push([0, 4, , 5]);
+                    return [4 /*yield*/, import('./services/organizationValidationService')];
                 case 1:
-                    JWTClaimsManager = (_a.sent()).JWTClaimsManager;
-                    return [4 /*yield*/, JWTClaimsManager.debugCurrentClaims()];
+                    OrganizationValidationService = (_a.sent()).OrganizationValidationService;
+                    return [4 /*yield*/, OrganizationValidationService.hasValidOrganizationContext()];
                 case 2:
-                    _a.sent();
-                    return [3 /*break*/, 4];
+                    hasContext = _a.sent();
+                    return [4 /*yield*/, OrganizationValidationService.getUserOrganizations()];
                 case 3:
+                    userOrgs = _a.sent();
+                    console.log('[ORGANIZATION VALIDATION DEBUG]', {
+                        hasValidContext: hasContext,
+                        userOrganizations: userOrgs
+                    });
+                    return [3 /*break*/, 5];
+                case 4:
                     e_3 = _a.sent();
-                    console.error('[JWT CLAIMS DEBUG ERROR]', e_3);
-                    return [3 /*break*/, 4];
-                case 4: return [2 /*return*/];
+                    console.error('[ORGANIZATION VALIDATION DEBUG ERROR]', e_3);
+                    return [3 /*break*/, 5];
+                case 5: return [2 /*return*/];
             }
         });
     }); };
-    console.log('[JWT CLAIMS DEBUG] Call window.debugJWTCustomClaims() in the console to debug JWT custom claims.');
+    console.log('[ORGANIZATION VALIDATION DEBUG] Call window.debugOrganizationValidation() in the console to debug organization validation.');
 }
 createRoot(document.getElementById('root')).render(_jsx(StrictMode, { children: _jsx(AuthProvider, { children: DEBUG_LOG ? (_jsx(DebugErrorBoundary, { children: _jsx(App, {}) })) : (_jsx(App, {})) }) }));

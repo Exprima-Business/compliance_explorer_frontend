@@ -38,7 +38,7 @@ import { jsx as _jsx, Fragment as _Fragment } from "react/jsx-runtime";
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrg } from '../contexts/OrgContext';
-import { JWTClaimsManager } from '../utils/jwtClaimsManager';
+import { OrganizationValidationService } from '../services/organizationValidationService';
 import { OrgSelectionFlow } from './OrgSelectionFlow';
 import { dlog } from '../utils/debugLog';
 export var OrgSelectionWrapper = function (_a) {
@@ -49,36 +49,33 @@ export var OrgSelectionWrapper = function (_a) {
     var _e = useState(true), validatingClaims = _e[0], setValidatingClaims = _e[1];
     useEffect(function () {
         var validateClaims = function () { return __awaiter(void 0, void 0, void 0, function () {
-            var claimsResult, error_1;
-            var _a;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var hasValidContext, error_1;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0:
                         if (!isAuthenticated || !orgInitialized) {
                             setValidatingClaims(false);
                             return [2 /*return*/];
                         }
-                        _b.label = 1;
+                        _a.label = 1;
                     case 1:
-                        _b.trys.push([1, 3, 4, 5]);
+                        _a.trys.push([1, 3, 4, 5]);
                         setValidatingClaims(true);
-                        return [4 /*yield*/, JWTClaimsManager.validateCurrentClaims()];
+                        return [4 /*yield*/, OrganizationValidationService.hasValidOrganizationContext()];
                     case 2:
-                        claimsResult = _b.sent();
-                        if (claimsResult.isValid) {
-                            dlog('JWT claims validation successful', {
-                                organizationId: (_a = claimsResult.claims) === null || _a === void 0 ? void 0 : _a.organizationId
-                            });
+                        hasValidContext = _a.sent();
+                        if (hasValidContext) {
+                            dlog('Organization context validation successful');
                             setClaimsValidated(true);
                         }
                         else {
-                            dlog('JWT claims validation failed', { error: claimsResult.error });
+                            dlog('Organization context validation failed - no valid context found');
                             setClaimsValidated(false);
                         }
                         return [3 /*break*/, 5];
                     case 3:
-                        error_1 = _b.sent();
-                        dlog('Error validating JWT claims:', error_1);
+                        error_1 = _a.sent();
+                        dlog('Error validating organization context:', error_1);
                         setClaimsValidated(false);
                         return [3 /*break*/, 5];
                     case 4:

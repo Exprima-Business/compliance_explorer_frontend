@@ -47,7 +47,7 @@ import { jsx as _jsx } from "react/jsx-runtime";
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { apiCall } from '../services/api';
 import { dlog } from '../utils/debugLog';
-import { JWTClaimsManager } from '../utils/jwtClaimsManager';
+import { OrganizationValidationService } from '../services/organizationValidationService';
 var OrgContext = createContext(undefined);
 var ORG_KEY = 'orgId';
 export var OrgProvider = function (_a) {
@@ -56,41 +56,61 @@ export var OrgProvider = function (_a) {
     var _c = useState(null), currentOrg = _c[0], setCurrentOrgState = _c[1];
     var _d = useState(false), initialized = _d[0], setInitialized = _d[1];
     var refreshOrgs = useCallback(function () { return __awaiter(void 0, void 0, void 0, function () {
-        var resp, storedId_1, match;
+        var validationResult, userOrgs, storedId_1, match, error_1, errorMessage;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    dlog('OrgProvider: loading organizations');
-                    return [4 /*yield*/, apiCall('/api/organizations')];
+                    dlog('OrgProvider: loading organizations via validation service');
+                    _a.label = 1;
                 case 1:
-                    resp = _a.sent();
-                    if (!(!resp.error && Array.isArray(resp.data))) return [3 /*break*/, 5];
-                    dlog('OrgProvider: organizations loaded successfully', {
-                        count: resp.data.length,
-                        orgs: resp.data.map(function (o) { return ({ id: o.id, name: o.name }); })
-                    });
-                    setOrgs(resp.data);
-                    storedId_1 = localStorage.getItem(ORG_KEY);
-                    match = resp.data.find(function (o) { return o.id === storedId_1; }) || resp.data[0] || null;
-                    if (!match) return [3 /*break*/, 3];
-                    return [4 /*yield*/, setCurrentOrg(match)];
+                    _a.trys.push([1, 8, , 9]);
+                    return [4 /*yield*/, OrganizationValidationService.getUserOrganizations()];
                 case 2:
-                    _a.sent(); // This now updates JWT claims
-                    dlog('OrgProvider: current org restored with JWT claims', {
+                    validationResult = _a.sent();
+                    if (!(validationResult.valid && validationResult.organizations)) return [3 /*break*/, 6];
+                    userOrgs = validationResult.organizations.map(function (org) { return ({
+                        id: org.id,
+                        name: org.name,
+                        slug: org.slug
+                    }); });
+                    dlog('OrgProvider: organizations loaded via validation service', {
+                        count: userOrgs.length,
+                        orgs: userOrgs.map(function (o) { return ({ id: o.id, name: o.name }); })
+                    });
+                    setOrgs(userOrgs);
+                    storedId_1 = localStorage.getItem(ORG_KEY);
+                    match = userOrgs.find(function (o) { return o.id === storedId_1; }) || userOrgs[0] || null;
+                    if (!match) return [3 /*break*/, 4];
+                    return [4 /*yield*/, setCurrentOrg(match)];
+                case 3:
+                    _a.sent(); // This validates with backend
+                    dlog('OrgProvider: current org restored with backend validation', {
                         orgId: match.id,
                         orgName: match.name
                     });
-                    return [3 /*break*/, 4];
-                case 3:
+                    return [3 /*break*/, 5];
+                case 4:
                     setCurrentOrgState(null);
                     localStorage.removeItem(ORG_KEY);
                     dlog('OrgProvider: no current org found');
-                    _a.label = 4;
-                case 4: return [3 /*break*/, 6];
-                case 5:
-                    dlog('OrgProvider: failed to load organizations', { error: resp.error });
-                    _a.label = 6;
+                    _a.label = 5;
+                case 5: return [3 /*break*/, 7];
                 case 6:
+                    dlog('OrgProvider: failed to load organizations via validation service', {
+                        error: validationResult.error
+                    });
+                    setOrgs([]);
+                    setCurrentOrgState(null);
+                    _a.label = 7;
+                case 7: return [3 /*break*/, 9];
+                case 8:
+                    error_1 = _a.sent();
+                    errorMessage = error_1 instanceof Error ? error_1.message : 'Unknown error';
+                    dlog('OrgProvider: error loading organizations', { error: errorMessage });
+                    setOrgs([]);
+                    setCurrentOrgState(null);
+                    return [3 /*break*/, 9];
+                case 9:
                     setInitialized(true);
                     return [2 /*return*/];
             }
@@ -100,29 +120,29 @@ export var OrgProvider = function (_a) {
         refreshOrgs();
     }, [refreshOrgs]);
     var setCurrentOrg = function (org) { return __awaiter(void 0, void 0, void 0, function () {
-        var claimsResult, error_1, errorMessage;
+        var validationResult, error_2, errorMessage;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, JWTClaimsManager.updateClaims(org)];
+                    return [4 /*yield*/, OrganizationValidationService.setOrganizationContext(org.id)];
                 case 1:
-                    claimsResult = _a.sent();
-                    if (!claimsResult.success) {
-                        throw new Error(claimsResult.error || 'Failed to update authentication context');
+                    validationResult = _a.sent();
+                    if (!validationResult.valid) {
+                        throw new Error(validationResult.error || 'Failed to validate organization access');
                     }
-                    // Update local state only after successful JWT update
+                    // Update local state only after successful validation
                     setCurrentOrgState(org);
                     localStorage.setItem(ORG_KEY, org.id);
-                    dlog('Organization context updated with JWT claims', {
+                    dlog('Organization context updated with backend validation', {
                         orgId: org.id,
                         orgName: org.name,
-                        claimsUpdated: true
+                        validated: true
                     });
                     return [3 /*break*/, 3];
                 case 2:
-                    error_1 = _a.sent();
-                    errorMessage = error_1 instanceof Error ? error_1.message : 'Unknown error';
+                    error_2 = _a.sent();
+                    errorMessage = error_2 instanceof Error ? error_2.message : 'Unknown error';
                     dlog('Error updating organization context:', errorMessage);
                     throw new Error("Organization selection failed: ".concat(errorMessage));
                 case 3: return [2 /*return*/];

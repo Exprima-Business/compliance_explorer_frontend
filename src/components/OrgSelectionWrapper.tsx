@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrg } from '../contexts/OrgContext';
-import { JWTClaimsManager } from '../utils/jwtClaimsManager';
+import { OrganizationValidationService } from '../services/organizationValidationService';
 import { OrgSelectionFlow } from './OrgSelectionFlow';
 import { dlog } from '../utils/debugLog';
 
@@ -24,19 +24,17 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
 
       try {
         setValidatingClaims(true);
-        const claimsResult = await JWTClaimsManager.validateCurrentClaims();
+        const hasValidContext = await OrganizationValidationService.hasValidOrganizationContext();
         
-        if (claimsResult.isValid) {
-          dlog('JWT claims validation successful', { 
-            organizationId: claimsResult.claims?.organizationId 
-          });
+        if (hasValidContext) {
+          dlog('Organization context validation successful');
           setClaimsValidated(true);
         } else {
-          dlog('JWT claims validation failed', { error: claimsResult.error });
+          dlog('Organization context validation failed - no valid context found');
           setClaimsValidated(false);
         }
       } catch (error) {
-        dlog('Error validating JWT claims:', error);
+        dlog('Error validating organization context:', error);
         setClaimsValidated(false);
       } finally {
         setValidatingClaims(false);

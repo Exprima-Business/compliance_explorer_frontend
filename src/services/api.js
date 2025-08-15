@@ -74,7 +74,6 @@ var __rest = (this && this.__rest) || function (s, e) {
 import { supabase } from '../lib/supabase';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
-import { JWTClaimsManager } from '../utils/jwtClaimsManager';
 // API configuration
 var API_URL = environment.api.url;
 var publicEndpoints = [
@@ -214,37 +213,18 @@ function getCommonHeaders(requireAuth) {
 export var apiCall = function (endpoint, options) {
     if (options === void 0) { options = {}; }
     return __awaiter(void 0, void 0, void 0, function () {
-        var _a, requireAuth, fetchOptions, session, accessToken, claimsResult, baseHeaders, headers, response, errorData, errObj, responseData, error_2, err;
+        var _a, requireAuth, fetchOptions, session, accessToken, baseHeaders, headers, response, errorData, errObj, responseData, error_2, err;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
                     _a = options.requireAuth, requireAuth = _a === void 0 ? false : _a, fetchOptions = __rest(options, ["requireAuth"]);
                     _b.label = 1;
                 case 1:
-                    _b.trys.push([1, 9, , 10]);
+                    _b.trys.push([1, 7, , 8]);
                     return [4 /*yield*/, supabase.auth.getSession()];
                 case 2:
                     session = (_b.sent()).data.session;
                     accessToken = session === null || session === void 0 ? void 0 : session.access_token;
-                    if (!((session === null || session === void 0 ? void 0 : session.user) && endpoint !== '/api/organizations')) return [3 /*break*/, 4];
-                    return [4 /*yield*/, JWTClaimsManager.validateCurrentClaims()];
-                case 3:
-                    claimsResult = _b.sent();
-                    if (!claimsResult.isValid) {
-                        dlog('JWT claims validation failed for endpoint:', {
-                            endpoint: endpoint,
-                            error: claimsResult.error
-                        });
-                        return [2 /*return*/, {
-                                data: null,
-                                error: {
-                                    code: 'MISSING_CLAIMS',
-                                    message: 'Organization context required. Please select an organization and try again.'
-                                }
-                            }];
-                    }
-                    _b.label = 4;
-                case 4:
                     baseHeaders = __assign(__assign({ 'x-org-id': getCurrentOrgId() }, (accessToken ? { Authorization: "Bearer ".concat(accessToken) } : {})), (getCurrentProjectId() ? { 'x-project-id': getCurrentProjectId() } : {}));
                     // Only add Content-Type for non-FormData requests
                     if (!(fetchOptions.body instanceof FormData)) {
@@ -276,7 +256,7 @@ export var apiCall = function (endpoint, options) {
                         });
                     }
                     return [4 /*yield*/, fetch("".concat(API_URL).concat(endpoint), __assign(__assign({}, fetchOptions), { headers: headers, credentials: 'include' }))];
-                case 5:
+                case 3:
                     response = _b.sent();
                     // Handle CORS errors
                     if (response.type === 'opaque' || response.status === 0) {
@@ -286,9 +266,9 @@ export var apiCall = function (endpoint, options) {
                                 error: 'Unable to access the API. Please check CORS configuration.'
                             }];
                     }
-                    if (!!response.ok) return [3 /*break*/, 7];
+                    if (!!response.ok) return [3 /*break*/, 5];
                     return [4 /*yield*/, response.json().catch(function () { return ({}); })];
-                case 6:
+                case 4:
                     errorData = _b.sent();
                     errObj = typeof errorData === 'object' && errorData !== null && 'message' in errorData
                         ? {
@@ -304,8 +284,8 @@ export var apiCall = function (endpoint, options) {
                         error: errObj,
                     });
                     throw new Error(errObj.message);
-                case 7: return [4 /*yield*/, response.json()];
-                case 8:
+                case 5: return [4 /*yield*/, response.json()];
+                case 6:
                     responseData = _b.sent();
                     // If the response is already in ApiResponse format, return it directly
                     if (responseData && typeof responseData === 'object' && 'data' in responseData && 'error' in responseData) {
@@ -316,7 +296,7 @@ export var apiCall = function (endpoint, options) {
                             data: responseData,
                             error: null,
                         }];
-                case 9:
+                case 7:
                     error_2 = _b.sent();
                     console.error('API call failed:', {
                         endpoint: endpoint,
@@ -330,7 +310,7 @@ export var apiCall = function (endpoint, options) {
                             data: null,
                             error: err,
                         }];
-                case 10: return [2 /*return*/];
+                case 8: return [2 /*return*/];
             }
         });
     });

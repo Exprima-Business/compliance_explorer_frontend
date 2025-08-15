@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { apiCall } from '../services/api';
 import { dlog } from '../utils/debugLog';
-import { JWTClaimsManager } from '../utils/jwtClaimsManager';
+import { OrganizationValidationService } from '../services/organizationValidationService';
 
 export interface Organization {
   id: string;
@@ -29,34 +29,55 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [initialized, setInitialized] = useState(false);
 
   const refreshOrgs = useCallback(async () => {
-    dlog('OrgProvider: loading organizations');
+    dlog('OrgProvider: loading organizations via validation service');
     
-    const resp = await apiCall<Organization[]>('/api/organizations');
-    if (!resp.error && Array.isArray(resp.data)) {
-      dlog('OrgProvider: organizations loaded successfully', {
-        count: resp.data.length,
-        orgs: resp.data.map(o => ({ id: o.id, name: o.name }))
-      });
+    try {
+      // Use backend validation service to get user's organizations
+      const validationResult = await OrganizationValidationService.getUserOrganizations();
       
-      setOrgs(resp.data);
-
-      // try to restore previously selected org
-      const storedId = localStorage.getItem(ORG_KEY);
-      const match = resp.data.find(o => o.id === storedId) || resp.data[0] || null;
-      if (match) {
-        await setCurrentOrg(match); // This now updates JWT claims
-        dlog('OrgProvider: current org restored with JWT claims', { 
-          orgId: match.id, 
-          orgName: match.name 
+      if (validationResult.valid && validationResult.organizations) {
+        const userOrgs = validationResult.organizations.map(org => ({
+          id: org.id,
+          name: org.name,
+          slug: org.slug
+        }));
+        
+        dlog('OrgProvider: organizations loaded via validation service', {
+          count: userOrgs.length,
+          orgs: userOrgs.map(o => ({ id: o.id, name: o.name }))
         });
+        
+        setOrgs(userOrgs);
+
+        // Try to restore previously selected org
+        const storedId = localStorage.getItem(ORG_KEY);
+        const match = userOrgs.find(o => o.id === storedId) || userOrgs[0] || null;
+        
+        if (match) {
+          await setCurrentOrg(match); // This validates with backend
+          dlog('OrgProvider: current org restored with backend validation', { 
+            orgId: match.id, 
+            orgName: match.name 
+          });
+        } else {
+          setCurrentOrgState(null);
+          localStorage.removeItem(ORG_KEY);
+          dlog('OrgProvider: no current org found');
+        }
       } else {
+        dlog('OrgProvider: failed to load organizations via validation service', { 
+          error: validationResult.error 
+        });
+        setOrgs([]);
         setCurrentOrgState(null);
-        localStorage.removeItem(ORG_KEY);
-        dlog('OrgProvider: no current org found');
       }
-    } else {
-      dlog('OrgProvider: failed to load organizations', { error: resp.error });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      dlog('OrgProvider: error loading organizations', { error: errorMessage });
+      setOrgs([]);
+      setCurrentOrgState(null);
     }
+    
     setInitialized(true);
   }, []);
 
@@ -66,21 +87,21 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setCurrentOrg = async (org: Organization) => {
     try {
-      // Update JWT with custom claims (REQUIRED for backend validation)
-      const claimsResult = await JWTClaimsManager.updateClaims(org);
+      // Validate organization access with backend
+      const validationResult = await OrganizationValidationService.setOrganizationContext(org.id);
       
-      if (!claimsResult.success) {
-        throw new Error(claimsResult.error || 'Failed to update authentication context');
+      if (!validationResult.valid) {
+        throw new Error(validationResult.error || 'Failed to validate organization access');
       }
 
-      // Update local state only after successful JWT update
+      // Update local state only after successful validation
       setCurrentOrgState(org);
       localStorage.setItem(ORG_KEY, org.id);
       
-      dlog('Organization context updated with JWT claims', { 
+      dlog('Organization context updated with backend validation', { 
         orgId: org.id, 
         orgName: org.name,
-        claimsUpdated: true
+        validated: true
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
