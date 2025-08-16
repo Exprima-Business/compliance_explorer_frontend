@@ -35,6 +35,16 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Use backend validation service to get user's organizations
       const validationResult = await OrganizationValidationService.getUserOrganizations();
       
+      dlog('OrgProvider: validation result received - FULL DEBUG', {
+        validationResult: validationResult,
+        valid: validationResult.valid,
+        hasOrganizations: !!validationResult.organizations,
+        organizationsCount: validationResult.organizations?.length || 0,
+        hasOrganization: !!validationResult.organization,
+        organizationDetails: validationResult.organization,
+        error: validationResult.error
+      });
+
       if (validationResult.valid && validationResult.organizations) {
         const userOrgs = validationResult.organizations.map(org => ({
           id: org.id,
@@ -65,8 +75,13 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           dlog('OrgProvider: no current org found');
         }
       } else {
-        dlog('OrgProvider: failed to load organizations via validation service', { 
-          error: validationResult.error 
+        dlog('OrgProvider: failed to load organizations via validation service - FAILURE DEBUG', { 
+          validationResult: validationResult,
+          valid: validationResult.valid,
+          hasOrganizations: !!validationResult.organizations,
+          hasOrganization: !!validationResult.organization,
+          error: validationResult.error,
+          errorType: typeof validationResult.error
         });
         setOrgs([]);
         setCurrentOrgState(null);

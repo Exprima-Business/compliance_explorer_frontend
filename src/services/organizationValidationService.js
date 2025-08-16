@@ -44,16 +44,16 @@ var OrganizationValidationService = /** @class */ (function () {
      * Validate user's organization access and get validated organization context
      */
     OrganizationValidationService.validateOrganization = function (request) {
-        var _a;
+        var _a, _b, _c, _d, _e, _f, _g;
         return __awaiter(this, void 0, void 0, function () {
-            var session, response, errorData, errorMessage, data, error_1, errorMessage;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var session, requestBody, response, errorData, errorMessage, rawData, data, error_1, errorMessage;
+            return __generator(this, function (_h) {
+                switch (_h.label) {
                     case 0:
-                        _b.trys.push([0, 6, , 7]);
+                        _h.trys.push([0, 6, , 7]);
                         return [4 /*yield*/, supabase.auth.getSession()];
                     case 1:
-                        session = (_b.sent()).data.session;
+                        session = (_h.sent()).data.session;
                         if (!(session === null || session === void 0 ? void 0 : session.access_token)) {
                             return [2 /*return*/, {
                                     valid: false,
@@ -65,23 +65,38 @@ var OrganizationValidationService = /** @class */ (function () {
                             userId: session.user.id,
                             requestOrgId: request === null || request === void 0 ? void 0 : request.organizationId
                         });
+                        requestBody = request || {};
+                        dlog('Organization validation request - REQUEST DEBUG', {
+                            url: "".concat(environment.api.url).concat(this.VALIDATION_ENDPOINT),
+                            method: 'POST',
+                            requestBody: requestBody,
+                            requestBodyType: typeof requestBody,
+                            hasSession: !!session,
+                            userId: (_a = session === null || session === void 0 ? void 0 : session.user) === null || _a === void 0 ? void 0 : _a.id,
+                            tokenLength: ((_b = session === null || session === void 0 ? void 0 : session.access_token) === null || _b === void 0 ? void 0 : _b.length) || 0
+                        });
                         return [4 /*yield*/, fetch("".concat(environment.api.url).concat(this.VALIDATION_ENDPOINT), {
                                 method: 'POST',
                                 headers: {
                                     'Authorization': "Bearer ".concat(session.access_token),
                                     'Content-Type': 'application/json'
                                 },
-                                body: JSON.stringify(request || {})
+                                body: JSON.stringify(requestBody)
                             })];
                     case 2:
-                        response = _b.sent();
+                        response = _h.sent();
                         if (!!response.ok) return [3 /*break*/, 4];
                         return [4 /*yield*/, response.json().catch(function () { return ({}); })];
                     case 3:
-                        errorData = _b.sent();
+                        errorData = _h.sent();
                         errorMessage = errorData.message || "HTTP ".concat(response.status, ": ").concat(response.statusText);
-                        dlog('Organization validation failed', {
+                        dlog('Organization validation failed - ERROR RESPONSE DEBUG', {
                             status: response.status,
+                            statusText: response.statusText,
+                            responseHeaders: 'Headers object (not enumerable)',
+                            errorData: errorData,
+                            errorDataType: typeof errorData,
+                            errorDataKeys: errorData ? Object.keys(errorData) : 'null/undefined',
                             error: errorMessage
                         });
                         return [2 /*return*/, {
@@ -90,16 +105,43 @@ var OrganizationValidationService = /** @class */ (function () {
                             }];
                     case 4: return [4 /*yield*/, response.json()];
                     case 5:
-                        data = _b.sent();
-                        dlog('Organization validation successful', {
-                            valid: data.valid,
-                            hasOrganization: !!data.organization,
-                            hasMultipleOrgs: !!data.organizations,
-                            orgCount: ((_a = data.organizations) === null || _a === void 0 ? void 0 : _a.length) || 0
+                        rawData = _h.sent();
+                        // Comprehensive response debugging
+                        dlog('Organization validation successful - FULL RESPONSE DEBUG', {
+                            responseStatus: response.status,
+                            responseHeaders: 'Headers object (not enumerable)',
+                            responseData: rawData,
+                            responseDataType: typeof rawData,
+                            responseDataKeys: rawData ? Object.keys(rawData) : 'null/undefined',
+                            hasDataField: !!rawData.data,
+                            dataKeys: rawData.data ? Object.keys(rawData.data) : 'null/undefined',
+                            hasOrganization: !!((_c = rawData.data) === null || _c === void 0 ? void 0 : _c.organization),
+                            organizationDetails: (_d = rawData.data) === null || _d === void 0 ? void 0 : _d.organization,
+                            error: rawData.error
+                        });
+                        data = {
+                            valid: !!((_e = rawData.data) === null || _e === void 0 ? void 0 : _e.organization),
+                            organization: ((_f = rawData.data) === null || _f === void 0 ? void 0 : _f.organization) ? {
+                                id: rawData.data.organization.id,
+                                name: rawData.data.organization.name,
+                                slug: rawData.data.organization.slug
+                            } : undefined,
+                            organizations: ((_g = rawData.data) === null || _g === void 0 ? void 0 : _g.organization) ? [{
+                                    id: rawData.data.organization.id,
+                                    name: rawData.data.organization.name,
+                                    slug: rawData.data.organization.slug
+                                }] : undefined,
+                            error: rawData.error || null
+                        };
+                        dlog('Organization validation parsed response', {
+                            parsedValid: data.valid,
+                            parsedOrganization: data.organization,
+                            parsedOrganizations: data.organizations,
+                            parsedError: data.error
                         });
                         return [2 /*return*/, data];
                     case 6:
-                        error_1 = _b.sent();
+                        error_1 = _h.sent();
                         errorMessage = error_1 instanceof Error ? error_1.message : 'Unknown error';
                         dlog('Organization validation error', { error: errorMessage });
                         return [2 /*return*/, {

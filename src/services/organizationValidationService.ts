@@ -47,21 +47,37 @@ export class OrganizationValidationService {
         requestOrgId: request?.organizationId 
       });
 
+      const requestBody = request || {};
+      dlog('Organization validation request - REQUEST DEBUG', {
+        url: `${environment.api.url}${this.VALIDATION_ENDPOINT}`,
+        method: 'POST',
+        requestBody: requestBody,
+        requestBodyType: typeof requestBody,
+        hasSession: !!session,
+        userId: session?.user?.id,
+        tokenLength: session?.access_token?.length || 0
+      });
+
       const response = await fetch(`${environment.api.url}${this.VALIDATION_ENDPOINT}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(request || {})
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
         
-        dlog('Organization validation failed', { 
-          status: response.status, 
+        dlog('Organization validation failed - ERROR RESPONSE DEBUG', { 
+          status: response.status,
+          statusText: response.statusText,
+          responseHeaders: 'Headers object (not enumerable)',
+          errorData: errorData,
+          errorDataType: typeof errorData,
+          errorDataKeys: errorData ? Object.keys(errorData) : 'null/undefined',
           error: errorMessage 
         });
 
@@ -71,13 +87,43 @@ export class OrganizationValidationService {
         };
       }
 
-      const data: OrganizationValidationResponse = await response.json();
+      const rawData = await response.json();
       
-      dlog('Organization validation successful', { 
-        valid: data.valid,
-        hasOrganization: !!data.organization,
-        hasMultipleOrgs: !!data.organizations,
-        orgCount: data.organizations?.length || 0
+      // Comprehensive response debugging
+      dlog('Organization validation successful - FULL RESPONSE DEBUG', { 
+        responseStatus: response.status,
+        responseHeaders: 'Headers object (not enumerable)',
+        responseData: rawData,
+        responseDataType: typeof rawData,
+        responseDataKeys: rawData ? Object.keys(rawData) : 'null/undefined',
+        hasDataField: !!rawData.data,
+        dataKeys: rawData.data ? Object.keys(rawData.data) : 'null/undefined',
+        hasOrganization: !!rawData.data?.organization,
+        organizationDetails: rawData.data?.organization,
+        error: rawData.error
+      });
+
+      // Parse backend response structure to match frontend expectations
+      const data: OrganizationValidationResponse = {
+        valid: !!(rawData.data?.organization),
+        organization: rawData.data?.organization ? {
+          id: rawData.data.organization.id,
+          name: rawData.data.organization.name,
+          slug: rawData.data.organization.slug
+        } : undefined,
+        organizations: rawData.data?.organization ? [{
+          id: rawData.data.organization.id,
+          name: rawData.data.organization.name,
+          slug: rawData.data.organization.slug
+        }] : undefined,
+        error: rawData.error || null
+      };
+
+      dlog('Organization validation parsed response', {
+        parsedValid: data.valid,
+        parsedOrganization: data.organization,
+        parsedOrganizations: data.organizations,
+        parsedError: data.error
       });
 
       return data;

@@ -187,6 +187,42 @@ if (typeof window !== 'undefined') {
             }
         });
     }); };
+    window.debugRawOrganizationValidation = function () { return __awaiter(void 0, void 0, void 0, function () {
+        var OrganizationValidationService, result, supabase_1, session, e_4;
+        var _a, _b;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
+                case 0:
+                    _c.trys.push([0, 5, , 6]);
+                    return [4 /*yield*/, import('./services/organizationValidationService')];
+                case 1:
+                    OrganizationValidationService = (_c.sent()).OrganizationValidationService;
+                    console.log('[RAW ORGANIZATION VALIDATION DEBUG] Starting raw validation call...');
+                    return [4 /*yield*/, OrganizationValidationService.validateOrganization()];
+                case 2:
+                    result = _c.sent();
+                    console.log('[RAW ORGANIZATION VALIDATION DEBUG] Raw result:', result);
+                    return [4 /*yield*/, import('./lib/supabase')];
+                case 3:
+                    supabase_1 = (_c.sent()).supabase;
+                    return [4 /*yield*/, supabase_1.auth.getSession()];
+                case 4:
+                    session = (_c.sent()).data.session;
+                    console.log('[RAW ORGANIZATION VALIDATION DEBUG] Current session:', {
+                        hasSession: !!session,
+                        userId: (_a = session === null || session === void 0 ? void 0 : session.user) === null || _a === void 0 ? void 0 : _a.id,
+                        tokenLength: ((_b = session === null || session === void 0 ? void 0 : session.access_token) === null || _b === void 0 ? void 0 : _b.length) || 0
+                    });
+                    return [3 /*break*/, 6];
+                case 5:
+                    e_4 = _c.sent();
+                    console.error('[RAW ORGANIZATION VALIDATION DEBUG ERROR]', e_4);
+                    return [3 /*break*/, 6];
+                case 6: return [2 /*return*/];
+            }
+        });
+    }); };
     console.log('[ORGANIZATION VALIDATION DEBUG] Call window.debugOrganizationValidation() in the console to debug organization validation.');
+    console.log('[RAW ORGANIZATION VALIDATION DEBUG] Call window.debugRawOrganizationValidation() in the console to see raw validation response.');
 }
 createRoot(document.getElementById('root')).render(_jsx(StrictMode, { children: _jsx(AuthProvider, { children: DEBUG_LOG ? (_jsx(DebugErrorBoundary, { children: _jsx(App, {}) })) : (_jsx(App, {})) }) }));

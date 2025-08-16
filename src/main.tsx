@@ -109,7 +109,31 @@ if (typeof window !== 'undefined') {
       console.error('[ORGANIZATION VALIDATION DEBUG ERROR]', e);
     }
   };
+
+  (window as any).debugRawOrganizationValidation = async () => {
+    try {
+      const { OrganizationValidationService } = await import('./services/organizationValidationService');
+      console.log('[RAW ORGANIZATION VALIDATION DEBUG] Starting raw validation call...');
+      
+      // Make a direct call to see the raw response
+      const result = await OrganizationValidationService.validateOrganization();
+      console.log('[RAW ORGANIZATION VALIDATION DEBUG] Raw result:', result);
+      
+      // Also check the current session
+      const { supabase } = await import('./lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[RAW ORGANIZATION VALIDATION DEBUG] Current session:', {
+        hasSession: !!session,
+        userId: session?.user?.id,
+        tokenLength: session?.access_token?.length || 0
+      });
+    } catch (e) {
+      console.error('[RAW ORGANIZATION VALIDATION DEBUG ERROR]', e);
+    }
+  };
+
   console.log('[ORGANIZATION VALIDATION DEBUG] Call window.debugOrganizationValidation() in the console to debug organization validation.');
+  console.log('[RAW ORGANIZATION VALIDATION DEBUG] Call window.debugRawOrganizationValidation() in the console to see raw validation response.');
 }
 
 createRoot(document.getElementById('root')!).render(

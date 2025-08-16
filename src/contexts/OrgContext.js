@@ -57,16 +57,26 @@ export var OrgProvider = function (_a) {
     var _d = useState(false), initialized = _d[0], setInitialized = _d[1];
     var refreshOrgs = useCallback(function () { return __awaiter(void 0, void 0, void 0, function () {
         var validationResult, userOrgs, storedId_1, match, error_1, errorMessage;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0:
                     dlog('OrgProvider: loading organizations via validation service');
-                    _a.label = 1;
+                    _b.label = 1;
                 case 1:
-                    _a.trys.push([1, 8, , 9]);
+                    _b.trys.push([1, 8, , 9]);
                     return [4 /*yield*/, OrganizationValidationService.getUserOrganizations()];
                 case 2:
-                    validationResult = _a.sent();
+                    validationResult = _b.sent();
+                    dlog('OrgProvider: validation result received - FULL DEBUG', {
+                        validationResult: validationResult,
+                        valid: validationResult.valid,
+                        hasOrganizations: !!validationResult.organizations,
+                        organizationsCount: ((_a = validationResult.organizations) === null || _a === void 0 ? void 0 : _a.length) || 0,
+                        hasOrganization: !!validationResult.organization,
+                        organizationDetails: validationResult.organization,
+                        error: validationResult.error
+                    });
                     if (!(validationResult.valid && validationResult.organizations)) return [3 /*break*/, 6];
                     userOrgs = validationResult.organizations.map(function (org) { return ({
                         id: org.id,
@@ -83,7 +93,7 @@ export var OrgProvider = function (_a) {
                     if (!match) return [3 /*break*/, 4];
                     return [4 /*yield*/, setCurrentOrg(match)];
                 case 3:
-                    _a.sent(); // This validates with backend
+                    _b.sent(); // This validates with backend
                     dlog('OrgProvider: current org restored with backend validation', {
                         orgId: match.id,
                         orgName: match.name
@@ -93,18 +103,23 @@ export var OrgProvider = function (_a) {
                     setCurrentOrgState(null);
                     localStorage.removeItem(ORG_KEY);
                     dlog('OrgProvider: no current org found');
-                    _a.label = 5;
+                    _b.label = 5;
                 case 5: return [3 /*break*/, 7];
                 case 6:
-                    dlog('OrgProvider: failed to load organizations via validation service', {
-                        error: validationResult.error
+                    dlog('OrgProvider: failed to load organizations via validation service - FAILURE DEBUG', {
+                        validationResult: validationResult,
+                        valid: validationResult.valid,
+                        hasOrganizations: !!validationResult.organizations,
+                        hasOrganization: !!validationResult.organization,
+                        error: validationResult.error,
+                        errorType: typeof validationResult.error
                     });
                     setOrgs([]);
                     setCurrentOrgState(null);
-                    _a.label = 7;
+                    _b.label = 7;
                 case 7: return [3 /*break*/, 9];
                 case 8:
-                    error_1 = _a.sent();
+                    error_1 = _b.sent();
                     errorMessage = error_1 instanceof Error ? error_1.message : 'Unknown error';
                     dlog('OrgProvider: error loading organizations', { error: errorMessage });
                     setOrgs([]);
