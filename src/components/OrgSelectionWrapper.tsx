@@ -11,10 +11,12 @@ interface OrgSelectionWrapperProps {
 
 export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ children }) => {
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const { currentOrg, initialized: orgInitialized } = useOrg();
+  const { currentOrg, initialized: orgInitialized, orgs, setCurrentOrg } = useOrg();
   const [claimsValidated, setClaimsValidated] = useState(false);
   const [validatingClaims, setValidatingClaims] = useState(true);
+  const [autoAssigning, setAutoAssigning] = useState(false);
 
+  // Effect for validating claims
   useEffect(() => {
     const validateClaims = async () => {
       if (!isAuthenticated || !orgInitialized) {
@@ -44,8 +46,32 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
     validateClaims();
   }, [isAuthenticated, orgInitialized]);
 
+  // Effect for auto-assigning single organization
+  useEffect(() => {
+    const autoAssignSingleOrg = async () => {
+      // Only auto-assign if we have a single org, no current org, and claims are not validated
+      if (orgs.length === 1 && !currentOrg && !claimsValidated && !validatingClaims && !autoAssigning) {
+        dlog('Auto-assigning single organization', { orgId: orgs[0].id, orgName: orgs[0].name });
+        setAutoAssigning(true);
+        
+        try {
+          await setCurrentOrg(orgs[0]);
+          setClaimsValidated(true);
+          dlog('Auto-assignment successful');
+        } catch (error) {
+          dlog('Auto-assignment failed', { error });
+          // Fall back to manual selection if auto-assignment fails
+        } finally {
+          setAutoAssigning(false);
+        }
+      }
+    };
+
+    autoAssignSingleOrg();
+  }, [orgs, currentOrg, claimsValidated, validatingClaims, autoAssigning, setCurrentOrg]);
+
   // Show loading while authentication or organization context is initializing
-  if (authLoading || !orgInitialized || validatingClaims) {
+  if (authLoading || !orgInitialized || validatingClaims || autoAssigning) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -53,7 +79,7 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
         alignItems: 'center', 
         height: '100vh' 
       }}>
-        <div>Loading...</div>
+        <div>{autoAssigning ? 'Setting up your organization...' : 'Loading...'}</div>
       </div>
     );
   }
@@ -63,44 +89,8 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
     return <>{children}</>;
   }
 
-  // Get organization data at the top level (Rules of Hooks)
-  const { orgs, setCurrentOrg } = useOrg();
-  
-  // If no current organization or claims are invalid, check for auto-assignment
+  // If no current organization or claims are invalid, show selection
   if (!currentOrg || !claimsValidated) {
-    if (orgs.length === 1) {
-      // Auto-assign the single organization
-      dlog('Auto-assigning single organization', { orgId: orgs[0].id, orgName: orgs[0].name });
-      
-      // Use useEffect to avoid calling setCurrentOrg during render
-      React.useEffect(() => {
-        const autoAssignOrg = async () => {
-          try {
-            await setCurrentOrg(orgs[0]);
-            setClaimsValidated(true);
-            dlog('Auto-assignment successful');
-          } catch (error) {
-            dlog('Auto-assignment failed', { error });
-            // Fall back to manual selection if auto-assignment fails
-          }
-        };
-        autoAssignOrg();
-      }, [orgs, setCurrentOrg, setClaimsValidated]);
-      
-      // Show loading while auto-assigning
-      return (
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh' 
-        }}>
-          <div>Setting up your organization...</div>
-        </div>
-      );
-    }
-    
-    // Multiple organizations or no organizations - show selection
     return (
       <OrgSelectionFlow 
         onOrganizationSelected={() => {

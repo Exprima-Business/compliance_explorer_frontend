@@ -35,7 +35,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 import { jsx as _jsx, Fragment as _Fragment } from "react/jsx-runtime";
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrg } from '../contexts/OrgContext';
 import { OrganizationValidationService } from '../services/organizationValidationService';
@@ -44,9 +44,11 @@ import { dlog } from '../utils/debugLog';
 export var OrgSelectionWrapper = function (_a) {
     var children = _a.children;
     var _b = useAuth(), isAuthenticated = _b.isAuthenticated, authLoading = _b.loading;
-    var _c = useOrg(), currentOrg = _c.currentOrg, orgInitialized = _c.initialized;
+    var _c = useOrg(), currentOrg = _c.currentOrg, orgInitialized = _c.initialized, orgs = _c.orgs, setCurrentOrg = _c.setCurrentOrg;
     var _d = useState(false), claimsValidated = _d[0], setClaimsValidated = _d[1];
     var _e = useState(true), validatingClaims = _e[0], setValidatingClaims = _e[1];
+    var _f = useState(false), autoAssigning = _f[0], setAutoAssigning = _f[1];
+    // Effect for validating claims
     useEffect(function () {
         var validateClaims = function () { return __awaiter(void 0, void 0, void 0, function () {
             var hasValidContext, error_1;
@@ -87,59 +89,53 @@ export var OrgSelectionWrapper = function (_a) {
         }); };
         validateClaims();
     }, [isAuthenticated, orgInitialized]);
+    // Effect for auto-assigning single organization
+    useEffect(function () {
+        var autoAssignSingleOrg = function () { return __awaiter(void 0, void 0, void 0, function () {
+            var error_2;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!(orgs.length === 1 && !currentOrg && !claimsValidated && !validatingClaims && !autoAssigning)) return [3 /*break*/, 5];
+                        dlog('Auto-assigning single organization', { orgId: orgs[0].id, orgName: orgs[0].name });
+                        setAutoAssigning(true);
+                        _a.label = 1;
+                    case 1:
+                        _a.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, setCurrentOrg(orgs[0])];
+                    case 2:
+                        _a.sent();
+                        setClaimsValidated(true);
+                        dlog('Auto-assignment successful');
+                        return [3 /*break*/, 5];
+                    case 3:
+                        error_2 = _a.sent();
+                        dlog('Auto-assignment failed', { error: error_2 });
+                        return [3 /*break*/, 5];
+                    case 4:
+                        setAutoAssigning(false);
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        }); };
+        autoAssignSingleOrg();
+    }, [orgs, currentOrg, claimsValidated, validatingClaims, autoAssigning, setCurrentOrg]);
     // Show loading while authentication or organization context is initializing
-    if (authLoading || !orgInitialized || validatingClaims) {
+    if (authLoading || !orgInitialized || validatingClaims || autoAssigning) {
         return (_jsx("div", { style: {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
                 height: '100vh'
-            }, children: _jsx("div", { children: "Loading..." }) }));
+            }, children: _jsx("div", { children: autoAssigning ? 'Setting up your organization...' : 'Loading...' }) }));
     }
     // If not authenticated, don't show organization selection
     if (!isAuthenticated) {
         return _jsx(_Fragment, { children: children });
     }
-    // Get organization data at the top level (Rules of Hooks)
-    var _f = useOrg(), orgs = _f.orgs, setCurrentOrg = _f.setCurrentOrg;
-    // If no current organization or claims are invalid, check for auto-assignment
+    // If no current organization or claims are invalid, show selection
     if (!currentOrg || !claimsValidated) {
-        if (orgs.length === 1) {
-            // Auto-assign the single organization
-            dlog('Auto-assigning single organization', { orgId: orgs[0].id, orgName: orgs[0].name });
-            // Use useEffect to avoid calling setCurrentOrg during render
-            React.useEffect(function () {
-                var autoAssignOrg = function () { return __awaiter(void 0, void 0, void 0, function () {
-                    var error_2;
-                    return __generator(this, function (_a) {
-                        switch (_a.label) {
-                            case 0:
-                                _a.trys.push([0, 2, , 3]);
-                                return [4 /*yield*/, setCurrentOrg(orgs[0])];
-                            case 1:
-                                _a.sent();
-                                setClaimsValidated(true);
-                                dlog('Auto-assignment successful');
-                                return [3 /*break*/, 3];
-                            case 2:
-                                error_2 = _a.sent();
-                                dlog('Auto-assignment failed', { error: error_2 });
-                                return [3 /*break*/, 3];
-                            case 3: return [2 /*return*/];
-                        }
-                    });
-                }); };
-                autoAssignOrg();
-            }, [orgs, setCurrentOrg, setClaimsValidated]);
-            // Show loading while auto-assigning
-            return (_jsx("div", { style: {
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '100vh'
-                }, children: _jsx("div", { children: "Setting up your organization..." }) }));
-        }
-        // Multiple organizations or no organizations - show selection
         return (_jsx(OrgSelectionFlow, { onOrganizationSelected: function () {
                 dlog('Organization selected, re-validating claims');
                 setClaimsValidated(true);
