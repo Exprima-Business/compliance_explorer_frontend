@@ -63,8 +63,44 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
     return <>{children}</>;
   }
 
-  // If no current organization or claims are invalid, show organization selection
+  // If no current organization or claims are invalid, check for auto-assignment
   if (!currentOrg || !claimsValidated) {
+    // Check if user has only one organization and auto-assign it
+    const { orgs, setCurrentOrg } = useOrg();
+    
+    if (orgs.length === 1) {
+      // Auto-assign the single organization
+      dlog('Auto-assigning single organization', { orgId: orgs[0].id, orgName: orgs[0].name });
+      
+      // Use useEffect to avoid calling setCurrentOrg during render
+      React.useEffect(() => {
+        const autoAssignOrg = async () => {
+          try {
+            await setCurrentOrg(orgs[0]);
+            setClaimsValidated(true);
+            dlog('Auto-assignment successful');
+          } catch (error) {
+            dlog('Auto-assignment failed', { error });
+            // Fall back to manual selection if auto-assignment fails
+          }
+        };
+        autoAssignOrg();
+      }, [orgs]);
+      
+      // Show loading while auto-assigning
+      return (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh' 
+        }}>
+          <div>Setting up your organization...</div>
+        </div>
+      );
+    }
+    
+    // Multiple organizations or no organizations - show selection
     return (
       <OrgSelectionFlow 
         onOrganizationSelected={() => {

@@ -35,7 +35,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 import { jsx as _jsx, Fragment as _Fragment } from "react/jsx-runtime";
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrg } from '../contexts/OrgContext';
 import { OrganizationValidationService } from '../services/organizationValidationService';
@@ -100,8 +100,46 @@ export var OrgSelectionWrapper = function (_a) {
     if (!isAuthenticated) {
         return _jsx(_Fragment, { children: children });
     }
-    // If no current organization or claims are invalid, show organization selection
+    // If no current organization or claims are invalid, check for auto-assignment
     if (!currentOrg || !claimsValidated) {
+        // Check if user has only one organization and auto-assign it
+        var _f = useOrg(), orgs_1 = _f.orgs, setCurrentOrg_1 = _f.setCurrentOrg;
+        if (orgs_1.length === 1) {
+            // Auto-assign the single organization
+            dlog('Auto-assigning single organization', { orgId: orgs_1[0].id, orgName: orgs_1[0].name });
+            // Use useEffect to avoid calling setCurrentOrg during render
+            React.useEffect(function () {
+                var autoAssignOrg = function () { return __awaiter(void 0, void 0, void 0, function () {
+                    var error_2;
+                    return __generator(this, function (_a) {
+                        switch (_a.label) {
+                            case 0:
+                                _a.trys.push([0, 2, , 3]);
+                                return [4 /*yield*/, setCurrentOrg_1(orgs_1[0])];
+                            case 1:
+                                _a.sent();
+                                setClaimsValidated(true);
+                                dlog('Auto-assignment successful');
+                                return [3 /*break*/, 3];
+                            case 2:
+                                error_2 = _a.sent();
+                                dlog('Auto-assignment failed', { error: error_2 });
+                                return [3 /*break*/, 3];
+                            case 3: return [2 /*return*/];
+                        }
+                    });
+                }); };
+                autoAssignOrg();
+            }, [orgs_1]);
+            // Show loading while auto-assigning
+            return (_jsx("div", { style: {
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '100vh'
+                }, children: _jsx("div", { children: "Setting up your organization..." }) }));
+        }
+        // Multiple organizations or no organizations - show selection
         return (_jsx(OrgSelectionFlow, { onOrganizationSelected: function () {
                 dlog('Organization selected, re-validating claims');
                 setClaimsValidated(true);
