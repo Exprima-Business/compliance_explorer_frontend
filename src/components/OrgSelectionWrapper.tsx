@@ -49,20 +49,31 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
   // Effect for auto-assigning single organization
   useEffect(() => {
     const autoAssignSingleOrg = async () => {
-      // Only auto-assign if we have a single org, no current org, and claims are not validated
-      if (orgs.length === 1 && !currentOrg && !claimsValidated && !validatingClaims && !autoAssigning) {
-        dlog('Auto-assigning single organization', { orgId: orgs[0].id, orgName: orgs[0].name });
-        setAutoAssigning(true);
+      // Auto-assign if we have a single org and either no current org OR claims not validated
+      if (orgs.length === 1 && !validatingClaims && !autoAssigning) {
+        // Check if we need to auto-assign (no current org) OR if we have current org but claims not validated
+        const needsAutoAssign = !currentOrg || (currentOrg && !claimsValidated);
         
-        try {
-          await setCurrentOrg(orgs[0]);
-          setClaimsValidated(true);
-          dlog('Auto-assignment successful');
-        } catch (error) {
-          dlog('Auto-assignment failed', { error });
-          // Fall back to manual selection if auto-assignment fails
-        } finally {
-          setAutoAssigning(false);
+        if (needsAutoAssign) {
+          dlog('Auto-assigning single organization', { 
+            orgId: orgs[0].id, 
+            orgName: orgs[0].name,
+            hasCurrentOrg: !!currentOrg,
+            claimsValidated,
+            reason: !currentOrg ? 'no current org' : 'claims not validated'
+          });
+          setAutoAssigning(true);
+          
+          try {
+            await setCurrentOrg(orgs[0]);
+            setClaimsValidated(true);
+            dlog('Auto-assignment successful');
+          } catch (error) {
+            dlog('Auto-assignment failed', { error });
+            // Fall back to manual selection if auto-assignment fails
+          } finally {
+            setAutoAssigning(false);
+          }
         }
       }
     };

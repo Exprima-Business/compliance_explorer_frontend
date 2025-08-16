@@ -168,6 +168,16 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
       });
     }
 
+    // Debug: log headers for clauses requests
+    if (endpoint.includes('/clauses')) {
+      dlog('Clauses request headers:', {
+        endpoint,
+        'x-org-id': headers['x-org-id'],
+        'x-project-id': headers['x-project-id'],
+        hasAuth: !!headers['Authorization']
+      });
+    }
+
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...fetchOptions,
       headers,

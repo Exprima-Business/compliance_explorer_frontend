@@ -43,12 +43,18 @@ export var clauseService = {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
+                    dlog('[API] getAllClauses - starting request');
                     return [4 /*yield*/, apiCall('/api/clauses')];
                 case 1:
                     response = _a.sent();
-                    dlog('[API] getAllClauses', {
+                    dlog('[API] getAllClauses - response received', {
+                        hasError: !!response.error,
+                        errorMessage: response.error,
+                        hasData: !!response.data,
+                        dataType: typeof response.data,
                         len: Array.isArray(response.data) ? response.data.length : 'n/a',
-                        missing: Array.isArray(response.data) ? response.data.filter(function (c) { return !c.family; }).length : 'n/a'
+                        missing: Array.isArray(response.data) ? response.data.filter(function (c) { return !c.family; }).length : 'n/a',
+                        sampleData: Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : 'no data'
                     });
                     return [2 /*return*/, response];
                 case 2:

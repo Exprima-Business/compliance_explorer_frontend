@@ -92,12 +92,20 @@ export var OrgSelectionWrapper = function (_a) {
     // Effect for auto-assigning single organization
     useEffect(function () {
         var autoAssignSingleOrg = function () { return __awaiter(void 0, void 0, void 0, function () {
-            var error_2;
+            var needsAutoAssign, error_2;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!(orgs.length === 1 && !currentOrg && !claimsValidated && !validatingClaims && !autoAssigning)) return [3 /*break*/, 5];
-                        dlog('Auto-assigning single organization', { orgId: orgs[0].id, orgName: orgs[0].name });
+                        if (!(orgs.length === 1 && !validatingClaims && !autoAssigning)) return [3 /*break*/, 5];
+                        needsAutoAssign = !currentOrg || (currentOrg && !claimsValidated);
+                        if (!needsAutoAssign) return [3 /*break*/, 5];
+                        dlog('Auto-assigning single organization', {
+                            orgId: orgs[0].id,
+                            orgName: orgs[0].name,
+                            hasCurrentOrg: !!currentOrg,
+                            claimsValidated: claimsValidated,
+                            reason: !currentOrg ? 'no current org' : 'claims not validated'
+                        });
                         setAutoAssigning(true);
                         _a.label = 1;
                     case 1:

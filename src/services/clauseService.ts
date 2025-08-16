@@ -6,10 +6,16 @@ import { dlog } from '../utils/debugLog';
 export const clauseService = {
   getAllClauses: async (): Promise<ApiResponse<Clause[]>> => {
     try {
+      dlog('[API] getAllClauses - starting request');
       const response = await apiCall<Clause[]>('/api/clauses');
-      dlog('[API] getAllClauses', {
+      dlog('[API] getAllClauses - response received', {
+        hasError: !!response.error,
+        errorMessage: response.error,
+        hasData: !!response.data,
+        dataType: typeof response.data,
         len: Array.isArray(response.data) ? response.data.length : 'n/a',
-        missing: Array.isArray(response.data) ? response.data.filter(c=>!c.family).length : 'n/a'
+        missing: Array.isArray(response.data) ? response.data.filter(c=>!c.family).length : 'n/a',
+        sampleData: Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : 'no data'
       });
       return response;
     } catch (error) {

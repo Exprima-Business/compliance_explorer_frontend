@@ -255,6 +255,15 @@ export var apiCall = function (endpoint, options) {
                             hasAuth: !!headers['Authorization']
                         });
                     }
+                    // Debug: log headers for clauses requests
+                    if (endpoint.includes('/clauses')) {
+                        dlog('Clauses request headers:', {
+                            endpoint: endpoint,
+                            'x-org-id': headers['x-org-id'],
+                            'x-project-id': headers['x-project-id'],
+                            hasAuth: !!headers['Authorization']
+                        });
+                    }
                     return [4 /*yield*/, fetch("".concat(API_URL).concat(endpoint), __assign(__assign({}, fetchOptions), { headers: headers, credentials: 'include' }))];
                 case 3:
                     response = _b.sent();
