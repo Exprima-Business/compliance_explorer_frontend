@@ -100,13 +100,13 @@ export var OrgSelectionWrapper = function (_a) {
     if (!isAuthenticated) {
         return _jsx(_Fragment, { children: children });
     }
+    // Get organization data at the top level (Rules of Hooks)
+    var _f = useOrg(), orgs = _f.orgs, setCurrentOrg = _f.setCurrentOrg;
     // If no current organization or claims are invalid, check for auto-assignment
     if (!currentOrg || !claimsValidated) {
-        // Check if user has only one organization and auto-assign it
-        var _f = useOrg(), orgs_1 = _f.orgs, setCurrentOrg_1 = _f.setCurrentOrg;
-        if (orgs_1.length === 1) {
+        if (orgs.length === 1) {
             // Auto-assign the single organization
-            dlog('Auto-assigning single organization', { orgId: orgs_1[0].id, orgName: orgs_1[0].name });
+            dlog('Auto-assigning single organization', { orgId: orgs[0].id, orgName: orgs[0].name });
             // Use useEffect to avoid calling setCurrentOrg during render
             React.useEffect(function () {
                 var autoAssignOrg = function () { return __awaiter(void 0, void 0, void 0, function () {
@@ -115,7 +115,7 @@ export var OrgSelectionWrapper = function (_a) {
                         switch (_a.label) {
                             case 0:
                                 _a.trys.push([0, 2, , 3]);
-                                return [4 /*yield*/, setCurrentOrg_1(orgs_1[0])];
+                                return [4 /*yield*/, setCurrentOrg(orgs[0])];
                             case 1:
                                 _a.sent();
                                 setClaimsValidated(true);
@@ -130,7 +130,7 @@ export var OrgSelectionWrapper = function (_a) {
                     });
                 }); };
                 autoAssignOrg();
-            }, [orgs_1]);
+            }, [orgs, setCurrentOrg, setClaimsValidated]);
             // Show loading while auto-assigning
             return (_jsx("div", { style: {
                     display: 'flex',

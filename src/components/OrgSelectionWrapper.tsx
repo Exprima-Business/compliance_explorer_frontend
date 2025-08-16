@@ -63,11 +63,11 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
     return <>{children}</>;
   }
 
+  // Get organization data at the top level (Rules of Hooks)
+  const { orgs, setCurrentOrg } = useOrg();
+  
   // If no current organization or claims are invalid, check for auto-assignment
   if (!currentOrg || !claimsValidated) {
-    // Check if user has only one organization and auto-assign it
-    const { orgs, setCurrentOrg } = useOrg();
-    
     if (orgs.length === 1) {
       // Auto-assign the single organization
       dlog('Auto-assigning single organization', { orgId: orgs[0].id, orgName: orgs[0].name });
@@ -85,7 +85,7 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
           }
         };
         autoAssignOrg();
-      }, [orgs]);
+      }, [orgs, setCurrentOrg, setClaimsValidated]);
       
       // Show loading while auto-assigning
       return (
