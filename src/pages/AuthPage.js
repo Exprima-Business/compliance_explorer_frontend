@@ -110,7 +110,7 @@ var AuthPage = function () {
                             email: email,
                             password: password,
                             options: {
-                                emailRedirectTo: "".concat(window.location.origin, "/auth/callback"),
+                                emailRedirectTo: "".concat(import.meta.env.PROD ? 'https://staging.clauseatlas.com' : window.location.origin, "/auth/callback"),
                                 data: {
                                     setup_required: true,
                                     registration_date: new Date().toISOString()
