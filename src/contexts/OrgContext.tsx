@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { apiCall } from '../services/api';
+import { supabase } from '../lib/supabase';
 import { dlog } from '../utils/debugLog';
 import { OrganizationValidationService } from '../services/organizationValidationService';
 
@@ -97,7 +98,27 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
-    refreshOrgs();
+    // Only load organizations if user doesn't need setup
+    // This prevents unnecessary API calls for setup-required users
+    const shouldLoadOrgs = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const setupRequired = session?.user?.user_metadata?.setup_required;
+        
+        if (!setupRequired) {
+          refreshOrgs();
+        } else {
+          dlog('OrgProvider: Skipping organization load - user needs setup');
+          setInitialized(true);
+        }
+      } catch (error) {
+        dlog('OrgProvider: Error checking setup requirement', { error });
+        // Fall back to loading organizations
+        refreshOrgs();
+      }
+    };
+    
+    shouldLoadOrgs();
   }, [refreshOrgs]);
 
   const setCurrentOrg = async (org: Organization) => {

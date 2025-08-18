@@ -48,6 +48,8 @@ interface ApiSuccess {
     slug: string;
   };
   redirectTo: string;
+  token?: string;
+  refreshToken?: string;
 }
 
 type ApiResponse = ApiSuccess | ApiError;
@@ -160,6 +162,24 @@ const OrganizationSetup: React.FC = () => {
           project: data.project,
           redirectTo: data.redirectTo
         });
+
+        // Handle JWT refresh if backend returns updated token
+        if (data.token) {
+          try {
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: data.token,
+              refresh_token: data.refreshToken || ''
+            });
+            
+            if (sessionError) {
+              dlog('OrganizationSetup: Failed to update session with new token', { error: sessionError });
+            } else {
+              dlog('OrganizationSetup: Successfully updated session with new token');
+            }
+          } catch (sessionError) {
+            dlog('OrganizationSetup: Error updating session', { error: sessionError });
+          }
+        }
 
         // Clear the setup_required flag from user metadata
         try {

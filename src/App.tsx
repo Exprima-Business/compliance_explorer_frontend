@@ -19,10 +19,52 @@ import AuthGate from './components/AuthGate';
 import OrgSetupDialog from './components/OrgSetupDialog';
 import ProjectGate from './components/ProjectGate';
 import { URLValidation } from './components/URLValidation';
-import { OrgSelectionWrapper } from './components/OrgSelectionWrapper';
+import { useUserState } from './hooks/useUserState';
+import MainApp from './components/MainApp';
 
 const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
 const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING === 'true';
+
+// Simplified App component that handles routing based on user state
+const AppContent: React.FC = () => {
+  const { userState, loading, error } = useUserState();
+
+  // Show loading while getting user state
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  // Show error if user state failed to load
+  if (error) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        <div>Error: {error}</div>
+      </div>
+    );
+  }
+
+  // Show organization setup if user needs setup
+  if (userState?.needsSetup) {
+    return <OrganizationSetup />;
+  }
+
+  // Show main app if user is set up
+  return <MainApp enableScanner={ENABLE_SCANNER} />;
+};
 
 export default function App() {
   return (
@@ -39,35 +81,9 @@ export default function App() {
               path="/:orgSlug/:projectSlug/*"
               element={
                 <AuthGate>
-                  <OrgProvider>
-                    <ProjectProvider>
-                      <URLValidation>
-                        <ProjectGate>
-                          <PreferencesProvider>
-                            <ClauseProvider>
-                              <BookmarkProvider>
-                                <OrgSetupDialog />
-                                <OrgSelectionWrapper>
-                                  <Layout>
-                                    <Routes>
-                                      <Route path="/" element={<Home />} />
-                                      <Route path="/matrix" element={<Matrix />} />
-                                      {ENABLE_SCANNER && (
-                                        <>
-                                          <Route path="/document-scanner" element={<DocumentScanner />} />
-                                          <Route path="/document-scanner/:scanId" element={<DocumentScanner />} />
-                                        </>
-                                      )}
-                                    </Routes>
-                                  </Layout>
-                                </OrgSelectionWrapper>
-                              </BookmarkProvider>
-                            </ClauseProvider>
-                          </PreferencesProvider>
-                        </ProjectGate>
-                      </URLValidation>
-                    </ProjectProvider>
-                  </OrgProvider>
+                  <URLValidation>
+                    <AppContent />
+                  </URLValidation>
                 </AuthGate>
               }
             />
@@ -77,33 +93,7 @@ export default function App() {
               path="/*"
               element={
                 <AuthGate>
-                  <OrgProvider>
-                    <ProjectProvider>
-                      <ProjectGate>
-                        <PreferencesProvider>
-                          <ClauseProvider>
-                            <BookmarkProvider>
-                              <OrgSetupDialog />
-                              <OrgSelectionWrapper>
-                                <Layout>
-                                  <Routes>
-                                    <Route path="/" element={<Home />} />
-                                    <Route path="/matrix" element={<Matrix />} />
-                                    {ENABLE_SCANNER && (
-                                      <>
-                                        <Route path="/document-scanner" element={<DocumentScanner />} />
-                                        <Route path="/document-scanner/:scanId" element={<DocumentScanner />} />
-                                      </>
-                                    )}
-                                  </Routes>
-                                </Layout>
-                              </OrgSelectionWrapper>
-                            </BookmarkProvider>
-                          </ClauseProvider>
-                        </PreferencesProvider>
-                      </ProjectGate>
-                    </ProjectProvider>
-                  </OrgProvider>
+                  <AppContent />
                 </AuthGate>
               }
             />

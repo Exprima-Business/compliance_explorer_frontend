@@ -46,6 +46,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 import { jsx as _jsx } from "react/jsx-runtime";
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { apiCall } from '../services/api';
+import { supabase } from '../lib/supabase';
 import { dlog } from '../utils/debugLog';
 import { OrganizationValidationService } from '../services/organizationValidationService';
 var OrgContext = createContext(undefined);
@@ -132,10 +133,41 @@ export var OrgProvider = function (_a) {
         });
     }); }, []);
     useEffect(function () {
-        refreshOrgs();
+        // Only load organizations if user doesn't need setup
+        // This prevents unnecessary API calls for setup-required users
+        var shouldLoadOrgs = function () { return __awaiter(void 0, void 0, void 0, function () {
+            var session, setupRequired, error_2;
+            var _a, _b;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        _c.trys.push([0, 2, , 3]);
+                        return [4 /*yield*/, supabase.auth.getSession()];
+                    case 1:
+                        session = (_c.sent()).data.session;
+                        setupRequired = (_b = (_a = session === null || session === void 0 ? void 0 : session.user) === null || _a === void 0 ? void 0 : _a.user_metadata) === null || _b === void 0 ? void 0 : _b.setup_required;
+                        if (!setupRequired) {
+                            refreshOrgs();
+                        }
+                        else {
+                            dlog('OrgProvider: Skipping organization load - user needs setup');
+                            setInitialized(true);
+                        }
+                        return [3 /*break*/, 3];
+                    case 2:
+                        error_2 = _c.sent();
+                        dlog('OrgProvider: Error checking setup requirement', { error: error_2 });
+                        // Fall back to loading organizations
+                        refreshOrgs();
+                        return [3 /*break*/, 3];
+                    case 3: return [2 /*return*/];
+                }
+            });
+        }); };
+        shouldLoadOrgs();
     }, [refreshOrgs]);
     var setCurrentOrg = function (org) { return __awaiter(void 0, void 0, void 0, function () {
-        var validationResult, error_2, errorMessage;
+        var validationResult, error_3, errorMessage;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -156,8 +188,8 @@ export var OrgProvider = function (_a) {
                     });
                     return [3 /*break*/, 3];
                 case 2:
-                    error_2 = _a.sent();
-                    errorMessage = error_2 instanceof Error ? error_2.message : 'Unknown error';
+                    error_3 = _a.sent();
+                    errorMessage = error_3 instanceof Error ? error_3.message : 'Unknown error';
                     dlog('Error updating organization context:', errorMessage);
                     throw new Error("Organization selection failed: ".concat(errorMessage));
                 case 3: return [2 /*return*/];

@@ -128,7 +128,7 @@ var OrganizationSetup = function () {
         setActiveStep(0);
     };
     var handleSubmit = function () { return __awaiter(void 0, void 0, void 0, function () {
-        var response, data, updateError, updateError_1, err_2, errorMessage;
+        var response, data, sessionError, sessionError_1, updateError, updateError_1, err_2, errorMessage;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -140,7 +140,7 @@ var OrganizationSetup = function () {
                     setError(null);
                     _a.label = 1;
                 case 1:
-                    _a.trys.push([1, 10, 11, 12]);
+                    _a.trys.push([1, 13, 14, 15]);
                     dlog('OrganizationSetup: Submitting organization setup', {
                         organizationName: formData.organizationName,
                         projectName: formData.projectName,
@@ -162,19 +162,39 @@ var OrganizationSetup = function () {
                     return [4 /*yield*/, response.json()];
                 case 3:
                     data = _a.sent();
-                    if (!data.success) return [3 /*break*/, 8];
+                    if (!data.success) return [3 /*break*/, 11];
                     dlog('OrganizationSetup: Setup successful', {
                         organization: data.organization,
                         project: data.project,
                         redirectTo: data.redirectTo
                     });
+                    if (!data.token) return [3 /*break*/, 7];
                     _a.label = 4;
                 case 4:
                     _a.trys.push([4, 6, , 7]);
+                    return [4 /*yield*/, supabase.auth.setSession({
+                            access_token: data.token,
+                            refresh_token: data.refreshToken || ''
+                        })];
+                case 5:
+                    sessionError = (_a.sent()).error;
+                    if (sessionError) {
+                        dlog('OrganizationSetup: Failed to update session with new token', { error: sessionError });
+                    }
+                    else {
+                        dlog('OrganizationSetup: Successfully updated session with new token');
+                    }
+                    return [3 /*break*/, 7];
+                case 6:
+                    sessionError_1 = _a.sent();
+                    dlog('OrganizationSetup: Error updating session', { error: sessionError_1 });
+                    return [3 /*break*/, 7];
+                case 7:
+                    _a.trys.push([7, 9, , 10]);
                     return [4 /*yield*/, supabase.auth.updateUser({
                             data: { setup_required: false }
                         })];
-                case 5:
+                case 8:
                     updateError = (_a.sent()).error;
                     if (updateError) {
                         dlog('OrganizationSetup: Failed to clear setup_required flag', { error: updateError });
@@ -182,30 +202,30 @@ var OrganizationSetup = function () {
                     else {
                         dlog('OrganizationSetup: Successfully cleared setup_required flag');
                     }
-                    return [3 /*break*/, 7];
-                case 6:
+                    return [3 /*break*/, 10];
+                case 9:
                     updateError_1 = _a.sent();
                     dlog('OrganizationSetup: Error clearing setup_required flag', { error: updateError_1 });
-                    return [3 /*break*/, 7];
-                case 7:
+                    return [3 /*break*/, 10];
+                case 10:
                     // Navigate to the specified redirect URL
                     navigate(data.redirectTo);
-                    return [3 /*break*/, 9];
-                case 8:
+                    return [3 /*break*/, 12];
+                case 11:
                     setError(data.error.message);
                     dlog('OrganizationSetup: Setup failed', { error: data.error });
-                    _a.label = 9;
-                case 9: return [3 /*break*/, 12];
-                case 10:
+                    _a.label = 12;
+                case 12: return [3 /*break*/, 15];
+                case 13:
                     err_2 = _a.sent();
                     errorMessage = err_2 instanceof Error ? err_2.message : 'Failed to setup organization';
                     setError(errorMessage);
                     dlog('OrganizationSetup: Setup error', { error: errorMessage });
-                    return [3 /*break*/, 12];
-                case 11:
+                    return [3 /*break*/, 15];
+                case 14:
                     setLoading(false);
                     return [7 /*endfinally*/];
-                case 12: return [2 /*return*/];
+                case 15: return [2 /*return*/];
             }
         });
     }); };
