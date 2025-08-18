@@ -5,7 +5,9 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { theme } from './theme';
 import Layout from './components/Layout';
 import Home from './pages/Home';
-import Login from './pages/Login';
+import AuthPage from './pages/AuthPage';
+import AuthCallback from './pages/AuthCallback';
+import OrganizationSetup from './pages/OrganizationSetup';
 import { DocumentScanner } from './components/DocumentScanner';
 import Matrix from './pages/Matrix';
 import { PreferencesProvider } from './contexts/PreferencesContext';
@@ -28,7 +30,9 @@ export default function App() {
       <CssBaseline />
       <Router basename={import.meta.env.PROD ? '/app' : undefined}>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/setup-organization" element={<OrganizationSetup />} />
           {ENABLE_URL_BASED_ROUTING ? (
             // URL-based routing with organization and project slugs
             <Route
