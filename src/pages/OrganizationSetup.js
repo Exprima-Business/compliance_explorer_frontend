@@ -50,6 +50,7 @@ import { useState, useEffect } from 'react';
 import { Box, Paper, Typography, TextField, Button, Alert, CircularProgress, Stepper, Step, StepLabel, StepContent } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 import { dlog } from '../utils/debugLog';
 var OrganizationSetup = function () {
     var _a = useState(0), activeStep = _a[0], setActiveStep = _a[1];
@@ -127,7 +128,7 @@ var OrganizationSetup = function () {
         setActiveStep(0);
     };
     var handleSubmit = function () { return __awaiter(void 0, void 0, void 0, function () {
-        var response, data, err_2, errorMessage;
+        var response, data, updateError, updateError_1, err_2, errorMessage;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -139,7 +140,7 @@ var OrganizationSetup = function () {
                     setError(null);
                     _a.label = 1;
                 case 1:
-                    _a.trys.push([1, 4, 5, 6]);
+                    _a.trys.push([1, 10, 11, 12]);
                     dlog('OrganizationSetup: Submitting organization setup', {
                         organizationName: formData.organizationName,
                         projectName: formData.projectName,
@@ -161,30 +162,50 @@ var OrganizationSetup = function () {
                     return [4 /*yield*/, response.json()];
                 case 3:
                     data = _a.sent();
-                    if (data.success) {
-                        dlog('OrganizationSetup: Setup successful', {
-                            organization: data.organization,
-                            project: data.project,
-                            redirectTo: data.redirectTo
-                        });
-                        // Navigate to the specified redirect URL
-                        navigate(data.redirectTo);
+                    if (!data.success) return [3 /*break*/, 8];
+                    dlog('OrganizationSetup: Setup successful', {
+                        organization: data.organization,
+                        project: data.project,
+                        redirectTo: data.redirectTo
+                    });
+                    _a.label = 4;
+                case 4:
+                    _a.trys.push([4, 6, , 7]);
+                    return [4 /*yield*/, supabase.auth.updateUser({
+                            data: { setup_required: false }
+                        })];
+                case 5:
+                    updateError = (_a.sent()).error;
+                    if (updateError) {
+                        dlog('OrganizationSetup: Failed to clear setup_required flag', { error: updateError });
                     }
                     else {
-                        setError(data.error.message);
-                        dlog('OrganizationSetup: Setup failed', { error: data.error });
+                        dlog('OrganizationSetup: Successfully cleared setup_required flag');
                     }
-                    return [3 /*break*/, 6];
-                case 4:
+                    return [3 /*break*/, 7];
+                case 6:
+                    updateError_1 = _a.sent();
+                    dlog('OrganizationSetup: Error clearing setup_required flag', { error: updateError_1 });
+                    return [3 /*break*/, 7];
+                case 7:
+                    // Navigate to the specified redirect URL
+                    navigate(data.redirectTo);
+                    return [3 /*break*/, 9];
+                case 8:
+                    setError(data.error.message);
+                    dlog('OrganizationSetup: Setup failed', { error: data.error });
+                    _a.label = 9;
+                case 9: return [3 /*break*/, 12];
+                case 10:
                     err_2 = _a.sent();
                     errorMessage = err_2 instanceof Error ? err_2.message : 'Failed to setup organization';
                     setError(errorMessage);
                     dlog('OrganizationSetup: Setup error', { error: errorMessage });
-                    return [3 /*break*/, 6];
-                case 5:
+                    return [3 /*break*/, 12];
+                case 11:
                     setLoading(false);
                     return [7 /*endfinally*/];
-                case 6: return [2 /*return*/];
+                case 12: return [2 /*return*/];
             }
         });
     }); };

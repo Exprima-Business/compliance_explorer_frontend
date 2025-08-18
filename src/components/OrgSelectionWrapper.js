@@ -36,6 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 import { jsx as _jsx, Fragment as _Fragment } from "react/jsx-runtime";
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrg } from '../contexts/OrgContext';
 import { OrganizationValidationService } from '../services/organizationValidationService';
@@ -43,29 +44,42 @@ import { OrgSelectionFlow } from './OrgSelectionFlow';
 import { dlog } from '../utils/debugLog';
 export var OrgSelectionWrapper = function (_a) {
     var children = _a.children;
-    var _b = useAuth(), isAuthenticated = _b.isAuthenticated, authLoading = _b.loading;
+    var _b = useAuth(), isAuthenticated = _b.isAuthenticated, authLoading = _b.loading, user = _b.user;
     var _c = useOrg(), currentOrg = _c.currentOrg, orgInitialized = _c.initialized, orgs = _c.orgs, setCurrentOrg = _c.setCurrentOrg;
     var _d = useState(false), claimsValidated = _d[0], setClaimsValidated = _d[1];
     var _e = useState(true), validatingClaims = _e[0], setValidatingClaims = _e[1];
     var _f = useState(false), autoAssigning = _f[0], setAutoAssigning = _f[1];
-    // Effect for validating claims
+    var _g = useState(false), setupRequired = _g[0], setSetupRequired = _g[1];
+    var navigate = useNavigate();
+    // Effect for checking setup required and validating claims
     useEffect(function () {
-        var validateClaims = function () { return __awaiter(void 0, void 0, void 0, function () {
-            var hasValidContext, error_1;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+        var checkSetupAndValidateClaims = function () { return __awaiter(void 0, void 0, void 0, function () {
+            var userSetupRequired, hasValidContext, error_1;
+            var _a;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0:
                         if (!isAuthenticated || !orgInitialized) {
                             setValidatingClaims(false);
                             return [2 /*return*/];
                         }
-                        _a.label = 1;
+                        userSetupRequired = (_a = user === null || user === void 0 ? void 0 : user.user_metadata) === null || _a === void 0 ? void 0 : _a.setup_required;
+                        if (userSetupRequired) {
+                            dlog('User requires organization setup', {
+                                userId: user === null || user === void 0 ? void 0 : user.id,
+                                setupRequired: userSetupRequired
+                            });
+                            setSetupRequired(true);
+                            setValidatingClaims(false);
+                            return [2 /*return*/];
+                        }
+                        _b.label = 1;
                     case 1:
-                        _a.trys.push([1, 3, 4, 5]);
+                        _b.trys.push([1, 3, 4, 5]);
                         setValidatingClaims(true);
                         return [4 /*yield*/, OrganizationValidationService.hasValidOrganizationContext()];
                     case 2:
-                        hasValidContext = _a.sent();
+                        hasValidContext = _b.sent();
                         if (hasValidContext) {
                             dlog('Organization context validation successful');
                             setClaimsValidated(true);
@@ -76,7 +90,7 @@ export var OrgSelectionWrapper = function (_a) {
                         }
                         return [3 /*break*/, 5];
                     case 3:
-                        error_1 = _a.sent();
+                        error_1 = _b.sent();
                         dlog('Error validating organization context:', error_1);
                         setClaimsValidated(false);
                         return [3 /*break*/, 5];
@@ -87,8 +101,8 @@ export var OrgSelectionWrapper = function (_a) {
                 }
             });
         }); };
-        validateClaims();
-    }, [isAuthenticated, orgInitialized]);
+        checkSetupAndValidateClaims();
+    }, [isAuthenticated, orgInitialized, user]);
     // Effect for auto-assigning single organization
     useEffect(function () {
         var autoAssignSingleOrg = function () { return __awaiter(void 0, void 0, void 0, function () {
@@ -141,6 +155,17 @@ export var OrgSelectionWrapper = function (_a) {
     // If not authenticated, don't show organization selection
     if (!isAuthenticated) {
         return _jsx(_Fragment, { children: children });
+    }
+    // If user requires organization setup, redirect to setup page
+    if (setupRequired) {
+        dlog('Redirecting to organization setup', { userId: user === null || user === void 0 ? void 0 : user.id });
+        navigate('/setup-organization');
+        return (_jsx("div", { style: {
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh'
+            }, children: _jsx("div", { children: "Redirecting to organization setup..." }) }));
     }
     // If no current organization or claims are invalid, show selection
     if (!currentOrg || !claimsValidated) {

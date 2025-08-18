@@ -46,62 +46,71 @@ export var AuthProvider = function (_a) {
     var _d = useState(null), error = _d[0], setError = _d[1];
     useEffect(function () {
         var initializeAuth = function () { return __awaiter(void 0, void 0, void 0, function () {
-            var session, hasValidContext, error_1;
-            var _a;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var session, setupRequired, hasValidContext, error_1;
+            var _a, _b;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
-                        _b.trys.push([0, 4, , 5]);
+                        _c.trys.push([0, 5, , 6]);
                         return [4 /*yield*/, supabase.auth.getSession()];
                     case 1:
-                        session = (_b.sent()).data.session;
+                        session = (_c.sent()).data.session;
                         setUser((_a = session === null || session === void 0 ? void 0 : session.user) !== null && _a !== void 0 ? _a : null);
-                        if (!(session === null || session === void 0 ? void 0 : session.user)) return [3 /*break*/, 3];
-                        return [4 /*yield*/, OrganizationValidationService.hasValidOrganizationContext()];
-                    case 2:
-                        hasValidContext = _b.sent();
+                        if (!(session === null || session === void 0 ? void 0 : session.user)) return [3 /*break*/, 4];
+                        setupRequired = (_b = session.user.user_metadata) === null || _b === void 0 ? void 0 : _b.setup_required;
+                        if (!setupRequired) return [3 /*break*/, 2];
+                        console.warn('User requires organization setup');
+                        return [3 /*break*/, 4];
+                    case 2: return [4 /*yield*/, OrganizationValidationService.hasValidOrganizationContext()];
+                    case 3:
+                        hasValidContext = _c.sent();
                         if (!hasValidContext) {
                             console.warn('User does not have valid organization context');
                             // Don't fail auth, but mark as needing organization validation
                         }
-                        _b.label = 3;
-                    case 3:
-                        setLoading(false);
-                        return [3 /*break*/, 5];
+                        _c.label = 4;
                     case 4:
-                        error_1 = _b.sent();
+                        setLoading(false);
+                        return [3 /*break*/, 6];
+                    case 5:
+                        error_1 = _c.sent();
                         console.error('Auth initialization error:', error_1);
                         setError('Authentication initialization failed');
                         setLoading(false);
-                        return [3 /*break*/, 5];
-                    case 5: return [2 /*return*/];
+                        return [3 /*break*/, 6];
+                    case 6: return [2 /*return*/];
                 }
             });
         }); };
         initializeAuth();
         // Listen for changes on auth state
         var subscription = supabase.auth.onAuthStateChange(function (event, session) { return __awaiter(void 0, void 0, void 0, function () {
-            var hasValidContext;
-            var _a;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var setupRequired, hasValidContext;
+            var _a, _b;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
                         setUser((_a = session === null || session === void 0 ? void 0 : session.user) !== null && _a !== void 0 ? _a : null);
-                        if (!((session === null || session === void 0 ? void 0 : session.user) && event === 'SIGNED_IN')) return [3 /*break*/, 2];
-                        return [4 /*yield*/, OrganizationValidationService.hasValidOrganizationContext()];
-                    case 1:
-                        hasValidContext = _b.sent();
+                        if (!((session === null || session === void 0 ? void 0 : session.user) && event === 'SIGNED_IN')) return [3 /*break*/, 4];
+                        setupRequired = (_b = session.user.user_metadata) === null || _b === void 0 ? void 0 : _b.setup_required;
+                        if (!setupRequired) return [3 /*break*/, 1];
+                        console.warn('User signed in but requires organization setup');
+                        return [3 /*break*/, 3];
+                    case 1: return [4 /*yield*/, OrganizationValidationService.hasValidOrganizationContext()];
+                    case 2:
+                        hasValidContext = _c.sent();
                         if (!hasValidContext) {
                             console.warn('User signed in but lacks organization context');
                         }
-                        return [3 /*break*/, 3];
-                    case 2:
+                        _c.label = 3;
+                    case 3: return [3 /*break*/, 5];
+                    case 4:
                         if (event === 'SIGNED_OUT') {
                             // Clear any stored organization context
                             localStorage.removeItem('orgId');
                         }
-                        _b.label = 3;
-                    case 3:
+                        _c.label = 5;
+                    case 5:
                         setLoading(false);
                         return [2 /*return*/];
                 }

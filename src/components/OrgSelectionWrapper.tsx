@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrg } from '../contexts/OrgContext';
 import { OrganizationValidationService } from '../services/organizationValidationService';
@@ -10,16 +11,30 @@ interface OrgSelectionWrapperProps {
 }
 
 export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ children }) => {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { currentOrg, initialized: orgInitialized, orgs, setCurrentOrg } = useOrg();
   const [claimsValidated, setClaimsValidated] = useState(false);
   const [validatingClaims, setValidatingClaims] = useState(true);
   const [autoAssigning, setAutoAssigning] = useState(false);
+  const [setupRequired, setSetupRequired] = useState(false);
+  const navigate = useNavigate();
 
-  // Effect for validating claims
+  // Effect for checking setup required and validating claims
   useEffect(() => {
-    const validateClaims = async () => {
+    const checkSetupAndValidateClaims = async () => {
       if (!isAuthenticated || !orgInitialized) {
+        setValidatingClaims(false);
+        return;
+      }
+
+      // Check if user needs organization setup
+      const userSetupRequired = user?.user_metadata?.setup_required;
+      if (userSetupRequired) {
+        dlog('User requires organization setup', { 
+          userId: user?.id, 
+          setupRequired: userSetupRequired 
+        });
+        setSetupRequired(true);
         setValidatingClaims(false);
         return;
       }
@@ -43,8 +58,8 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
       }
     };
 
-    validateClaims();
-  }, [isAuthenticated, orgInitialized]);
+    checkSetupAndValidateClaims();
+  }, [isAuthenticated, orgInitialized, user]);
 
   // Effect for auto-assigning single organization
   useEffect(() => {
@@ -98,6 +113,22 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
   // If not authenticated, don't show organization selection
   if (!isAuthenticated) {
     return <>{children}</>;
+  }
+
+  // If user requires organization setup, redirect to setup page
+  if (setupRequired) {
+    dlog('Redirecting to organization setup', { userId: user?.id });
+    navigate('/setup-organization');
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        <div>Redirecting to organization setup...</div>
+      </div>
+    );
   }
 
   // If no current organization or claims are invalid, show selection

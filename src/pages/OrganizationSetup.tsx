@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 import { dlog } from '../utils/debugLog';
 
 interface OrganizationSetupData {
@@ -159,6 +160,21 @@ const OrganizationSetup: React.FC = () => {
           project: data.project,
           redirectTo: data.redirectTo
         });
+
+        // Clear the setup_required flag from user metadata
+        try {
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: { setup_required: false }
+          });
+          
+          if (updateError) {
+            dlog('OrganizationSetup: Failed to clear setup_required flag', { error: updateError });
+          } else {
+            dlog('OrganizationSetup: Successfully cleared setup_required flag');
+          }
+        } catch (updateError) {
+          dlog('OrganizationSetup: Error clearing setup_required flag', { error: updateError });
+        }
 
         // Navigate to the specified redirect URL
         navigate(data.redirectTo);

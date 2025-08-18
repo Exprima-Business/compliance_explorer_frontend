@@ -28,12 +28,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Check if user has valid organization context
-          const hasValidContext = await OrganizationValidationService.hasValidOrganizationContext();
+          // Check if user needs organization setup first
+          const setupRequired = session.user.user_metadata?.setup_required;
           
-          if (!hasValidContext) {
-            console.warn('User does not have valid organization context');
-            // Don't fail auth, but mark as needing organization validation
+          if (setupRequired) {
+            console.warn('User requires organization setup');
+            // Don't try to validate organization context for setup-required users
+          } else {
+            // Only validate organization context if setup is not required
+            const hasValidContext = await OrganizationValidationService.hasValidOrganizationContext();
+            
+            if (!hasValidContext) {
+              console.warn('User does not have valid organization context');
+              // Don't fail auth, but mark as needing organization validation
+            }
           }
         }
         
@@ -52,10 +60,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user && event === 'SIGNED_IN') {
-        // Check organization context on sign-in
-        const hasValidContext = await OrganizationValidationService.hasValidOrganizationContext();
-        if (!hasValidContext) {
-          console.warn('User signed in but lacks organization context');
+        // Check if user needs organization setup first
+        const setupRequired = session.user.user_metadata?.setup_required;
+        
+        if (setupRequired) {
+          console.warn('User signed in but requires organization setup');
+        } else {
+          // Only check organization context if setup is not required
+          const hasValidContext = await OrganizationValidationService.hasValidOrganizationContext();
+          if (!hasValidContext) {
+            console.warn('User signed in but lacks organization context');
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         // Clear any stored organization context
