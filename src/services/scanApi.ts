@@ -66,6 +66,16 @@ export interface ScanProgress {
   estimatedTimeRemaining: number;
   pagesProcessed: number;
   totalPages: number;
+  // New orchestrator fields
+  currentStep?: string; // 'extracting', 'chunking', 'ai_processing', 'normalizing', 'storing'
+  totalSteps?: number;
+  currentStepNumber?: number;
+  processingMetadata?: {
+    chunksProcessed?: number;
+    totalChunks?: number;
+    detectedClauses?: number;
+    processingTime?: number;
+  };
 }
 
 export interface ProgressiveResults {

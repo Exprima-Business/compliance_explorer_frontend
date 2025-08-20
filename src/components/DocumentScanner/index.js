@@ -108,6 +108,17 @@ export var DocumentScanner = function () {
         }
     };
     var sseConnectionRef = useRef(null);
+    // Helper function to get user-friendly step display names
+    var getStepDisplayName = function (step) {
+        var stepMap = {
+            'extracting': 'Extracting text from document',
+            'chunking': 'Breaking content into manageable chunks',
+            'ai_processing': 'Analyzing content with AI',
+            'normalizing': 'Normalizing results against reference data',
+            'storing': 'Saving results to database'
+        };
+        return stepMap[step] || step.replace(/_/g, ' ').replace(/\b\w/g, function (l) { return l.toUpperCase(); });
+    };
     // Navigation debugging (suppressed - no longer needed after persistence fixes)
     // useEffect(() => {
     //   console.log('[NAVIGATION DEBUG] Component mounted/updated with urlScanId:', urlScanId);
@@ -363,13 +374,38 @@ export var DocumentScanner = function () {
         sseConnectionRef.current.connect();
     };
     var handleSSEMessage = function (data) { return __awaiter(void 0, void 0, void 0, function () {
-        var progressiveData_1, scanId, response, finalScanSession, err_3;
+        var progressData_1, progressiveData_1, scanId, response, finalScanSession, err_3;
         var _a, _b, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0:
                     console.log('[DEBUG] SSE message received:', data);
-                    if (!(data.progress !== undefined && data.status)) return [3 /*break*/, 1];
+                    if (!(data.type === 'progress' && data.data)) return [3 /*break*/, 1];
+                    progressData_1 = data.data;
+                    setUploadState(function (prev) {
+                        var _a, _b;
+                        var newState = __assign(__assign({}, prev), { progress: {
+                                scanId: progressData_1.scanId,
+                                current: ((_a = progressData_1.processingMetadata) === null || _a === void 0 ? void 0 : _a.chunksProcessed) || 0,
+                                total: ((_b = progressData_1.processingMetadata) === null || _b === void 0 ? void 0 : _b.totalChunks) || 1,
+                                status: progressData_1.status,
+                                message: progressData_1.message,
+                                estimatedTimeRemaining: progressData_1.estimatedTimeRemaining || 0,
+                                pagesProcessed: progressData_1.pagesProcessed || 0,
+                                totalPages: progressData_1.totalPages || 0,
+                                // New orchestrator fields
+                                currentStep: progressData_1.currentStep,
+                                totalSteps: progressData_1.totalSteps,
+                                currentStepNumber: progressData_1.currentStepNumber,
+                                processingMetadata: progressData_1.processingMetadata
+                            }, message: progressData_1.message });
+                        console.log('[DEBUG] SSE orchestrator progress update, new uploadState:', newState);
+                        return newState;
+                    });
+                    return [3 /*break*/, 7];
+                case 1:
+                    if (!(data.progress !== undefined && data.status)) return [3 /*break*/, 2];
+                    // Handle direct progress messages (legacy backend format)
                     setUploadState(function (prev) {
                         var newState = __assign(__assign({}, prev), { progress: {
                                 scanId: data.scanId,
@@ -381,15 +417,7 @@ export var DocumentScanner = function () {
                                 pagesProcessed: data.pagesProcessed || 0,
                                 totalPages: data.totalPages || 0
                             }, message: data.status === 'analyzing' ? 'Analyzing document...' : data.message || 'Processing...' });
-                        console.log('[DEBUG] SSE progress update, new uploadState:', newState);
-                        return newState;
-                    });
-                    return [3 /*break*/, 7];
-                case 1:
-                    if (!(data.type === 'progress')) return [3 /*break*/, 2];
-                    setUploadState(function (prev) {
-                        var newState = __assign(__assign({}, prev), { progress: data.data, message: data.data.message });
-                        console.log('[DEBUG] SSE progress update, new uploadState:', newState);
+                        console.log('[DEBUG] SSE legacy progress update, new uploadState:', newState);
                         return newState;
                     });
                     return [3 /*break*/, 7];
@@ -639,8 +667,8 @@ export var DocumentScanner = function () {
     var renderProgressState = function () {
         if (!uploadState.progress)
             return null;
-        var _a = uploadState.progress, current = _a.current, total = _a.total, status = _a.status, message = _a.message, estimatedTimeRemaining = _a.estimatedTimeRemaining, pagesProcessed = _a.pagesProcessed, totalPages = _a.totalPages;
-        var progress = total > 0 ? (current / total) * 100 : 0;
+        var _a = uploadState.progress, current = _a.current, total = _a.total, status = _a.status, message = _a.message, estimatedTimeRemaining = _a.estimatedTimeRemaining, pagesProcessed = _a.pagesProcessed, totalPages = _a.totalPages, currentStep = _a.currentStep, totalSteps = _a.totalSteps, currentStepNumber = _a.currentStepNumber, processingMetadata = _a.processingMetadata;
+        var progressPercentage = total > 0 ? (current / total) * 100 : 0;
         return (_jsx(Fade, { in: true, timeout: 500, children: _jsx(Card, { sx: {
                     mt: 3,
                     mb: 3,
@@ -668,7 +696,7 @@ export var DocumentScanner = function () {
                                                 'default', size: "small", sx: {
                                         fontWeight: 600,
                                         '& .MuiChip-label': { px: 2 }
-                                    } })] }), _jsx(Typography, { variant: "body1", color: "text.secondary", sx: { mb: 3, lineHeight: 1.6 }, children: message }), total > 0 && (_jsxs(Box, { sx: { mb: 3 }, children: [_jsxs(Box, { sx: { display: 'flex', justifyContent: 'space-between', mb: 1 }, children: [_jsx(Typography, { variant: "body2", sx: { fontWeight: 600 }, children: "Processing Progress" }), _jsxs(Typography, { variant: "body2", sx: { fontWeight: 600, color: 'primary.main' }, children: [Math.round(progress), "%"] })] }), _jsx(LinearProgress, { variant: "determinate", value: progress, sx: {
+                                    } })] }), _jsx(Typography, { variant: "body1", color: "text.secondary", sx: { mb: 3, lineHeight: 1.6 }, children: message }), total > 0 && (_jsxs(Box, { sx: { mb: 3 }, children: [_jsxs(Box, { sx: { display: 'flex', justifyContent: 'space-between', mb: 1 }, children: [_jsx(Typography, { variant: "body2", sx: { fontWeight: 600 }, children: "Processing Progress" }), _jsxs(Typography, { variant: "body2", sx: { fontWeight: 600, color: 'primary.main' }, children: [Math.round(progressPercentage), "%"] })] }), _jsx(LinearProgress, { variant: "determinate", value: progressPercentage, sx: {
                                         height: 8,
                                         borderRadius: 4,
                                         backgroundColor: alpha('#6366f1', 0.1),
@@ -676,7 +704,15 @@ export var DocumentScanner = function () {
                                             borderRadius: 4,
                                             background: 'linear-gradient(90deg, #6366f1 0%, #0ea5e9 100%)',
                                         }
-                                    } }), _jsxs(Box, { sx: { display: 'flex', justifyContent: 'space-between', mt: 1 }, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["Chunk ", current, " of ", total] }), estimatedTimeRemaining && estimatedTimeRemaining > 0 && (_jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["~", Math.ceil(estimatedTimeRemaining / 60), " min remaining"] }))] })] })), totalPages && totalPages > 0 && (_jsx(Box, { sx: { mb: 2 }, children: _jsxs(Typography, { variant: "body2", color: "text.secondary", sx: { display: 'flex', alignItems: 'center', gap: 1 }, children: [_jsx(DocumentIcon, { sx: { fontSize: 16 } }), "Pages processed: ", pagesProcessed || 0, " of ", totalPages] }) })), estimatedTimeRemaining && estimatedTimeRemaining > 0 && (_jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["Estimated time remaining: ", Math.ceil(estimatedTimeRemaining / 60), " minutes"] }))] }) }) }));
+                                    } }), _jsxs(Box, { sx: { display: 'flex', justifyContent: 'space-between', mt: 1 }, children: [_jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["Chunk ", current, " of ", total] }), estimatedTimeRemaining && estimatedTimeRemaining > 0 && (_jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["~", Math.ceil(estimatedTimeRemaining / 60), " min remaining"] }))] })] })), currentStep && totalSteps && currentStepNumber && (_jsxs(Box, { sx: { mb: 3 }, children: [_jsxs(Box, { sx: { display: 'flex', justifyContent: 'space-between', mb: 1 }, children: [_jsxs(Typography, { variant: "body2", sx: { fontWeight: 600 }, children: ["Current Step: ", currentStepNumber, " of ", totalSteps] }), _jsxs(Typography, { variant: "body2", sx: { fontWeight: 600, color: 'primary.main' }, children: [Math.round((currentStepNumber / totalSteps) * 100), "%"] })] }), _jsx(Typography, { variant: "body2", color: "text.secondary", sx: { mb: 1 }, children: getStepDisplayName(currentStep) }), _jsx(LinearProgress, { variant: "determinate", value: (currentStepNumber / totalSteps) * 100, sx: {
+                                        height: 4,
+                                        borderRadius: 2,
+                                        backgroundColor: alpha('#6366f1', 0.1),
+                                        '& .MuiLinearProgress-bar': {
+                                            borderRadius: 2,
+                                            background: 'linear-gradient(90deg, #0ea5e9 0%, #6366f1 100%)',
+                                        }
+                                    } })] })), processingMetadata && (_jsxs(Box, { sx: { display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }, children: [processingMetadata.chunksProcessed !== undefined && processingMetadata.totalChunks && (_jsx(Chip, { size: "small", label: "Chunks: ".concat(processingMetadata.chunksProcessed, "/").concat(processingMetadata.totalChunks), variant: "outlined", sx: { fontSize: '0.75rem' } })), processingMetadata.detectedClauses !== undefined && (_jsx(Chip, { size: "small", label: "Clauses: ".concat(processingMetadata.detectedClauses), variant: "outlined", color: "success", sx: { fontSize: '0.75rem' } })), processingMetadata.processingTime && (_jsx(Chip, { size: "small", label: "Time: ".concat(Math.round(processingMetadata.processingTime / 1000), "s"), variant: "outlined", sx: { fontSize: '0.75rem' } }))] })), totalPages && totalPages > 0 && (_jsx(Box, { sx: { mb: 2 }, children: _jsxs(Typography, { variant: "body2", color: "text.secondary", sx: { display: 'flex', alignItems: 'center', gap: 1 }, children: [_jsx(DocumentIcon, { sx: { fontSize: 16 } }), "Pages processed: ", pagesProcessed || 0, " of ", totalPages] }) })), estimatedTimeRemaining && estimatedTimeRemaining > 0 && (_jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["Estimated time remaining: ", Math.ceil(estimatedTimeRemaining / 60), " minutes"] }))] }) }) }));
     };
     var renderResults = function () {
         // Only render results when we actually have them and are not in a progress state

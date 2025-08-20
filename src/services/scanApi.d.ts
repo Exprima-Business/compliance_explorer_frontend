@@ -55,6 +55,15 @@ export interface ScanProgress {
     estimatedTimeRemaining: number;
     pagesProcessed: number;
     totalPages: number;
+    currentStep?: string;
+    totalSteps?: number;
+    currentStepNumber?: number;
+    processingMetadata?: {
+        chunksProcessed?: number;
+        totalChunks?: number;
+        detectedClauses?: number;
+        processingTime?: number;
+    };
 }
 export interface ProgressiveResults {
     scanId: string;

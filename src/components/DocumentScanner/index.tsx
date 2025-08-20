@@ -100,6 +100,18 @@ export const DocumentScanner: React.FC = () => {
 
   const sseConnectionRef = useRef<ScanSSEConnection | null>(null);
 
+  // Helper function to get user-friendly step display names
+  const getStepDisplayName = (step: string): string => {
+    const stepMap: Record<string, string> = {
+      'extracting': 'Extracting text from document',
+      'chunking': 'Breaking content into manageable chunks',
+      'ai_processing': 'Analyzing content with AI',
+      'normalizing': 'Normalizing results against reference data',
+      'storing': 'Saving results to database'
+    };
+    return stepMap[step] || step.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   // Navigation debugging (suppressed - no longer needed after persistence fixes)
   // useEffect(() => {
   //   console.log('[NAVIGATION DEBUG] Component mounted/updated with urlScanId:', urlScanId);
@@ -350,8 +362,34 @@ export const DocumentScanner: React.FC = () => {
   const handleSSEMessage = async (data: any) => {
     console.log('[DEBUG] SSE message received:', data);
 
-    // Handle direct progress messages (current backend format)
-    if (data.progress !== undefined && data.status) {
+    // Handle new orchestrator format
+    if (data.type === 'progress' && data.data) {
+      const progressData = data.data;
+      setUploadState(prev => {
+        const newState = {
+          ...prev,
+          progress: {
+            scanId: progressData.scanId,
+            current: progressData.processingMetadata?.chunksProcessed || 0,
+            total: progressData.processingMetadata?.totalChunks || 1,
+            status: progressData.status,
+            message: progressData.message,
+            estimatedTimeRemaining: progressData.estimatedTimeRemaining || 0,
+            pagesProcessed: progressData.pagesProcessed || 0,
+            totalPages: progressData.totalPages || 0,
+            // New orchestrator fields
+            currentStep: progressData.currentStep,
+            totalSteps: progressData.totalSteps,
+            currentStepNumber: progressData.currentStepNumber,
+            processingMetadata: progressData.processingMetadata
+          },
+          message: progressData.message
+        };
+        console.log('[DEBUG] SSE orchestrator progress update, new uploadState:', newState);
+        return newState;
+      });
+    } else if (data.progress !== undefined && data.status) {
+      // Handle direct progress messages (legacy backend format)
       setUploadState(prev => {
         const newState = {
           ...prev,
@@ -367,17 +405,7 @@ export const DocumentScanner: React.FC = () => {
           },
           message: data.status === 'analyzing' ? 'Analyzing document...' : data.message || 'Processing...'
         };
-        console.log('[DEBUG] SSE progress update, new uploadState:', newState);
-        return newState;
-      });
-    } else if (data.type === 'progress') {
-      setUploadState(prev => {
-        const newState = {
-          ...prev,
-          progress: data.data,
-          message: data.data.message
-        };
-        console.log('[DEBUG] SSE progress update, new uploadState:', newState);
+        console.log('[DEBUG] SSE legacy progress update, new uploadState:', newState);
         return newState;
       });
     } else if (data.type === 'progressive_update') {
@@ -634,8 +662,8 @@ export const DocumentScanner: React.FC = () => {
   const renderProgressState = () => {
     if (!uploadState.progress) return null;
     
-    const { current, total, status, message, estimatedTimeRemaining, pagesProcessed, totalPages } = uploadState.progress;
-    const progress = total > 0 ? (current / total) * 100 : 0;
+    const { current, total, status, message, estimatedTimeRemaining, pagesProcessed, totalPages, currentStep, totalSteps, currentStepNumber, processingMetadata } = uploadState.progress;
+    const progressPercentage = total > 0 ? (current / total) * 100 : 0;
 
     return (
       <Fade in={true} timeout={500}>
@@ -700,12 +728,12 @@ export const DocumentScanner: React.FC = () => {
                     Processing Progress
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                    {Math.round(progress)}%
+                    {Math.round(progressPercentage)}%
                   </Typography>
                 </Box>
                 <LinearProgress 
                   variant="determinate" 
-                  value={progress}
+                  value={progressPercentage}
                   sx={{
                     height: 8,
                     borderRadius: 4,
@@ -726,6 +754,67 @@ export const DocumentScanner: React.FC = () => {
                     </Typography>
                   )}
                 </Box>
+              </Box>
+            )}
+
+            {/* Step Progress Display */}
+            {currentStep && totalSteps && currentStepNumber && (
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    Current Step: {currentStepNumber} of {totalSteps}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                    {Math.round((currentStepNumber / totalSteps) * 100)}%
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {getStepDisplayName(currentStep)}
+                </Typography>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={(currentStepNumber / totalSteps) * 100}
+                  sx={{ 
+                    height: 4, 
+                    borderRadius: 2,
+                    backgroundColor: alpha('#6366f1', 0.1),
+                    '& .MuiLinearProgress-bar': {
+                      borderRadius: 2,
+                      background: 'linear-gradient(90deg, #0ea5e9 0%, #6366f1 100%)',
+                    }
+                  }}
+                />
+              </Box>
+            )}
+
+            {/* Processing Metadata Display */}
+            {processingMetadata && (
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                {processingMetadata.chunksProcessed !== undefined && processingMetadata.totalChunks && (
+                  <Chip 
+                    size="small" 
+                    label={`Chunks: ${processingMetadata.chunksProcessed}/${processingMetadata.totalChunks}`}
+                    variant="outlined"
+                    sx={{ fontSize: '0.75rem' }}
+                  />
+                )}
+                {processingMetadata.detectedClauses !== undefined && (
+                  <Chip 
+                    size="small" 
+                    label={`Clauses: ${processingMetadata.detectedClauses}`}
+                    variant="outlined"
+                    color="success"
+                    sx={{ fontSize: '0.75rem' }}
+                  />
+                )}
+                {processingMetadata.processingTime && (
+                  <Chip 
+                    size="small" 
+                    label={`Time: ${Math.round(processingMetadata.processingTime / 1000)}s`}
+                    variant="outlined"
+                    sx={{ fontSize: '0.75rem' }}
+                  />
+                )}
               </Box>
             )}
 
