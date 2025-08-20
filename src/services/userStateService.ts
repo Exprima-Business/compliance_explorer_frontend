@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
 
 export interface Organization {
@@ -40,7 +41,7 @@ export class UserStateService {
         hasToken: !!session.access_token
       });
 
-      const response = await fetch('/api/auth/user-state', {
+      const response = await fetch(`${environment.api.url}/api/auth/user-state`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

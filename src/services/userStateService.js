@@ -35,6 +35,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 import { supabase } from '../lib/supabase';
+import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
 var UserStateService = /** @class */ (function () {
     function UserStateService() {
@@ -61,7 +62,7 @@ var UserStateService = /** @class */ (function () {
                             userId: session.user.id,
                             hasToken: !!session.access_token
                         });
-                        return [4 /*yield*/, fetch('/api/auth/user-state', {
+                        return [4 /*yield*/, fetch("".concat(environment.api.url, "/api/auth/user-state"), {
                                 method: 'GET',
                                 headers: {
                                     'Authorization': "Bearer ".concat(session.access_token),

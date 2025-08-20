@@ -15,6 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
+import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
 
 interface OrganizationSetupData {
@@ -142,7 +143,7 @@ const OrganizationSetup: React.FC = () => {
         userId: user.id
       });
 
-      const response = await fetch('/api/organizations/setup', {
+      const response = await fetch(`${environment.api.url}/api/organizations/setup`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${user.access_token}`,

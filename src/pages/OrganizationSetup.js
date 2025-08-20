@@ -51,6 +51,7 @@ import { Box, Paper, Typography, TextField, Button, Alert, CircularProgress, Ste
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
+import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
 var OrganizationSetup = function () {
     var _a = useState(0), activeStep = _a[0], setActiveStep = _a[1];
@@ -146,7 +147,7 @@ var OrganizationSetup = function () {
                         projectName: formData.projectName,
                         userId: user.id
                     });
-                    return [4 /*yield*/, fetch('/api/organizations/setup', {
+                    return [4 /*yield*/, fetch("".concat(environment.api.url, "/api/organizations/setup"), {
                             method: 'POST',
                             headers: {
                                 'Authorization': "Bearer ".concat(user.access_token),
