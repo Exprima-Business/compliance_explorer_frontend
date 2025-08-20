@@ -61,23 +61,23 @@ var OrganizationSetup = function () {
     }), formData = _b[0], setFormData = _b[1];
     var _c = useState(false), loading = _c[0], setLoading = _c[1];
     var _d = useState(null), error = _d[0], setError = _d[1];
-    var _e = useState(null), user = _e[0], setUser = _e[1];
+    var _e = useState(null), session = _e[0], setSession = _e[1];
     var authUser = useAuth().user;
     var navigate = useNavigate();
     useEffect(function () {
         // Get current user session
-        var getCurrentUser = function () { return __awaiter(void 0, void 0, void 0, function () {
-            var session, err_1;
+        var getCurrentSession = function () { return __awaiter(void 0, void 0, void 0, function () {
+            var session_1, err_1;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         _a.trys.push([0, 2, , 3]);
                         return [4 /*yield*/, import('../lib/supabase').then(function (m) { return m.supabase.auth.getSession(); })];
                     case 1:
-                        session = (_a.sent()).data.session;
-                        if (session === null || session === void 0 ? void 0 : session.user) {
-                            setUser(session.user);
-                            dlog('OrganizationSetup: User session loaded', { userId: session.user.id });
+                        session_1 = (_a.sent()).data.session;
+                        if (session_1 === null || session_1 === void 0 ? void 0 : session_1.user) {
+                            setSession(session_1);
+                            dlog('OrganizationSetup: User session loaded', { userId: session_1.user.id });
                         }
                         else {
                             // No session, redirect to login
@@ -93,7 +93,7 @@ var OrganizationSetup = function () {
                 }
             });
         }); };
-        getCurrentUser();
+        getCurrentSession();
     }, [navigate]);
     var validateOrganizationName = function (name) {
         if (!name.trim()) {
@@ -133,7 +133,7 @@ var OrganizationSetup = function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    if (!user) {
+                    if (!session) {
                         setError('No user session found');
                         return [2 /*return*/];
                     }
@@ -145,12 +145,12 @@ var OrganizationSetup = function () {
                     dlog('OrganizationSetup: Submitting organization setup', {
                         organizationName: formData.organizationName,
                         projectName: formData.projectName,
-                        userId: user.id
+                        userId: session.user.id
                     });
                     return [4 /*yield*/, fetch("".concat(environment.api.url, "/api/organizations/setup"), {
                             method: 'POST',
                             headers: {
-                                'Authorization': "Bearer ".concat(user.access_token),
+                                'Authorization': "Bearer ".concat(session.access_token),
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
@@ -242,7 +242,7 @@ var OrganizationSetup = function () {
             content: (_jsxs(Box, { sx: { mt: 2 }, children: [_jsx(Typography, { variant: "body2", color: "text.secondary", sx: { mb: 3 }, children: "Create your first project within the organization. You can always add more projects later." }), _jsx(TextField, { fullWidth: true, label: "Project Name (Optional)", value: formData.projectName, onChange: function (e) { return handleProjectNameChange(e.target.value); }, placeholder: "Enter project name or leave blank for default", helperText: "Leave blank to create 'Default Project'", disabled: loading, sx: { mb: 2 } }), _jsxs(Box, { sx: { display: 'flex', gap: 2 }, children: [_jsx(Button, { variant: "outlined", onClick: handleBack, disabled: loading, children: "Back" }), _jsx(Button, { variant: "contained", onClick: handleSubmit, disabled: loading, children: loading ? (_jsxs(Box, { sx: { display: 'flex', alignItems: 'center', gap: 1 }, children: [_jsx(CircularProgress, { size: 20, color: "inherit" }), "Setting up..."] })) : ('Complete Setup') })] })] }))
         }
     ];
-    if (!user) {
+    if (!session) {
         return (_jsx(Box, { sx: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }, children: _jsx(CircularProgress, {}) }));
     }
     return (_jsx(Box, { sx: {

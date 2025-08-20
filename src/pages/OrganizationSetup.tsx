@@ -63,18 +63,18 @@ const OrganizationSetup: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [session, setSession] = useState<any>(null);
   
   const { user: authUser } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     // Get current user session
-    const getCurrentUser = async () => {
+    const getCurrentSession = async () => {
       try {
         const { data: { session } } = await import('../lib/supabase').then(m => m.supabase.auth.getSession());
         if (session?.user) {
-          setUser(session.user);
+          setSession(session);
           dlog('OrganizationSetup: User session loaded', { userId: session.user.id });
         } else {
           // No session, redirect to login
@@ -86,7 +86,7 @@ const OrganizationSetup: React.FC = () => {
       }
     };
 
-    getCurrentUser();
+    getCurrentSession();
   }, [navigate]);
 
   const validateOrganizationName = (name: string): string | null => {
@@ -128,7 +128,7 @@ const OrganizationSetup: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (!user) {
+    if (!session) {
       setError('No user session found');
       return;
     }
@@ -140,13 +140,13 @@ const OrganizationSetup: React.FC = () => {
       dlog('OrganizationSetup: Submitting organization setup', {
         organizationName: formData.organizationName,
         projectName: formData.projectName,
-        userId: user.id
+        userId: session.user.id
       });
 
       const response = await fetch(`${environment.api.url}/api/organizations/setup`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -300,7 +300,7 @@ const OrganizationSetup: React.FC = () => {
     }
   ];
 
-  if (!user) {
+  if (!session) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
