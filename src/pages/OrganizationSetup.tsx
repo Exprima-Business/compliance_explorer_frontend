@@ -1,59 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Paper, 
-  Typography, 
-  TextField, 
-  Button, 
-  Alert, 
-  CircularProgress,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent
-} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { Box, Button, TextField, Typography, Stepper, Step, StepLabel, Alert, Paper } from '@mui/material';
 import { supabase } from '../lib/supabase';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
+import { useAuth } from '../hooks/useAuth';
 
 interface OrganizationSetupData {
   organizationName: string;
-  projectName?: string;
+  projectName: string;
 }
 
-interface ApiError {
-  success: false;
-  error: {
-    message: string;
-    code: 'INVALID_NAME' | 'ORGANIZATION_EXISTS' | 'SETUP_FAILED' | 'UNAUTHORIZED';
-    details?: {
-      minLength?: number;
-      maxLength?: number;
-      existingName?: string;
-    };
-  };
-}
-
-interface ApiSuccess {
-  success: true;
-  organization: {
+interface ApiResponse {
+  success: boolean;
+  organization?: {
     id: string;
     name: string;
     slug: string;
   };
-  project: {
+  project?: {
     id: string;
     name: string;
     slug: string;
   };
-  redirectTo: string;
+  redirectTo?: string;
   token?: string;
   refreshToken?: string;
+  error?: {
+    message: string;
+  };
 }
-
-type ApiResponse = ApiSuccess | ApiError;
 
 const OrganizationSetup: React.FC = () => {
   const [activeStep, setActiveStep] = useState(0);
@@ -63,72 +39,12 @@ const OrganizationSetup: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [session, setSession] = useState<any>(null);
   
   const { user: authUser } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Get current user session
-    const getCurrentSession = async () => {
-      try {
-        const { data: { session } } = await import('../lib/supabase').then(m => m.supabase.auth.getSession());
-        if (session?.user) {
-          setSession(session);
-          dlog('OrganizationSetup: User session loaded', { userId: session.user.id });
-        } else {
-          // No session, redirect to login
-          navigate('/login');
-        }
-      } catch (err) {
-        console.error('Failed to get user session:', err);
-        navigate('/login');
-      }
-    };
-
-    getCurrentSession();
-  }, [navigate]);
-
-  const validateOrganizationName = (name: string): string | null => {
-    if (!name.trim()) {
-      return 'Organization name is required';
-    }
-    if (name.length < 2) {
-      return 'Organization name must be at least 2 characters long';
-    }
-    if (name.length > 50) {
-      return 'Organization name must be no more than 50 characters';
-    }
-    if (!/^[a-zA-Z0-9\s\-_]+$/.test(name)) {
-      return 'Organization name can only contain letters, numbers, spaces, hyphens, and underscores';
-    }
-    return null;
-  };
-
-  const handleOrganizationNameChange = (value: string) => {
-    setFormData(prev => ({ ...prev, organizationName: value }));
-    setError(null); // Clear error when user types
-  };
-
-  const handleProjectNameChange = (value: string) => {
-    setFormData(prev => ({ ...prev, projectName: value }));
-  };
-
-  const handleNext = () => {
-    const validationError = validateOrganizationName(formData.organizationName);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    setActiveStep(1);
-  };
-
-  const handleBack = () => {
-    setActiveStep(0);
-  };
-
   const handleSubmit = async () => {
-    if (!session) {
+    if (!authUser) {
       setError('No user session found');
       return;
     }
@@ -137,10 +53,18 @@ const OrganizationSetup: React.FC = () => {
     setError(null);
 
     try {
+      // Get current session using the same pattern as UserStateService
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
       dlog('OrganizationSetup: Submitting organization setup', {
         organizationName: formData.organizationName,
         projectName: formData.projectName,
-        userId: session.user.id
+        userId: session.user.id,
+        hasToken: !!session.access_token
       });
 
       const response = await fetch(`${environment.api.url}/api/organizations/setup`, {
@@ -154,6 +78,17 @@ const OrganizationSetup: React.FC = () => {
           projectName: formData.projectName || undefined
         })
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        dlog('OrganizationSetup: API error', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        
+        throw new Error(errorData.error || `Failed to setup organization: ${response.status} ${response.statusText}`);
+      }
 
       const data: ApiResponse = await response.json();
 
@@ -198,9 +133,9 @@ const OrganizationSetup: React.FC = () => {
         }
 
         // Navigate to the specified redirect URL
-        navigate(data.redirectTo);
+        navigate(data.redirectTo || '/');
       } else {
-        setError(data.error.message);
+        setError(data.error?.message || 'Setup failed');
         dlog('OrganizationSetup: Setup failed', { error: data.error });
       }
     } catch (err) {
@@ -210,6 +145,44 @@ const OrganizationSetup: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const validateOrganizationName = (name: string): string | null => {
+    if (!name.trim()) {
+      return 'Organization name is required';
+    }
+    if (name.length < 2) {
+      return 'Organization name must be at least 2 characters long';
+    }
+    if (name.length > 50) {
+      return 'Organization name must be no more than 50 characters';
+    }
+    if (!/^[a-zA-Z0-9\s\-_]+$/.test(name)) {
+      return 'Organization name can only contain letters, numbers, spaces, hyphens, and underscores';
+    }
+    return null;
+  };
+
+  const handleOrganizationNameChange = (value: string) => {
+    setFormData(prev => ({ ...prev, organizationName: value }));
+    setError(null); // Clear error when user types
+  };
+
+  const handleProjectNameChange = (value: string) => {
+    setFormData(prev => ({ ...prev, projectName: value }));
+  };
+
+  const handleNext = () => {
+    const validationError = validateOrganizationName(formData.organizationName);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setActiveStep(1);
+  };
+
+  const handleBack = () => {
+    setActiveStep(0);
   };
 
   const steps = [
@@ -287,7 +260,6 @@ const OrganizationSetup: React.FC = () => {
             >
               {loading ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CircularProgress size={20} color="inherit" />
                   Setting up...
                 </Box>
               ) : (
@@ -300,10 +272,10 @@ const OrganizationSetup: React.FC = () => {
     }
   ];
 
-  if (!session) {
+  if (!authUser) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
+        <Typography variant="h6">Redirecting to login...</Typography>
       </Box>
     );
   }

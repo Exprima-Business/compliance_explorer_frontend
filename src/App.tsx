@@ -21,6 +21,7 @@ import ProjectGate from './components/ProjectGate';
 import { URLValidation } from './components/URLValidation';
 import { useUserState } from './hooks/useUserState';
 import MainApp from './components/MainApp';
+import { useAuth } from './hooks/useAuth';
 
 const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
 const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING === 'true';
@@ -28,6 +29,7 @@ const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING =
 // Simplified App component that handles routing based on user state
 const AppContent: React.FC = () => {
   const { userState, loading, error } = useUserState();
+  const { user } = useAuth();
 
   // Show loading while getting user state
   if (loading) {
@@ -57,8 +59,11 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Check if user needs setup - use backend response or fallback to user metadata
+  const needsSetup = userState?.needsSetup ?? user?.user_metadata?.setup_required ?? false;
+
   // Show organization setup if user needs setup
-  if (userState?.needsSetup) {
+  if (needsSetup) {
     return <OrganizationSetup />;
   }
 
