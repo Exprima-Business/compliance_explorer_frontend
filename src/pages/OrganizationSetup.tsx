@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, TextField, Typography, Stepper, Step, StepLabel, Alert, Paper } from '@mui/material';
+import { Box, Button, TextField, Typography, Stepper, Step, StepLabel, StepContent, Alert, Paper } from '@mui/material';
 import { supabase } from '../lib/supabase';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
