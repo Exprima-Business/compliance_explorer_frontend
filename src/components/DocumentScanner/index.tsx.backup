@@ -28,8 +28,6 @@ import {
 import { useDropzone } from 'react-dropzone';
 import { ScanResults } from '../ScanResults';
 import { useAuth } from '../../contexts/AuthContext';
-import { ProjectCreationModal } from '../ProjectCreation/ProjectCreationModal';
-import type { Project } from '../../types/projectCreation';
 import { 
   scanApi, 
   ScanSSEConnection, 
@@ -77,7 +75,6 @@ interface UploadState {
  * progress indicator is shown at any time, with clear state transitions.
  */
 export const DocumentScanner: React.FC = () => {
-  console.log('[COMPONENT MOUNT] DocumentScanner component is mounting');
   const { user } = useAuth();
   const organization = { id: localStorage.getItem('orgId') || '00000000-0000-0000-0000-000000000000' };
   const navigate = useNavigate();
@@ -88,9 +85,6 @@ export const DocumentScanner: React.FC = () => {
   const [inProgressResults, setInProgressResults] = useState<DetectedClause[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
-  
-  // Project Creation Modal state
-  const [showProjectCreationModal, setShowProjectCreationModal] = useState(false);
   
   // Production-ready error reporting utility
   const reportError = (context: string, error: any, additionalData?: any) => {
@@ -186,7 +180,6 @@ export const DocumentScanner: React.FC = () => {
 
   // Load existing scan data on mount (no polling during processing)
   useEffect(() => {
-    console.log('[USEEFFECT] loadExistingScan useEffect is running');
     const loadExistingScan = async () => {
       // Check if we have a scanId from URL or localStorage
       let scanIdToFetch: string | undefined = urlScanId;
@@ -205,20 +198,7 @@ export const DocumentScanner: React.FC = () => {
       if (scanIdToFetch && scanIdToFetch !== 'undefined') {
         console.log('[DEBUG] Loading existing scan for scanId:', scanIdToFetch);
         try {
-          setUploadState({ 
-            status: 'processing', 
-            message: 'Loading scan results...',
-            progress: {
-              scanId: scanIdToFetch,
-              current: 0,
-              total: 1,
-              status: 'processing',
-              message: 'Loading scan results...',
-              estimatedTimeRemaining: 0,
-              pagesProcessed: 0,
-              totalPages: 0
-            }
-          });
+          setUploadState({ status: 'loading-from-be', message: 'Loading scan results...' });
           setErrorSafe(null);
           
           const response = await scanApi.getScan(scanIdToFetch);
@@ -553,10 +533,10 @@ export const DocumentScanner: React.FC = () => {
         }
       });
       
-      // Keep scanId in localStorage for persistence instead of clearing it
+      // Clear localStorage
       if (typeof window !== 'undefined') {
-        localStorage.setItem('currentScanId', data.scanId);
-        console.log('[PERSISTENCE DEBUG] Kept scanId in localStorage for persistence:', data.scanId);
+        localStorage.removeItem('currentScanId');
+        console.log('[PERSISTENCE DEBUG] Cleared scanId from localStorage after completion');
       }
       
       // Navigate to results page
@@ -676,10 +656,10 @@ export const DocumentScanner: React.FC = () => {
         }
       });
       
-      // Keep scanId in localStorage for persistence instead of clearing it
+      // Clear localStorage
       if (typeof window !== 'undefined') {
-        localStorage.setItem('currentScanId', data.scanId);
-        console.log('[PERSISTENCE DEBUG] Kept scanId in localStorage for persistence:', data.scanId);
+        localStorage.removeItem('currentScanId');
+        console.log('[PERSISTENCE DEBUG] Cleared scanId from localStorage after completion');
       }
       
       // Navigate to results page
@@ -838,20 +818,7 @@ export const DocumentScanner: React.FC = () => {
     
     try {
       setErrorSafe(null);
-      setUploadState({ 
-        status: 'processing', 
-        message: 'Refreshing scan results...',
-        progress: {
-          scanId: urlScanId,
-          current: 0,
-          total: 1,
-          status: 'processing',
-          message: 'Refreshing scan results...',
-          estimatedTimeRemaining: 0,
-          pagesProcessed: 0,
-          totalPages: 0
-        }
-      });
+      setUploadState({ status: 'loading-from-be', message: 'Refreshing scan results...' });
       
       // Clear existing results to show loading state
       setMainResults([]);
@@ -1448,8 +1415,8 @@ export const DocumentScanner: React.FC = () => {
                   <Button 
                     variant="outlined" 
                     onClick={() => {
-                      console.log('[DEBUG] Opening project creation modal for scan:', currentScan.id);
-                      setShowProjectCreationModal(true);
+                      // TODO: Implement project creation from scan
+                      console.log('Create project from scan:', currentScan.id);
                     }}
                     sx={{
                       borderRadius: 2,
@@ -1475,20 +1442,6 @@ export const DocumentScanner: React.FC = () => {
           )}
         </>
       )}
-
-      {/* Project Creation Modal */}
-      <ProjectCreationModal
-        isOpen={showProjectCreationModal}
-        onClose={() => setShowProjectCreationModal(false)}
-        scanId={currentScan?.id || currentScan?.scanId || ''}
-        onProjectCreated={(project: Project) => {
-          console.log('[DEBUG] Project created successfully:', project);
-          setShowProjectCreationModal(false);
-          // Navigate to the project or show success message
-          // You can customize this behavior based on your routing setup
-          navigate(`/projects/${project.id}`);
-        }}
-      />
     </Box>
   );
 }; 

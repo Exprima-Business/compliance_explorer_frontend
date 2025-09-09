@@ -1,6 +1,7 @@
 import type { ApiResponse } from '../types/api';
 export interface ScanSession {
     id: string;
+    scanId?: string;
     organizationId: string;
     projectId?: string;
     fileName: string;

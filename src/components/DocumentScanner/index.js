@@ -92,6 +92,27 @@ export var DocumentScanner = function () {
     var _c = useState([]), mainResults = _c[0], setMainResults = _c[1];
     var _d = useState([]), inProgressResults = _d[0], setInProgressResults = _d[1];
     var _e = useState(null), error = _e[0], setError = _e[1];
+    var _f = useState(null), pollingInterval = _f[0], setPollingInterval = _f[1];
+    // Production-ready error reporting utility
+    var reportError = function (context, error, additionalData) {
+        var errorReport = {
+            timestamp: new Date().toISOString(),
+            context: context,
+            error: error instanceof Error ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            } : error,
+            additionalData: additionalData,
+            userAgent: navigator.userAgent,
+            url: window.location.href,
+            scanId: (currentScan === null || currentScan === void 0 ? void 0 : currentScan.scanId) || (currentScan === null || currentScan === void 0 ? void 0 : currentScan.id) || 'unknown'
+        };
+        console.error("[ERROR REPORT] ".concat(context, ":"), errorReport);
+        // In production, you might want to send this to an error reporting service
+        // Example: Sentry.captureException(error, { extra: errorReport });
+        return errorReport;
+    };
     // Safe error setter that ensures we always set a string
     var setErrorSafe = function (errorValue) {
         if (errorValue === null || errorValue === undefined) {
@@ -168,7 +189,7 @@ export var DocumentScanner = function () {
     // Load existing scan data on mount (no polling during processing)
     useEffect(function () {
         var loadExistingScan = function () { return __awaiter(void 0, void 0, void 0, function () {
-            var scanIdToFetch, storedScanId, response, scanSession, err_1;
+            var scanIdToFetch, storedScanId, response, scanSession, scanId, err_1;
             var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
             return __generator(this, function (_s) {
                 switch (_s.label) {
@@ -230,11 +251,17 @@ export var DocumentScanner = function () {
                         else if (scanSession.status === 'processing') {
                             // Scan is still processing, establish SSE connection for real-time updates
                             console.log('[DEBUG] Scan is processing, establishing SSE connection');
+                            scanId = scanSession.scanId || scanSession.id;
+                            console.log('[DEBUG] Scan session fields:', {
+                                scanId: scanSession.scanId,
+                                id: scanSession.id,
+                                extractedScanId: scanId
+                            });
                             setUploadState({
                                 status: 'processing',
                                 message: 'Analysis in progress...',
                                 progress: {
-                                    scanId: scanSession.id,
+                                    scanId: scanId,
                                     current: (_k = (_j = scanSession.metadata) === null || _j === void 0 ? void 0 : _j.chunksProcessed) !== null && _k !== void 0 ? _k : 0,
                                     total: (_m = (_l = scanSession.metadata) === null || _l === void 0 ? void 0 : _l.totalChunks) !== null && _m !== void 0 ? _m : 0,
                                     status: 'processing',
@@ -244,7 +271,17 @@ export var DocumentScanner = function () {
                                     totalPages: (_r = (_q = scanSession.metadata) === null || _q === void 0 ? void 0 : _q.totalPages) !== null && _r !== void 0 ? _r : 0
                                 }
                             });
-                            establishSSEConnection(scanSession.id);
+                            // Validate scanId before establishing SSE connection
+                            if (scanId && scanId !== 'undefined' && scanId !== 'null') {
+                                console.log('[DEBUG] Establishing SSE connection for existing scan:', scanId);
+                                establishSSEConnection(scanId);
+                            }
+                            else {
+                                console.error('[DEBUG] Cannot establish SSE connection: Invalid scanId:', scanId);
+                                console.error('[DEBUG] Full scan session for debugging:', scanSession);
+                                setErrorSafe('Invalid scan ID. Cannot establish connection to server.');
+                                setUploadState({ status: 'error', message: 'Invalid scan ID.' });
+                            }
                         }
                         else {
                             // Unknown status
@@ -275,7 +312,7 @@ export var DocumentScanner = function () {
         loadExistingScan();
     }, [urlScanId, navigate]);
     var handleFileUpload = useCallback(function (file) { return __awaiter(void 0, void 0, void 0, function () {
-        var response, scanId, err_2, errorMessage;
+        var response, scanId, uuidRegex, scanSession, err_2, errorMessage;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -292,19 +329,64 @@ export var DocumentScanner = function () {
                     setErrorSafe(null);
                     setMainResults([]);
                     setInProgressResults([]);
+                    // Debug: Log upload initiation
+                    console.log('[UPLOAD DEBUG] Starting upload for file:', {
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        organizationId: organization.id
+                    });
                     return [4 /*yield*/, scanApi.uploadDocument(file, organization.id)];
                 case 2:
                     response = _a.sent();
+                    // Debug: Log full response for analysis
+                    console.log('[UPLOAD DEBUG] Full upload response:', response);
+                    console.log('[UPLOAD DEBUG] Response status:', response.error ? 'ERROR' : 'SUCCESS');
                     if (response.error) {
+                        console.error('[UPLOAD DEBUG] Upload failed with error:', response.error);
                         throw new Error(typeof response.error === 'string' ? response.error : response.error.message);
                     }
+                    // Validate response structure
+                    if (!response.data) {
+                        console.error('[UPLOAD DEBUG] No response data received');
+                        throw new Error('No response data received from server');
+                    }
+                    // Debug: Log response data structure
+                    console.log('[UPLOAD DEBUG] Response data:', response.data);
+                    console.log('[UPLOAD DEBUG] Response data type:', typeof response.data);
+                    console.log('[UPLOAD DEBUG] Response data keys:', Object.keys(response.data));
                     scanId = response.data.scanId;
+                    // Debug: Log scanId extraction
+                    console.log('[UPLOAD DEBUG] Raw scanId from response:', scanId);
+                    console.log('[UPLOAD DEBUG] scanId type:', typeof scanId);
+                    console.log('[UPLOAD DEBUG] scanId length:', scanId ? scanId.length : 'N/A');
+                    // Comprehensive scanId validation
+                    if (!scanId) {
+                        console.error('[UPLOAD DEBUG] scanId is falsy:', scanId);
+                        console.error('[UPLOAD DEBUG] Full response data for debugging:', response.data);
+                        throw new Error('Scan ID is missing from server response');
+                    }
+                    if (typeof scanId !== 'string') {
+                        console.error('[UPLOAD DEBUG] scanId is not a string:', typeof scanId, scanId);
+                        throw new Error('Invalid scan ID format received from server');
+                    }
+                    if (scanId === 'undefined' || scanId === 'null' || scanId.trim() === '') {
+                        console.error('[UPLOAD DEBUG] scanId is invalid string:', scanId);
+                        throw new Error('Invalid scan ID received from server');
+                    }
+                    uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                    if (!uuidRegex.test(scanId)) {
+                        console.error('[UPLOAD DEBUG] scanId does not match UUID format:', scanId);
+                        // Don't throw error here as backend might use different format
+                        console.warn('[UPLOAD DEBUG] scanId format warning, but continuing:', scanId);
+                    }
+                    console.log('[UPLOAD DEBUG] Valid scanId confirmed:', scanId);
                     // Store scanId in localStorage for persistence
                     if (typeof window !== 'undefined') {
                         localStorage.setItem('currentScanId', scanId);
                         console.log('[PERSISTENCE DEBUG] Stored scanId in localStorage:', scanId);
                     }
-                    setCurrentScan({
+                    scanSession = {
                         id: scanId,
                         status: 'processing',
                         organizationId: organization.id,
@@ -322,7 +404,8 @@ export var DocumentScanner = function () {
                             totalChunks: 0
                         },
                         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-                    });
+                    };
+                    setCurrentScan(scanSession);
                     setUploadState({
                         status: 'processing',
                         message: 'Processing document...',
@@ -339,12 +422,20 @@ export var DocumentScanner = function () {
                     });
                     // Update URL for persistence
                     navigate("/document-scanner/".concat(scanId), { replace: false });
-                    // Establish SSE connection
+                    // Establish SSE connection with validated scanId
+                    console.log('[UPLOAD DEBUG] Establishing SSE connection with validated scanId:', scanId);
                     establishSSEConnection(scanId);
                     return [3 /*break*/, 4];
                 case 3:
                     err_2 = _a.sent();
-                    console.error('Upload error:', err_2);
+                    console.error('[UPLOAD DEBUG] Upload error:', err_2);
+                    // Report error with context
+                    reportError('File Upload', err_2, {
+                        fileName: file.name,
+                        fileSize: file.size,
+                        fileType: file.type,
+                        organizationId: organization.id
+                    });
                     errorMessage = handleScanError(err_2);
                     setErrorSafe(errorMessage);
                     setUploadState({ status: 'error', message: errorMessage });
@@ -354,22 +445,125 @@ export var DocumentScanner = function () {
         });
     }); }, [user, organization, navigate]);
     var establishSSEConnection = function (scanId) {
-        // Clean up existing connection
-        if (sseConnectionRef.current) {
-            sseConnectionRef.current.disconnect();
+        // Comprehensive scanId validation before establishing connection
+        console.log('[SSE DEBUG] Attempting to establish SSE connection for scanId:', scanId);
+        if (!scanId) {
+            console.error('[SSE DEBUG] Cannot establish SSE connection: scanId is falsy');
+            setErrorSafe('Invalid scan ID. Cannot establish connection to server.');
+            setUploadState({ status: 'error', message: 'Invalid scan ID.' });
+            return;
         }
-        // Create new SSE connection
-        sseConnectionRef.current = new ScanSSEConnection(scanId, function (data) { return handleSSEMessage(data); }, function (error) { return handleSSEError(error); }, function () { return handleSSEComplete(); });
-        sseConnectionRef.current.connect();
+        if (typeof scanId !== 'string') {
+            console.error('[SSE DEBUG] Cannot establish SSE connection: scanId is not a string:', typeof scanId);
+            setErrorSafe('Invalid scan ID format. Cannot establish connection to server.');
+            setUploadState({ status: 'error', message: 'Invalid scan ID format.' });
+            return;
+        }
+        if (scanId === 'undefined' || scanId === 'null' || scanId.trim() === '') {
+            console.error('[SSE DEBUG] Cannot establish SSE connection: scanId is invalid string:', scanId);
+            setErrorSafe('Invalid scan ID. Cannot establish connection to server.');
+            setUploadState({ status: 'error', message: 'Invalid scan ID.' });
+            return;
+        }
+        // Validate UUID format (basic check)
+        var uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(scanId)) {
+            console.warn('[SSE DEBUG] scanId does not match UUID format, but continuing:', scanId);
+        }
+        console.log('[SSE DEBUG] scanId validation passed, proceeding with SSE connection');
+        try {
+            // Clean up existing connection
+            if (sseConnectionRef.current) {
+                console.log('[SSE DEBUG] Cleaning up existing SSE connection');
+                sseConnectionRef.current.disconnect();
+            }
+            // Create new SSE connection with validated scanId
+            console.log('[SSE DEBUG] Creating new ScanSSEConnection with scanId:', scanId);
+            sseConnectionRef.current = new ScanSSEConnection(scanId, function (data) { return handleSSEMessage(data); }, function (error) { return handleSSEError(error); }, function () { return handleSSEComplete(); });
+            console.log('[SSE DEBUG] Initiating SSE connection...');
+            sseConnectionRef.current.connect();
+        }
+        catch (error) {
+            console.error('[SSE DEBUG] Error creating SSE connection:', error);
+            setErrorSafe('Failed to establish connection to server. Please try refreshing the page.');
+            setUploadState({ status: 'error', message: 'Failed to establish connection.' });
+            // Start fallback polling if SSE fails
+            console.log('[SSE DEBUG] Starting fallback polling due to SSE creation error');
+            startPolling(scanId);
+        }
     };
     var handleSSEMessage = function (data) { return __awaiter(void 0, void 0, void 0, function () {
-        var progressiveData_1, scanId, response, finalScanSession, err_3;
-        var _a, _b, _c;
-        return __generator(this, function (_d) {
-            switch (_d.label) {
+        var response, finalScanSession, err_3, progressiveData_1, scanId, response, finalScanSession, err_4;
+        var _a, _b, _c, _d;
+        return __generator(this, function (_e) {
+            switch (_e.label) {
                 case 0:
                     console.log('[DEBUG] SSE message received:', data);
-                    if (!(data.progress !== undefined && data.status)) return [3 /*break*/, 1];
+                    if (!(data.status === 'complete')) return [3 /*break*/, 5];
+                    console.log('[DEBUG] SSE completion message received:', data);
+                    // Set upload state to complete
+                    setUploadState({
+                        status: 'complete',
+                        message: 'Analysis completed successfully',
+                        progress: {
+                            scanId: data.scanId,
+                            current: 100,
+                            total: 100,
+                            status: 'complete',
+                            message: 'Analysis completed',
+                            estimatedTimeRemaining: 0,
+                            pagesProcessed: 0,
+                            totalPages: 0
+                        }
+                    });
+                    // Clear localStorage
+                    if (typeof window !== 'undefined') {
+                        localStorage.removeItem('currentScanId');
+                        console.log('[PERSISTENCE DEBUG] Cleared scanId from localStorage after completion');
+                    }
+                    // Navigate to results page
+                    console.log('[DEBUG] Navigating to scanId:', data.scanId);
+                    setErrorSafe(null);
+                    navigate("/document-scanner/".concat(data.scanId), { replace: false });
+                    _e.label = 1;
+                case 1:
+                    _e.trys.push([1, 3, , 4]);
+                    console.log('[DEBUG] Fetching final results from API after SSE completion');
+                    return [4 /*yield*/, scanApi.getScan(data.scanId)];
+                case 2:
+                    response = _e.sent();
+                    if (response.error) {
+                        console.error('[DEBUG] Error fetching final results:', response.error);
+                        setErrorSafe('Failed to load scan results. Please try refreshing the page.');
+                        return [2 /*return*/];
+                    }
+                    finalScanSession = response.data;
+                    if (finalScanSession) {
+                        console.log('[DEBUG] Final results from API:', finalScanSession.results);
+                        console.log('[DEBUG] Results count:', ((_a = finalScanSession.results) === null || _a === void 0 ? void 0 : _a.length) || 0);
+                        setMainResults(finalScanSession.results || []);
+                        setCurrentScan(finalScanSession);
+                    }
+                    else {
+                        console.error('[DEBUG] No scan session data returned from API');
+                        setErrorSafe('No scan data found. Please try again or contact support.');
+                    }
+                    return [3 /*break*/, 4];
+                case 3:
+                    err_3 = _e.sent();
+                    console.error('[DEBUG] Error fetching final results after SSE completion:', err_3);
+                    setErrorSafe('Failed to load scan results. Please try refreshing the page.');
+                    return [3 /*break*/, 4];
+                case 4: return [2 /*return*/]; // Exit early to prevent further processing
+                case 5:
+                    // Handle error messages
+                    if (data.status === 'error') {
+                        console.error('[DEBUG] SSE error message received:', data);
+                        setErrorSafe(data.message || 'An error occurred during processing');
+                        setUploadState({ status: 'error', message: data.message || 'Processing error' });
+                        return [2 /*return*/]; // Exit early to prevent further processing
+                    }
+                    if (!(data.progress !== undefined && data.status)) return [3 /*break*/, 6];
                     setUploadState(function (prev) {
                         var newState = __assign(__assign({}, prev), { progress: {
                                 scanId: data.scanId,
@@ -384,17 +578,17 @@ export var DocumentScanner = function () {
                         console.log('[DEBUG] SSE progress update, new uploadState:', newState);
                         return newState;
                     });
-                    return [3 /*break*/, 7];
-                case 1:
-                    if (!(data.type === 'progress')) return [3 /*break*/, 2];
+                    return [3 /*break*/, 12];
+                case 6:
+                    if (!(data.type === 'progress')) return [3 /*break*/, 7];
                     setUploadState(function (prev) {
                         var newState = __assign(__assign({}, prev), { progress: data.data, message: data.data.message });
                         console.log('[DEBUG] SSE progress update, new uploadState:', newState);
                         return newState;
                     });
-                    return [3 /*break*/, 7];
-                case 2:
-                    if (!(data.type === 'progressive_update')) return [3 /*break*/, 3];
+                    return [3 /*break*/, 12];
+                case 7:
+                    if (!(data.type === 'progressive_update')) return [3 /*break*/, 8];
                     progressiveData_1 = data.data;
                     console.log('[DEBUG] SSE progressive_update:', progressiveData_1);
                     setInProgressResults(progressiveData_1.partialResults);
@@ -403,10 +597,10 @@ export var DocumentScanner = function () {
                         console.log('[DEBUG] SSE progressive_update, new uploadState:', newState);
                         return newState;
                     });
-                    return [3 /*break*/, 7];
-                case 3:
-                    if (!(data.type === 'complete')) return [3 /*break*/, 7];
-                    scanId = ((_a = data.data) === null || _a === void 0 ? void 0 : _a.scanId) || ((_b = data.data) === null || _b === void 0 ? void 0 : _b.id);
+                    return [3 /*break*/, 12];
+                case 8:
+                    if (!(data.type === 'complete')) return [3 /*break*/, 12];
+                    scanId = ((_b = data.data) === null || _b === void 0 ? void 0 : _b.scanId) || ((_c = data.data) === null || _c === void 0 ? void 0 : _c.id);
                     console.log('[DEBUG] SSE complete event received for scanId:', scanId);
                     if (!scanId || scanId === 'undefined') {
                         console.error('[DEBUG] SSE complete event missing valid scanId:', data);
@@ -438,13 +632,13 @@ export var DocumentScanner = function () {
                     console.log('[DEBUG] Navigating to scanId:', scanId);
                     setErrorSafe(null);
                     navigate("/document-scanner/".concat(scanId), { replace: false });
-                    _d.label = 4;
-                case 4:
-                    _d.trys.push([4, 6, , 7]);
+                    _e.label = 9;
+                case 9:
+                    _e.trys.push([9, 11, , 12]);
                     console.log('[DEBUG] Fetching final results from API after SSE completion');
                     return [4 /*yield*/, scanApi.getScan(scanId)];
-                case 5:
-                    response = _d.sent();
+                case 10:
+                    response = _e.sent();
                     if (response.error) {
                         console.error('[DEBUG] Error fetching final results:', response.error);
                         setErrorSafe('Failed to load scan results. Please try refreshing the page.');
@@ -453,7 +647,7 @@ export var DocumentScanner = function () {
                     finalScanSession = response.data;
                     if (finalScanSession) {
                         console.log('[DEBUG] Final results from API:', finalScanSession.results);
-                        console.log('[DEBUG] Results count:', ((_c = finalScanSession.results) === null || _c === void 0 ? void 0 : _c.length) || 0);
+                        console.log('[DEBUG] Results count:', ((_d = finalScanSession.results) === null || _d === void 0 ? void 0 : _d.length) || 0);
                         setMainResults(finalScanSession.results || []);
                         setCurrentScan(finalScanSession);
                     }
@@ -461,13 +655,13 @@ export var DocumentScanner = function () {
                         console.error('[DEBUG] No scan session data returned from API');
                         setErrorSafe('No scan data found. Please try again or contact support.');
                     }
-                    return [3 /*break*/, 7];
-                case 6:
-                    err_3 = _d.sent();
-                    console.error('[DEBUG] Error fetching final results after SSE completion:', err_3);
+                    return [3 /*break*/, 12];
+                case 11:
+                    err_4 = _e.sent();
+                    console.error('[DEBUG] Error fetching final results after SSE completion:', err_4);
                     setErrorSafe('Failed to load scan results. Please try refreshing the page.');
-                    return [3 /*break*/, 7];
-                case 7: return [2 /*return*/];
+                    return [3 /*break*/, 12];
+                case 12: return [2 /*return*/];
             }
         });
     }); };
@@ -475,6 +669,79 @@ export var DocumentScanner = function () {
         console.error('SSE error:', error);
         setErrorSafe(error);
         setUploadState({ status: 'error', message: error });
+        // Start polling as fallback if SSE fails
+        var scanId = (currentScan === null || currentScan === void 0 ? void 0 : currentScan.scanId) || (currentScan === null || currentScan === void 0 ? void 0 : currentScan.id);
+        if (scanId) {
+            console.log('[DEBUG] Starting fallback polling due to SSE error');
+            startPolling(scanId);
+        }
+    };
+    // Fallback polling mechanism
+    var startPolling = function (scanId) {
+        // Clear any existing polling
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+        }
+        console.log('[DEBUG] Starting fallback polling for scanId:', scanId);
+        var interval = setInterval(function () { return __awaiter(void 0, void 0, void 0, function () {
+            var response, scanSession, err_5;
+            var _a, _b, _c, _d, _e, _f, _g, _h;
+            return __generator(this, function (_j) {
+                switch (_j.label) {
+                    case 0:
+                        _j.trys.push([0, 2, , 3]);
+                        return [4 /*yield*/, scanApi.getScan(scanId)];
+                    case 1:
+                        response = _j.sent();
+                        if (response.error || !response.data) {
+                            console.error('[DEBUG] Polling error:', response.error);
+                            return [2 /*return*/];
+                        }
+                        scanSession = response.data;
+                        console.log('[DEBUG] Polling update:', scanSession.status);
+                        if (scanSession.status === 'complete') {
+                            console.log('[DEBUG] Scan completed via polling');
+                            setCurrentScan(scanSession);
+                            setMainResults(scanSession.results || []);
+                            setUploadState({
+                                status: 'complete',
+                                message: 'Analysis completed successfully',
+                                progress: {
+                                    scanId: scanSession.id,
+                                    current: (_b = (_a = scanSession.metadata) === null || _a === void 0 ? void 0 : _a.chunksProcessed) !== null && _b !== void 0 ? _b : 0,
+                                    total: (_d = (_c = scanSession.metadata) === null || _c === void 0 ? void 0 : _c.totalChunks) !== null && _d !== void 0 ? _d : 0,
+                                    status: 'complete',
+                                    message: 'Analysis completed',
+                                    estimatedTimeRemaining: 0,
+                                    pagesProcessed: (_f = (_e = scanSession.metadata) === null || _e === void 0 ? void 0 : _e.totalPages) !== null && _f !== void 0 ? _f : 0,
+                                    totalPages: (_h = (_g = scanSession.metadata) === null || _g === void 0 ? void 0 : _g.totalPages) !== null && _h !== void 0 ? _h : 0
+                                }
+                            });
+                            stopPolling();
+                        }
+                        else if (scanSession.status === 'error') {
+                            console.error('[DEBUG] Scan failed via polling');
+                            setErrorSafe('Document processing failed. Please try again.');
+                            setUploadState({ status: 'error', message: 'Processing failed' });
+                            stopPolling();
+                        }
+                        return [3 /*break*/, 3];
+                    case 2:
+                        err_5 = _j.sent();
+                        console.error('[DEBUG] Polling error:', err_5);
+                        return [3 /*break*/, 3];
+                    case 3: return [2 /*return*/];
+                }
+            });
+        }); }, 5000); // Poll every 5 seconds
+        setPollingInterval(interval);
+    };
+    var stopPolling = function () {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+            console.log('[DEBUG] Stopped fallback polling');
+        }
     };
     var handleSSEComplete = function () {
         console.log('SSE connection completed');
@@ -482,9 +749,11 @@ export var DocumentScanner = function () {
             sseConnectionRef.current.disconnect();
             sseConnectionRef.current = null;
         }
+        // Stop polling if SSE completes successfully
+        stopPolling();
     };
     var handleRetry = function () { return __awaiter(void 0, void 0, void 0, function () {
-        var response, err_4, errorMessage;
+        var response, scanId, err_6, errorMessage;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -501,13 +770,21 @@ export var DocumentScanner = function () {
                     if (response.error) {
                         throw new Error(typeof response.error === 'string' ? response.error : response.error.message);
                     }
-                    // Re-establish SSE connection
-                    establishSSEConnection(currentScan.id);
+                    scanId = currentScan.scanId || currentScan.id;
+                    if (scanId && scanId !== 'undefined' && scanId !== 'null') {
+                        console.log('[DEBUG] Re-establishing SSE connection for retry:', scanId);
+                        establishSSEConnection(scanId);
+                    }
+                    else {
+                        console.error('[DEBUG] Cannot re-establish SSE connection: Invalid scanId:', scanId);
+                        setErrorSafe('Invalid scan ID. Cannot establish connection to server.');
+                        setUploadState({ status: 'error', message: 'Invalid scan ID.' });
+                    }
                     return [3 /*break*/, 4];
                 case 3:
-                    err_4 = _a.sent();
-                    console.error('Retry error:', err_4);
-                    errorMessage = handleScanError(err_4);
+                    err_6 = _a.sent();
+                    console.error('Retry error:', err_6);
+                    errorMessage = handleScanError(err_6);
                     setErrorSafe(errorMessage);
                     setUploadState({ status: 'error', message: errorMessage });
                     return [3 /*break*/, 4];
@@ -516,7 +793,7 @@ export var DocumentScanner = function () {
         });
     }); };
     var handleManualRefresh = function () { return __awaiter(void 0, void 0, void 0, function () {
-        var response, scanSession, err_5, errorMessage;
+        var response, scanSession, scanId, err_7, errorMessage;
         var _a, _b, _c, _d, _e, _f, _g, _h;
         return __generator(this, function (_j) {
             switch (_j.label) {
@@ -540,19 +817,27 @@ export var DocumentScanner = function () {
                     }
                     scanSession = response.data;
                     console.log('[MANUAL REFRESH] Fresh data from BE:', scanSession);
+                    scanId = scanSession.scanId || scanSession.id;
                     setCurrentScan(scanSession);
                     setMainResults(scanSession.results || []);
                     setInProgressResults([]);
                     // If scan is still processing, re-establish SSE connection
                     if (scanSession.status === 'processing') {
                         console.log('[MANUAL REFRESH] Scan is processing, re-establishing SSE connection');
-                        establishSSEConnection(scanSession.id);
+                        if (scanId && scanId !== 'undefined' && scanId !== 'null') {
+                            establishSSEConnection(scanId);
+                        }
+                        else {
+                            console.error('[MANUAL REFRESH] Cannot re-establish SSE connection: Invalid scanId:', scanId);
+                            setErrorSafe('Invalid scan ID. Cannot establish connection to server.');
+                            setUploadState({ status: 'error', message: 'Invalid scan ID.' });
+                        }
                     }
                     setUploadState({
                         status: scanSession.status === 'complete' ? 'complete' : 'processing',
                         message: scanSession.status === 'complete' ? 'Analysis completed successfully' : 'Processing document...',
                         progress: {
-                            scanId: scanSession.scanId || scanSession.id,
+                            scanId: scanId,
                             current: (_b = (_a = scanSession.metadata) === null || _a === void 0 ? void 0 : _a.chunksProcessed) !== null && _b !== void 0 ? _b : 0,
                             total: (_d = (_c = scanSession.metadata) === null || _c === void 0 ? void 0 : _c.totalChunks) !== null && _d !== void 0 ? _d : 0,
                             status: scanSession.status === 'complete' ? 'complete' : 'processing',
@@ -564,9 +849,9 @@ export var DocumentScanner = function () {
                     });
                     return [3 /*break*/, 5];
                 case 3:
-                    err_5 = _j.sent();
-                    console.error('[MANUAL REFRESH] Error:', err_5);
-                    errorMessage = err_5 instanceof Error ? err_5.message : 'Failed to refresh results';
+                    err_7 = _j.sent();
+                    console.error('[MANUAL REFRESH] Error:', err_7);
+                    errorMessage = err_7 instanceof Error ? err_7.message : 'Failed to refresh results';
                     setErrorSafe(errorMessage);
                     setUploadState({ status: 'error', message: errorMessage });
                     return [3 /*break*/, 5];
@@ -590,6 +875,8 @@ export var DocumentScanner = function () {
             sseConnectionRef.current.disconnect();
             sseConnectionRef.current = null;
         }
+        // Stop polling when resetting
+        stopPolling();
         // Navigate to the base document scanner URL to show the upload interface
         navigate('/document-scanner');
     };
@@ -604,8 +891,11 @@ export var DocumentScanner = function () {
             if (sseConnectionRef.current) {
                 sseConnectionRef.current.disconnect();
             }
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
         };
-    }, []);
+    }, [pollingInterval]);
     // Keyboard shortcuts
     useEffect(function () {
         var handleKeyDown = function (event) {
@@ -619,7 +909,7 @@ export var DocumentScanner = function () {
         document.addEventListener('keydown', handleKeyDown);
         return function () { return document.removeEventListener('keydown', handleKeyDown); };
     }, [error, currentScan, mainResults.length]);
-    var _f = useDropzone({
+    var _g = useDropzone({
         onDrop: function (acceptedFiles) {
             if (acceptedFiles.length > 0) {
                 handleFileUpload(acceptedFiles[0]);
@@ -635,7 +925,7 @@ export var DocumentScanner = function () {
         },
         maxFiles: 1,
         disabled: uploadState.status === 'uploading' || uploadState.status === 'processing',
-    }), getRootProps = _f.getRootProps, getInputProps = _f.getInputProps, isDragActive = _f.isDragActive;
+    }), getRootProps = _g.getRootProps, getInputProps = _g.getInputProps, isDragActive = _g.isDragActive;
     var renderProgressState = function () {
         if (!uploadState.progress)
             return null;

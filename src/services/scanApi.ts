@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 // Scan API Types
 export interface ScanSession {
   id: string;
+  scanId?: string; // Backend sometimes returns scanId instead of id
   organizationId: string;
   projectId?: string;
   fileName: string;
@@ -281,31 +282,73 @@ export class ScanSSEConnection {
     private onMessage: (data: any) => void,
     private onError: (error: string) => void,
     private onComplete: () => void
-  ) {}
+  ) {
+    // Comprehensive scanId validation in constructor
+    console.log('[SSE CONNECTION DEBUG] ScanSSEConnection constructor called with scanId:', scanId);
+    
+    if (!scanId) {
+      console.error('[SSE CONNECTION DEBUG] Invalid scanId in constructor: scanId is falsy');
+      throw new Error('Invalid scan ID provided to SSE connection: scanId is falsy');
+    }
+    
+    if (typeof scanId !== 'string') {
+      console.error('[SSE CONNECTION DEBUG] Invalid scanId in constructor: scanId is not a string:', typeof scanId);
+      throw new Error('Invalid scan ID provided to SSE connection: scanId is not a string');
+    }
+    
+    if (scanId === 'undefined' || scanId === 'null' || scanId.trim() === '') {
+      console.error('[SSE CONNECTION DEBUG] Invalid scanId in constructor: scanId is invalid string:', scanId);
+      throw new Error('Invalid scan ID provided to SSE connection: scanId is invalid string');
+    }
+    
+    // Validate UUID format (basic check)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(scanId)) {
+      console.warn('[SSE CONNECTION DEBUG] scanId does not match UUID format, but continuing:', scanId);
+    }
+    
+    console.log('[SSE CONNECTION DEBUG] ScanSSEConnection created successfully with scanId:', scanId);
+  }
 
   async connect(): Promise<void> {
     try {
+      // Additional validation before connection
+      if (!this.scanId || this.scanId === 'undefined' || this.scanId === 'null') {
+        console.error('[SSE CONNECTION DEBUG] Cannot connect: Invalid scanId:', this.scanId);
+        throw new Error('Invalid scan ID for SSE connection');
+      }
+      
+      console.log('[SSE CONNECTION DEBUG] Attempting to connect with scanId:', this.scanId);
+      
       // Log the full session object before SSE connection (1)
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('[SSE DEBUG] Session before SSE connect:', session);
+        console.log('[SSE CONNECTION DEBUG] Session before SSE connect:', session);
       } catch (e) {
-        console.warn('[SSE DEBUG] Could not log session before SSE connect:', e);
+        console.warn('[SSE CONNECTION DEBUG] Could not log session before SSE connect:', e);
       }
       // Get auth token for SSE connection
       let token: string | null = null;
       try {
         const { getAuthToken } = await import('./api');
         token = await getAuthToken();
-        console.log('[SSE DEBUG] Token source: getAuthToken()', token);
+        console.log('[SSE CONNECTION DEBUG] Token source: getAuthToken()', token ? 'SUCCESS' : 'NULL');
       } catch (e) {
-        console.warn('[SSE DEBUG] getAuthToken() failed, falling back to localStorage:', e);
+        console.warn('[SSE CONNECTION DEBUG] getAuthToken() failed, falling back to localStorage:', e);
         token = localStorage.getItem('supabase.auth.token');
-        console.log('[SSE DEBUG] Token source: localStorage', token);
+        console.log('[SSE CONNECTION DEBUG] Token source: localStorage', token ? 'SUCCESS' : 'NULL');
       }
       // Get orgId and projectId from localStorage
       const orgId = localStorage.getItem('orgId');
       const projectId = localStorage.getItem('projectId');
+      
+      console.log('[SSE CONNECTION DEBUG] Connection parameters:', {
+        scanId: this.scanId,
+        orgId: orgId,
+        projectId: projectId,
+        hasToken: !!token
+      });
+      
       // Create EventSource with token, orgId, and projectId as query parameters
       let url = `${environment.api.url}/api/scans/${this.scanId}/stream?token=${encodeURIComponent(token ?? '')}`;
       if (orgId) {
@@ -314,42 +357,56 @@ export class ScanSSEConnection {
       if (projectId) {
         url += `&projectId=${encodeURIComponent(projectId)}`;
       }
-      console.log('[SSE DEBUG] EventSource URL:', url);
+      
+      console.log('[SSE CONNECTION DEBUG] EventSource URL:', url);
+      console.log('[SSE CONNECTION DEBUG] URL validation - contains scanId:', url.includes(this.scanId));
+      console.log('[SSE CONNECTION DEBUG] URL validation - contains undefined:', url.includes('undefined'));
+      
       this.eventSource = new EventSource(url);
 
       this.eventSource.onopen = () => {
-        console.log('SSE connection opened for scan:', this.scanId);
+        console.log('[SSE CONNECTION DEBUG] SSE connection opened successfully for scanId:', this.scanId);
         this.reconnectAttempts = 0;
       };
 
       this.eventSource.onmessage = (event) => {
         try {
+          console.log('[SSE CONNECTION DEBUG] Raw SSE message received:', event.data);
           const data = JSON.parse(event.data);
+          console.log('[SSE CONNECTION DEBUG] Parsed SSE message:', data);
           this.onMessage(data);
           
           // Check if scan is complete
           if (data.status === 'complete' || data.status === 'error') {
+            console.log('[SSE CONNECTION DEBUG] Scan completed via SSE, status:', data.status);
             this.onComplete();
             this.disconnect();
           }
         } catch (error) {
-          console.error('Error parsing SSE message:', error);
+          console.error('[SSE CONNECTION DEBUG] Error parsing SSE message:', error);
+          console.error('[SSE CONNECTION DEBUG] Raw message that failed to parse:', event.data);
           this.onError('Failed to parse progress update');
         }
       };
 
       this.eventSource.onerror = (error) => {
-        console.error('SSE connection error:', error);
+        console.error('[SSE CONNECTION DEBUG] SSE connection error for scanId:', this.scanId, error);
+        console.error('[SSE CONNECTION DEBUG] Error details:', {
+          readyState: this.eventSource?.readyState,
+          url: this.eventSource?.url,
+          scanId: this.scanId
+        });
         
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
           const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
           
+          console.log(`[SSE CONNECTION DEBUG] Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms...`);
           setTimeout(() => {
-            console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
             this.connect();
           }, delay);
         } else {
+          console.error('[SSE CONNECTION DEBUG] Max reconnection attempts reached, giving up');
           this.onError('Connection lost. Please refresh the page to try again.');
           this.disconnect();
         }
