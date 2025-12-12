@@ -1,5 +1,6 @@
 // Enhanced WebSocket Service with Message Ordering and Error Handling
-import { WebSocketMessage, OrderedWebSocketMessage, WebSocketPerformanceMetrics } from '../../types/projectCreation';
+import type { WebSocketMessage, OrderedWebSocketMessage, WebSocketPerformanceMetrics } from '../../types/projectCreation';
+import environment from '../../config/environment';
 
 export class EnhancedWebSocketService {
   private ws: WebSocket | null = null;
@@ -25,7 +26,7 @@ export class EnhancedWebSocketService {
     private onError: (error: Error) => void,
     private wsUrl?: string
   ) {
-    this.wsUrl = wsUrl || `${process.env.VITE_WS_URL || 'ws://localhost:3000'}/projects/${projectId}`;
+    this.wsUrl = wsUrl || `${environment.api.url.replace('http', 'ws')}/projects/${projectId}`;
   }
 
   // Connect to WebSocket

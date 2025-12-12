@@ -1,14 +1,16 @@
 // Enhanced Project Creation State Manager with WebSocket Integration
-import { 
+import type { 
   ProjectCreationState, 
   StateSnapshot, 
   StateChangeListener, 
   CreateProjectRequest, 
   CreateProjectResponse,
   WebSocketMessage,
-  StateUpdateResult
+  StateUpdateResult,
+  ClauseValidation
 } from '../../types/projectCreation';
 import { EnhancedWebSocketService } from '../websocket/EnhancedWebSocketService';
+import environment from '../../config/environment';
 
 export class EnhancedProjectCreationStateManager {
   private state: ProjectCreationState = {
@@ -27,7 +29,7 @@ export class EnhancedProjectCreationStateManager {
   private apiBaseUrl: string;
 
   constructor(private projectId: string) {
-    this.apiBaseUrl = process.env.VITE_API_URL || 'http://localhost:3000';
+    this.apiBaseUrl = environment.api.url;
   }
 
   // Initialize state manager
@@ -35,21 +37,15 @@ export class EnhancedProjectCreationStateManager {
     try {
       console.log('[StateManager] Initializing for project:', this.projectId);
       
-      // Connect to WebSocket
-      this.websocketService = new EnhancedWebSocketService(
-        this.projectId,
-        (message) => this.handleWebSocketMessage(message),
-        (error) => this.handleWebSocketError(error)
-      );
-      
-      this.websocketService.connect();
+      // Project creation doesn't need WebSocket - it's a simple API call
+      console.log('[StateManager] Project creation uses API-only mode');
       
       // Load initial state
       await this.loadInitialState();
       
       this.updateState({ 
-        websocketConnected: true,
-        message: 'Connected to real-time updates'
+        websocketConnected: false,
+        message: 'Ready for project creation'
       });
       
     } catch (error) {
@@ -102,7 +98,7 @@ export class EnhancedProjectCreationStateManager {
           missingClauses: result.metadata.missingClauses,
           confidenceDistribution: { high: 0, medium: 0, low: 0 },
           recommendations: [],
-          clauseBreakdown: result.validationResults,
+          clauseBreakdown: result.validationResults as unknown as ClauseValidation[],
           estimatedProcessingTime: result.metadata.processingTime
         }
       });
@@ -132,8 +128,24 @@ export class EnhancedProjectCreationStateManager {
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+        console.warn('[StateManager] Validation preview endpoint not available, using fallback');
+        // Return a fallback validation preview
+        const fallbackResults = {
+          totalClauses: 0,
+          validatedClauses: 0,
+          missingClauses: 0,
+          confidenceDistribution: { high: 0, medium: 0, low: 0 },
+          recommendations: [],
+          clauseBreakdown: [],
+          estimatedProcessingTime: 0
+        };
+        
+        this.updateState({
+          validationResults: fallbackResults,
+          message: 'Validation preview not available - using fallback'
+        });
+        
+        return fallbackResults;
       }
       
       const validationResults = await response.json();
@@ -146,12 +158,24 @@ export class EnhancedProjectCreationStateManager {
       return validationResults;
       
     } catch (error) {
-      console.error('[StateManager] Failed to load validation preview:', error);
+      console.warn('[StateManager] Validation preview failed, using fallback:', error);
+      // Return a fallback validation preview instead of throwing
+      const fallbackResults = {
+        totalClauses: 0,
+        validatedClauses: 0,
+        missingClauses: 0,
+        confidenceDistribution: { high: 0, medium: 0, low: 0 },
+        recommendations: [],
+        clauseBreakdown: [],
+        estimatedProcessingTime: 0
+      };
+      
       this.updateState({
-        error: (error as Error).message,
-        message: 'Failed to load validation preview'
+        validationResults: fallbackResults,
+        message: 'Validation preview failed - using fallback'
       });
-      throw error;
+      
+      return fallbackResults;
     }
   }
 

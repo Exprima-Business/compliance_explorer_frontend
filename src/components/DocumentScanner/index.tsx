@@ -28,8 +28,7 @@ import {
 import { useDropzone } from 'react-dropzone';
 import { ScanResults } from '../ScanResults';
 import { useAuth } from '../../contexts/AuthContext';
-import { ProjectCreationModal } from '../ProjectCreation/ProjectCreationModal';
-import type { Project } from '../../types/projectCreation';
+import { SimpleProjectCreationModal } from '../ProjectCreation/SimpleProjectCreationModal';
 import { 
   scanApi, 
   ScanSSEConnection, 
@@ -1448,7 +1447,13 @@ export const DocumentScanner: React.FC = () => {
                   <Button 
                     variant="outlined" 
                     onClick={() => {
-                      console.log('[DEBUG] Opening project creation modal for scan:', currentScan.id);
+                      const scanId = currentScan?.id || currentScan?.scanId;
+                      console.log('[DEBUG] Opening project creation modal for scan:', {
+                        currentScan,
+                        scanId,
+                        id: currentScan?.id,
+                        scanIdField: currentScan?.scanId
+                      });
                       setShowProjectCreationModal(true);
                     }}
                     sx={{
@@ -1477,16 +1482,15 @@ export const DocumentScanner: React.FC = () => {
       )}
 
       {/* Project Creation Modal */}
-      <ProjectCreationModal
+      <SimpleProjectCreationModal
         isOpen={showProjectCreationModal}
         onClose={() => setShowProjectCreationModal(false)}
-        scanId={currentScan?.id || currentScan?.scanId || ''}
-        onProjectCreated={(project: Project) => {
+        scanResults={mainResults}
+        onProjectCreated={(project) => {
           console.log('[DEBUG] Project created successfully:', project);
           setShowProjectCreationModal(false);
-          // Navigate to the project or show success message
-          // You can customize this behavior based on your routing setup
-          navigate(`/projects/${project.id}`);
+          // Navigate to the Matrix tab to show the bookmarked clauses
+          // The project will be automatically selected in the context
         }}
       />
     </Box>

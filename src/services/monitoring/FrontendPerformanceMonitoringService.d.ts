@@ -1,0 +1,41 @@
+import type { WebSocketPerformanceMetrics, StateUpdatePerformanceMetrics, APIPerformanceMetrics, UserInteractionPerformanceMetrics } from '../../types/projectCreation';
+export declare class FrontendPerformanceMonitoringService {
+    private metricsBuffer;
+    private readonly BUFFER_SIZE;
+    private readonly FLUSH_INTERVAL;
+    private flushTimer;
+    private apiBaseUrl;
+    constructor();
+    trackWebSocketPerformance(metrics: WebSocketPerformanceMetrics): void;
+    trackStateUpdatePerformance(metrics: StateUpdatePerformanceMetrics): void;
+    trackAPIPerformance(metrics: APIPerformanceMetrics): void;
+    trackUserInteractionPerformance(metrics: UserInteractionPerformanceMetrics): void;
+    trackCustomMetric(type: string, data: any, projectId?: string): void;
+    private addMetric;
+    private flushMetrics;
+    private startMetricsFlush;
+    private setupPerformanceObservers;
+    private handleWebVital;
+    private handlePerformanceEntry;
+    private trackNavigationTiming;
+    trackComponentRender(componentName: string, renderTime: number, props?: any): void;
+    trackMemoryUsage(): void;
+    trackErrorPerformance(error: Error, context: string, component?: string): void;
+    getBufferSize(): number;
+    forceFlush(): Promise<void>;
+    private getAuthToken;
+    cleanup(): void;
+}
+export declare const getPerformanceMonitoringService: () => FrontendPerformanceMonitoringService;
+export declare const usePerformanceMonitoring: () => {
+    trackWebSocketPerformance: (metrics: WebSocketPerformanceMetrics) => void;
+    trackStateUpdatePerformance: (metrics: StateUpdatePerformanceMetrics) => void;
+    trackAPIPerformance: (metrics: APIPerformanceMetrics) => void;
+    trackUserInteractionPerformance: (metrics: UserInteractionPerformanceMetrics) => void;
+    trackCustomMetric: (type: string, data: any, projectId?: string) => void;
+    trackComponentRender: (componentName: string, renderTime: number, props?: any) => void;
+    trackMemoryUsage: () => void;
+    trackErrorPerformance: (error: Error, context: string, component?: string) => void;
+    getBufferSize: () => number;
+    forceFlush: () => Promise<void>;
+};

@@ -1,6 +1,6 @@
 // Project Creation Progress Component
 import React, { useState, useEffect } from 'react';
-import { ProjectCreationState } from '../../types/projectCreation';
+import type { ProjectCreationState } from '../../types/projectCreation';
 import { EnhancedProjectCreationStateManager } from '../../services/state/EnhancedProjectCreationStateManager';
 
 interface ProjectCreationProgressProps {

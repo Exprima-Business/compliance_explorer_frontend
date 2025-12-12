@@ -8,6 +8,8 @@ export interface CreateProjectRequest {
 }
 
 export interface ProjectOptions {
+  projectName: string;
+  description: string;
   validateAgainstDatabase: boolean;
   includeAllClauses: boolean;
   minConfidence: number;
@@ -34,9 +36,11 @@ export interface Project {
 
 export interface ClauseResult {
   clauseId: string;
-  status: 'SUCCESS' | 'WARNING' | 'ERROR';
-  message: string;
+  title: string;
   confidence: number;
+  status: 'CREATED' | 'SKIPPED' | 'ERROR';
+  bookmarkId?: string;
+  error?: string;
 }
 
 export interface ProjectCreationMetadata {
@@ -44,6 +48,18 @@ export interface ProjectCreationMetadata {
   totalClauses: number;
   validatedClauses: number;
   missingClauses: number;
+}
+
+export interface ValidationPreviewResponse {
+  scanId: string;
+  totalClauses: number;
+  validatedClauses: number;
+  missingClauses: number;
+  validationResults: ClauseValidation[];
+  metadata: {
+    processingTime: number;
+    validationTimestamp: string;
+  };
 }
 
 export interface ValidationResult {
@@ -56,7 +72,7 @@ export interface ValidationResult {
     low: number;
   };
   recommendations: string[];
-  clauseBreakdown: ClauseValidation[];
+  clauseBreakdown: ClauseValidation[] | ClauseResult[];
   estimatedProcessingTime: number;
 }
 
@@ -64,8 +80,13 @@ export interface ClauseValidation {
   clauseId: string;
   title: string;
   confidence: number;
-  validationStatus: 'VALIDATED' | 'MISSING' | 'PARTIAL_MATCH';
-  recommendation: string;
+  status: 'VALIDATED' | 'MISSING' | 'FUZZY_MATCH';
+  matchType: 'EXACT' | 'FUZZY' | 'NONE';
+  databaseClause?: {
+    id: string;
+    title: string;
+    description: string;
+  };
 }
 
 export interface Clause {
@@ -247,4 +268,41 @@ export interface StateUpdateResult {
   version: number;
   updates: any;
   conflictResolution?: boolean;
+}
+
+// Project Creation WebSocket Message Types
+export interface ProjectCreationProgressMessage {
+  type: 'project_creation_progress';
+  data: {
+    jobId: string;
+    projectId: string;
+    status: 'processing';
+    progress: number;
+    message: string;
+    timestamp: string;
+  };
+}
+
+export interface ProjectCreationCompleteMessage {
+  type: 'project_creation_complete';
+  data: {
+    jobId: string;
+    projectId: string;
+    status: 'completed';
+    progress: 100;
+    message: string;
+    clausesCreated: number;
+    timestamp: string;
+  };
+}
+
+export interface ProjectCreationErrorMessage {
+  type: 'project_creation_error';
+  data: {
+    jobId: string;
+    projectId: string;
+    status: 'failed';
+    error: string;
+    timestamp: string;
+  };
 }

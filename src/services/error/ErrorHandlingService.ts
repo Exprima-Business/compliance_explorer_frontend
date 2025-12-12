@@ -1,5 +1,5 @@
 // Comprehensive Error Handling Service
-import { 
+import type { 
   ErrorRecord, 
   ErrorContext, 
   ErrorSeverity, 

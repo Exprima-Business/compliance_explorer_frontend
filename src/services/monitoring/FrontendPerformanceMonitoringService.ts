@@ -1,5 +1,5 @@
 // Frontend Performance Monitoring Service
-import { 
+import type { 
   WebSocketPerformanceMetrics,
   StateUpdatePerformanceMetrics,
   APIPerformanceMetrics,
@@ -122,18 +122,7 @@ export class FrontendPerformanceMonitoringService {
 
   // Setup performance observers
   private setupPerformanceObservers(): void {
-    // Web Vitals
-    if ('web-vitals' in window) {
-      import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
-        getCLS(this.handleWebVital.bind(this));
-        getFID(this.handleWebVital.bind(this));
-        getFCP(this.handleWebVital.bind(this));
-        getLCP(this.handleWebVital.bind(this));
-        getTTFB(this.handleWebVital.bind(this));
-      }).catch(error => {
-        console.warn('[PerformanceMonitoring] Failed to load web-vitals:', error);
-      });
-    }
+    // Web Vitals removed - not necessary for compliance document scanner
 
     // Performance Observer for custom metrics
     if ('PerformanceObserver' in window) {

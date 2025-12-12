@@ -25,7 +25,7 @@ import {
   FilterList as FilterIcon,
   Sort as SortIcon
 } from '@mui/icons-material';
-import { Clause, MatrixDataResponse } from '../../types/projectCreation';
+import type { Clause, MatrixDataResponse } from '../../types/projectCreation';
 
 interface VirtualMatrixTableProps {
   projectId: string;
@@ -155,7 +155,7 @@ export const VirtualMatrixTable: React.FC<VirtualMatrixTableProps> = ({
   }, [clauses, filters]);
 
   const handleClauseSelect = (clause: Clause) => {
-    setSelectedClauses(prev => new Set([...prev, clause.id]));
+    setSelectedClauses(prev => new Set([...Array.from(prev), clause.id]));
     onClauseSelect(clause);
   };
 
@@ -342,7 +342,7 @@ export const VirtualMatrixTable: React.FC<VirtualMatrixTableProps> = ({
                 <MenuItem value="all">All Confidence</MenuItem>
                 <MenuItem value="high">High (≥80%)</MenuItem>
                 <MenuItem value="medium">Medium (50-79%)</MenuItem>
-                <MenuItem value="low">Low (<50%)</MenuItem>
+                <MenuItem value="low">Low (&lt;50%)</MenuItem>
               </Select>
             </FormControl>
             
