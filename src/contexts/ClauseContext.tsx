@@ -10,7 +10,6 @@ export interface ClauseContextValue {
   families: ClauseFamilyGroup[];
   loading: boolean;
   error: string | null;
-  bookmarkClause: (clauseId: string) => Promise<void>;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   selectedFamily: ClauseFamily | null;
@@ -142,74 +141,13 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return childClauses;
   };
 
-  const bookmarkClause = async (clauseId: string) => {
-    try {
-      const clause = clauses.find(c => c.id === clauseId);
-      if (!clause) {
-        throw new Error('Clause not found');
-      }
 
-      const response = await clauseService.bookmarkClause(clauseId);
-      if (response.error) {
-        const msg = typeof response.error === 'string' ? response.error : response.error.message;
-        throw new Error(msg);
-      }
-      
-      // Use the backend response to update the state
-      if (response.data) {
-        setClauses(prevClauses => {
-          const idx = prevClauses.findIndex(c => c.id === clauseId);
-          let updated: Clause[];
-          if (idx === -1) {
-            // Clause not currently in local state (e.g., filtered out earlier) – add it
-            updated = [
-              ...prevClauses,
-              { ...clause, isBookmarked: response.data!.isBookmarked }
-            ];
-          } else {
-            // Clause exists – replace with updated bookmark flag
-            updated = prevClauses.map(c =>
-              c.id === clauseId ? { ...c, isBookmarked: response.data!.isBookmarked } : c
-            );
-          }
-          return updated;
-        });
-
-        // If bookmarking and autoBookmarkParents is enabled, also bookmark parent clauses
-        if (response.data.isBookmarked && preferences.autoBookmarkParents) {
-          const parentClauses = findParentClauses(clause);
-          for (const parentClause of parentClauses) {
-            if (!parentClause.isBookmarked) {
-              try {
-                const parentResponse = await clauseService.bookmarkClause(parentClause.id);
-                if (parentResponse.data) {
-                  setClauses(prevClauses => 
-                    prevClauses.map(c => 
-                      c.id === parentClause.id 
-                        ? { ...c, isBookmarked: parentResponse.data!.isBookmarked }
-                        : c
-                    )
-                  );
-                }
-              } catch (err) {
-                console.error(`Failed to bookmark parent clause ${parentClause.clauseId}:`, err);
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to bookmark clause');
-      throw err;
-    }
-  };
 
   const value: ClauseContextValue = {
     clauses,
     families,
     loading,
     error,
-    bookmarkClause,
     searchQuery,
     setSearchQuery,
     selectedFamily,

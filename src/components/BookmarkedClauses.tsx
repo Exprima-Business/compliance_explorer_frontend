@@ -14,10 +14,6 @@ export const BookmarkedClauses = ({
   onClauseClick,
   onBookmarkToggle 
 }: BookmarkedClausesProps) => {
-  if (bookmarkedClauses.length === 0) {
-    return null;
-  }
-
   return (
     <Box sx={{ mt: 3 }}>
       <Typography 
@@ -32,10 +28,24 @@ export const BookmarkedClauses = ({
         }}
       >
         <BookmarkIcon sx={{ fontSize: 20 }} />
-        Bookmarked Clauses
+        Bookmarked Clauses {bookmarkedClauses.length > 0 && `(${bookmarkedClauses.length})`}
       </Typography>
-      <Stack spacing={2}>
-        {bookmarkedClauses.map((clause) => (
+      
+      {bookmarkedClauses.length === 0 ? (
+        <Typography 
+          variant="body2" 
+          color="text.secondary" 
+          sx={{ 
+            fontStyle: 'italic',
+            textAlign: 'center',
+            py: 2
+          }}
+        >
+          No bookmarked clauses yet. Click the bookmark icon on any clause to add it here.
+        </Typography>
+      ) : (
+        <Stack spacing={2}>
+          {bookmarkedClauses.map((clause) => (
           <Paper
             key={clause.id}
             elevation={0}
@@ -116,7 +126,8 @@ export const BookmarkedClauses = ({
             </Box>
           </Paper>
         ))}
-      </Stack>
+        </Stack>
+      )}
     </Box>
   );
 }; 

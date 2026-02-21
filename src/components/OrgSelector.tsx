@@ -12,14 +12,19 @@ export const OrgSelector: React.FC = () => {
 
   if (!orgs || orgs.length === 0 || !currentOrg) return null;
 
-  const handleOrgChange = (orgId: string) => {
+  const handleOrgChange = async (orgId: string) => {
     const org = orgs.find(o => o.id === orgId);
     if (org) {
-      setCurrentOrg(org);
-      
-      // If using URL-based routing, navigate to the new organization
-      if (isURLBasedRouting && currentProject) {
-        navigateTo('/matrix'); // Navigate to matrix page in new org
+      try {
+        await setCurrentOrg(org);
+        
+        // If using URL-based routing, navigate to the new organization
+        if (isURLBasedRouting && currentProject) {
+          navigateTo('/matrix'); // Navigate to matrix page in new org
+        }
+      } catch (error) {
+        console.error('Failed to update organization context:', error);
+        // You might want to show a notification here
       }
     }
   };

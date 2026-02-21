@@ -5,6 +5,7 @@ interface BookmarkContextValue {
     loading: boolean;
     toggleBookmark: (clauseId: string) => Promise<void>;
     connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
+    isClauseBookmarked: (clauseId: string) => boolean;
 }
 export declare const BookmarkProvider: React.FC<{
     children: React.ReactNode;

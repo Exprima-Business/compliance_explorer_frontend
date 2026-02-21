@@ -11,7 +11,7 @@ import { dlog } from '../utils/debugLog';
 
 const Home: React.FC = () => {
   const { clauses, searchQuery, loading, error } = useClause();
-  const { bookmarks, toggleBookmark } = useBookmarks();
+  const { bookmarks, toggleBookmark, isClauseBookmarked } = useBookmarks();
   const { isAuthenticated, loading: authLoading } = useAuth();
   
   // Track render count for debugging
@@ -173,7 +173,7 @@ const Home: React.FC = () => {
       category: clause.category || '',
       family: clause.family ?? undefined,
       val: 1,
-      isBookmarked: bookmarkedSet.has(clause.id),
+      isBookmarked: isClauseBookmarked(clause.id),
       color: bookmarkedSet.has(clause.id) ? '#FFD700' : undefined
     }));
 
@@ -344,7 +344,6 @@ const Home: React.FC = () => {
       <FloatingPanel
         clause={activeClause}
         onClose={() => setActiveClause(null)}
-        isBookmarked={activeClause ? bookmarkedSet.has(activeClause.id) : false}
         onBookmarkToggle={async () => {
           if (!activeClause) return;
           await toggleBookmark(activeClause.id);

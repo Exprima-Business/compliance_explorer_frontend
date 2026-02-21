@@ -37,10 +37,10 @@ export const Sidebar: React.FC = () => {
       )
     : []
 
-  // Get bookmarked clauses
-  const bookmarkedClauses = bookmarks
-    .map(b => clauses.find(c => c.id === b.clauseId))
-    .filter((c): c is Clause => Boolean(c));
+  // Get bookmarked clauses using BookmarkContext as authority
+  const bookmarkedClauses = clauses.filter(clause => 
+    bookmarks.some(bookmark => bookmark.clauseId === clause.id)
+  );
 
   const handleClauseClick = (clause: Clause) => {
     // This could trigger opening the clause in the main view

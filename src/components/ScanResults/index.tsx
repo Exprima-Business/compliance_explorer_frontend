@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Paper,
@@ -12,6 +12,7 @@ import {
   Chip,
   LinearProgress,
   CircularProgress,
+  Button,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -42,6 +43,8 @@ interface ScanProgress {
 }
 
 export const ScanResults: React.FC<ScanResultsProps> = ({ results, progress }) => {
+  const [expandedContexts, setExpandedContexts] = useState<Set<string>>(new Set());
+
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return 'success';
     if (confidence >= 0.5) return 'warning';
@@ -51,6 +54,16 @@ export const ScanResults: React.FC<ScanResultsProps> = ({ results, progress }) =
   const getConfidenceIcon = (confidence: number) => {
     if (confidence >= 0.8) return <CheckCircleIcon />;
     return <WarningIcon />;
+  };
+
+  const toggleContext = (resultId: string) => {
+    const newExpanded = new Set(expandedContexts);
+    if (newExpanded.has(resultId)) {
+      newExpanded.delete(resultId);
+    } else {
+      newExpanded.add(resultId);
+    }
+    setExpandedContexts(newExpanded);
   };
 
   return (
@@ -113,15 +126,41 @@ export const ScanResults: React.FC<ScanResultsProps> = ({ results, progress }) =
                 </TableCell>
                 <TableCell>
                   {result.supportingContext && (
-                    <Chip
-                      icon={<InfoIcon />}
-                      label="View Context"
-                      size="small"
-                      onClick={() => {
-                        // TODO: Implement context viewer
-                        console.log('Context:', result.supportingContext);
-                      }}
-                    />
+                    <Box>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<InfoIcon />}
+                        onClick={() => toggleContext(result.clauseId)}
+                        sx={{ 
+                          minWidth: 'auto',
+                          px: 1.5,
+                          py: 0.5,
+                          fontSize: '0.75rem'
+                        }}
+                      >
+                        {expandedContexts.has(result.clauseId) ? 'Hide Context' : 'View Context'}
+                      </Button>
+                      
+                      {expandedContexts.has(result.clauseId) && (
+                        <Box sx={{ 
+                          mt: 1, 
+                          p: 2, 
+                          bgcolor: 'grey.50', 
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'grey.300',
+                          maxWidth: '400px'
+                        }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}>
+                            Supporting Context:
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+                            {result.supportingContext}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
                   )}
                 </TableCell>
               </TableRow>

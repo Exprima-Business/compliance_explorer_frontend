@@ -16,6 +16,19 @@ if (!environment.supabase.anonKey) {
 // Log successful initialization (without sensitive data) in dev mode
 dlog('Supabase client initializing with URL:', environment.supabase.url);
 
+// Debug environment variable loading
+dlog('Supabase client config:', {
+  url: environment.supabase.url,
+  anonKeyPrefix: environment.supabase.anonKey?.substring(0, 10) + '...',
+  anonKeyLength: environment.supabase.anonKey?.length || 0,
+  isNewFormat: environment.supabase.anonKey?.startsWith('sb_'),
+  envVars: {
+    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL?.substring(0, 20) + '...',
+    VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 10) + '...',
+    hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
+  }
+});
+
 // Create the Supabase client with error handling
 let supabase: SupabaseClient;
 try {
@@ -24,23 +37,15 @@ try {
     environment.supabase.anonKey,
     {
       auth: {
-        autoRefreshToken: true,
+        autoRefreshToken: true, // Enable auto-refresh - AuthContext will handle session state
         persistSession: true,
         detectSessionInUrl: true
       }
     }
   );
 
-  // Test the connection
-  supabase.auth.getSession().then(
-    ({ data: { session }, error }) => {
-      if (error) {
-        console.error('Supabase connection test failed:', error.message);
-      } else {
-        dlog('Supabase connection test successful');
-      }
-    }
-  );
+  // Simple connection test - session management is handled by AuthContext
+  dlog('Supabase client initialized successfully');
 } catch (error) {
   console.error('Failed to initialize Supabase client:', error);
   throw error;

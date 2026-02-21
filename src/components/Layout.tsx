@@ -22,16 +22,39 @@ export default function Layout({ children }: LayoutProps) {
   // Update active tab based on current route
   useEffect(() => {
     const path = getCurrentPath();
+    console.log('[LAYOUT DEBUG] Updating active tab based on path:', path);
+    
     if (path === '/') setActiveTab(0);
     else if (path === '/matrix') setActiveTab(1);
-    else if (ENABLE_SCANNER && path === '/document-scanner') setActiveTab(2);
+    else if (ENABLE_SCANNER && (path === '/document-scanner' || path.startsWith('/document-scanner/'))) {
+      console.log('[LAYOUT DEBUG] Setting active tab to document scanner (tab 2)');
+      setActiveTab(2);
+    }
   }, [getCurrentPath]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
     if (newValue === 0) navigateTo('/');
     else if (newValue === 1) navigateTo('/matrix');
-    else if (ENABLE_SCANNER && newValue === 2) navigateTo('/document-scanner');
+    else if (ENABLE_SCANNER && newValue === 2) {
+      // Check if we're currently on a document scanner page with a scanId
+      const currentPath = getCurrentPath();
+      const scanIdMatch = currentPath.match(/^\/document-scanner\/([^\/]+)$/);
+      
+      console.log('[LAYOUT DEBUG] Tab change to document scanner:', {
+        currentPath,
+        scanIdMatch: scanIdMatch ? scanIdMatch[1] : null,
+        willNavigateTo: scanIdMatch ? `/document-scanner/${scanIdMatch[1]}` : '/document-scanner'
+      });
+      
+      if (scanIdMatch) {
+        // Preserve the current scanId when navigating to document scanner
+        navigateTo(`/document-scanner/${scanIdMatch[1]}`);
+      } else {
+        // Navigate to new document scanner
+        navigateTo('/document-scanner');
+      }
+    }
   };
 
   const handleSettingsClick = () => {

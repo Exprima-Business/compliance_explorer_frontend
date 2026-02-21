@@ -71,6 +71,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setInitialized(true);
     } else {
       dlog('ProjectProvider: failed to load projects', { error: resp.error });
+      // Always mark initialized even on error so ProjectGate never spins forever
+      setInitialized(true);
     }
   }, [orgInitialized, currentOrg]);
 

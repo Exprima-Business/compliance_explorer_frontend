@@ -26,8 +26,38 @@ const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 
 const getCurrentOrgId = (): string => {
   if (typeof window === 'undefined') return DEFAULT_ORG_ID;
-  return localStorage.getItem(ORG_STORAGE_KEY) || DEFAULT_ORG_ID;
+  const stored = localStorage.getItem(ORG_STORAGE_KEY);
+  // Return stored value only when it's a real (non-nil) UUID
+  if (stored && stored !== DEFAULT_ORG_ID) return stored;
+  return DEFAULT_ORG_ID;
 };
+
+/**
+ * Reads the org ID from the active Supabase JWT (user_metadata.custom_claims).
+ * Falls back to getCurrentOrgId() (localStorage) if no session is available.
+ * Use this in apiCall so that the very first requests after login carry the
+ * correct x-org-id even before OrgContext has had a chance to write to localStorage.
+ */
+async function resolveOrgId(session: { user?: { user_metadata?: any } } | null): Promise<string> {
+  // Prefer localStorage (already validated by OrgContext)
+  const stored = getCurrentOrgId();
+  if (stored !== DEFAULT_ORG_ID) return stored;
+
+  // Fall back to JWT claim
+  if (session?.user?.user_metadata) {
+    const meta = session.user.user_metadata;
+    const claimedOrgId =
+      meta?.custom_claims?.organizationId ||
+      meta?.organizationId ||
+      null;
+    if (claimedOrgId && claimedOrgId !== DEFAULT_ORG_ID) {
+      dlog('[api] resolveOrgId: using org ID from JWT claim', { claimedOrgId });
+      return claimedOrgId;
+    }
+  }
+
+  return DEFAULT_ORG_ID;
+}
 
 const getCurrentProjectId = (): string | null => {
   if (typeof window === 'undefined') return null;
@@ -70,7 +100,7 @@ async function handleApiResponse<T>(response: Response): Promise<T> {
   }
 }
 
-async function getAuthToken(): Promise<string | null> {
+export async function getAuthToken(): Promise<string | null> {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error) {
@@ -122,17 +152,56 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
     } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'x-org-id': getCurrentOrgId(),
+    // Backend will handle organization validation via JWT claims
+    // No need to validate claims here as backend validates on every request
+
+    const orgId = await resolveOrgId(session);
+    const baseHeaders: Record<string, string> = {
+      'x-org-id': orgId,
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(getCurrentProjectId() ? { 'x-project-id': getCurrentProjectId()! } : {}),
-      ...fetchOptions.headers,
     };
+
+    // Only add Content-Type for non-FormData requests
+    if (!(fetchOptions.body instanceof FormData)) {
+      baseHeaders['Content-Type'] = 'application/json';
+    }
+
+    // Merge with any additional headers from options
+    const headers = {
+      ...baseHeaders,
+      ...(fetchOptions.headers as Record<string, string> || {})
+    };
+
+    // Debug: log request details for scan uploads
+    if (endpoint.includes('/scans')) {
+      console.log('Scan API request:', {
+        endpoint,
+        method: fetchOptions.method || 'GET',
+        hasBody: !!fetchOptions.body,
+        bodyType: fetchOptions.body ? (fetchOptions.body instanceof FormData ? 'FormData' : 'JSON') : 'None',
+        headers: {
+          'x-org-id': headers['x-org-id'],
+          'x-project-id': headers['x-project-id'],
+          hasAuth: !!headers['Authorization'],
+          contentType: headers['Content-Type']
+        }
+      });
+    }
 
     // Debug: log headers for bookmark requests
     if (endpoint.includes('/bookmark')) {
       dlog('Bookmark request headers:', {
+        endpoint,
+        'x-org-id': headers['x-org-id'],
+        'x-project-id': headers['x-project-id'],
+        hasAuth: !!headers['Authorization']
+      });
+    }
+
+    // Debug: log headers for clauses requests
+    if (endpoint.includes('/clauses')) {
+      dlog('Clauses request headers:', {
         endpoint,
         'x-org-id': headers['x-org-id'],
         'x-project-id': headers['x-project-id'],

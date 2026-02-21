@@ -14,11 +14,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  Alert,
   Tabs,
   Tab,
-  Snackbar,
 } from '@mui/material';
 import {
   Help as HelpIcon,
@@ -26,7 +23,6 @@ import {
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import { SignIn } from './SignIn';
 import { useNavigate } from 'react-router-dom';
 import ProjectSelector from './ProjectSelector';
 import { useBookmarks } from '../contexts/BookmarkContext';
@@ -42,24 +38,9 @@ interface CustomAppBarProps {
 export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, onSettingsClick, enableScanner }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const { connectionStatus } = useBookmarks();
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [signUpOpen, setSignUpOpen] = useState(false);
-  const [signUpEmail, setSignUpEmail] = useState('');
-  const [signUpPassword, setSignUpPassword] = useState('');
-  const [signUpError, setSignUpError] = useState<string | null>(null);
-  const [signUpLoading, setSignUpLoading] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info' | 'warning';
-  }>({
-    open: false,
-    message: '',
-    severity: 'info'
-  });
 
-  const { user, signOut, signUp } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -77,28 +58,7 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
     navigate('/login');
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSignUpError(null);
-    setSignUpLoading(true);
-    try {
-      await signUp(signUpEmail, signUpPassword);
-      setSignUpOpen(false);
-      setSnackbar({
-        open: true,
-        message: 'Account created successfully! Please check your email to verify your account.',
-        severity: 'success'
-      });
-    } catch (err) {
-      setSignUpError(err instanceof Error ? err.message : 'Sign up failed');
-    } finally {
-      setSignUpLoading(false);
-    }
-  };
 
-  const handleSnackbarClose = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
 
   return (
     <>
@@ -181,10 +141,10 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               </>
             ) : (
               <>
-                <Button color="inherit" onClick={() => setLoginOpen(true)} sx={{ ml: 2 }}>
+                <Button color="inherit" onClick={() => navigate('/login')} sx={{ ml: 2 }}>
                   Login
                 </Button>
-                <Button color="secondary" variant="contained" onClick={() => setSignUpOpen(true)} sx={{ ml: 1 }}>
+                <Button color="secondary" variant="contained" onClick={() => navigate('/login')} sx={{ ml: 1 }}>
                   Sign Up
                 </Button>
               </>
@@ -203,16 +163,6 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
           <MenuItem>My Account</MenuItem>
           <MenuItem onClick={() => setLogoutOpen(true)}>Logout</MenuItem>
         </Menu>
-        {/* Login Dialog */}
-        <Dialog open={loginOpen} onClose={() => setLoginOpen(false)} maxWidth="xs" fullWidth>
-          <DialogTitle>Sign In</DialogTitle>
-          <DialogContent>
-            <SignIn />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setLoginOpen(false)}>Close</Button>
-          </DialogActions>
-        </Dialog>
         {/* Logout Dialog */}
         <Dialog open={logoutOpen} onClose={() => setLogoutOpen(false)} maxWidth="xs" fullWidth>
           <DialogTitle>Confirm Logout</DialogTitle>
@@ -226,64 +176,7 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
             </Button>
           </DialogActions>
         </Dialog>
-        {/* Sign Up Dialog */}
-        <Dialog open={signUpOpen} onClose={() => setSignUpOpen(false)} maxWidth="xs" fullWidth>
-          <DialogTitle>Create Account</DialogTitle>
-          <DialogContent>
-            <form onSubmit={handleSignUp}>
-              <TextField
-                autoFocus
-                margin="dense"
-                id="signup-email"
-                name="signup-email"
-                label="Email Address"
-                type="email"
-                fullWidth
-                value={signUpEmail}
-                onChange={(e) => setSignUpEmail(e.target.value)}
-                required
-              />
-              <TextField
-                margin="dense"
-                id="signup-password"
-                name="signup-password"
-                label="Password"
-                type="password"
-                fullWidth
-                value={signUpPassword}
-                onChange={(e) => setSignUpPassword(e.target.value)}
-                required
-              />
-              {signUpError && (
-                <Alert severity="error" sx={{ mt: 2 }}>
-                  {signUpError}
-                </Alert>
-              )}
-            </form>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setSignUpOpen(false)}>Cancel</Button>
-            <Button 
-              onClick={handleSignUp} 
-              color="primary" 
-              variant="contained"
-              disabled={signUpLoading}
-            >
-              {signUpLoading ? 'Creating Account...' : 'Sign Up'}
-            </Button>
-          </DialogActions>
-        </Dialog>
       </MuiAppBar>
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </>
   );
 }; 
