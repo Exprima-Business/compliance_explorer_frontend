@@ -59,10 +59,6 @@ export default defineConfig(({ mode }) => {
               '@mui/icons-material',
               '@emotion/react',
               '@emotion/styled'
-            ],
-            'utils': [
-              'html2canvas',
-              'dompurify'
             ]
           }
         }

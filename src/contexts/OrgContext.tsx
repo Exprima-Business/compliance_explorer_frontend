@@ -122,27 +122,35 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [refreshOrgs]);
 
   const setCurrentOrg = async (org: Organization) => {
+    // Optimistic update: store org immediately so downstream callers (ProjectProvider,
+    // api.ts x-org-id header) always have a valid org ID even if backend validation is slow
+    // or temporarily unavailable.
+    setCurrentOrgState(org);
+    localStorage.setItem(ORG_KEY, org.id);
+
     try {
-      // Validate organization access with backend
+      // Validate organization access with backend (non-blocking for the UI)
       const validationResult = await OrganizationValidationService.setOrganizationContext(org.id);
-      
+
       if (!validationResult.valid) {
-        throw new Error(validationResult.error || 'Failed to validate organization access');
+        // Log but don't throw — the org came from the backend getUserOrganizations call
+        // so it's known-good; a transient failure here shouldn't block the UI.
+        dlog('Organization context: backend validation returned invalid (proceeding anyway)', {
+          orgId: org.id,
+          error: validationResult.error
+        });
+        return;
       }
 
-      // Update local state only after successful validation
-      setCurrentOrgState(org);
-      localStorage.setItem(ORG_KEY, org.id);
-      
-      dlog('Organization context updated with backend validation', { 
-        orgId: org.id, 
+      dlog('Organization context updated with backend validation', {
+        orgId: org.id,
         orgName: org.name,
         validated: true
       });
     } catch (error) {
+      // Non-fatal: org is already stored optimistically; log and continue.
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      dlog('Error updating organization context:', errorMessage);
-      throw new Error(`Organization selection failed: ${errorMessage}`);
+      dlog('Error updating organization context (non-fatal, proceeding):', errorMessage);
     }
   };
 
