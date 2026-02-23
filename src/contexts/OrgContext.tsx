@@ -142,6 +142,18 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
+      // Force a Supabase session refresh so the browser JWT picks up the updated
+      // user_metadata.custom_claims that setOrganizationContext just wrote server-side.
+      // Without this, subsequent API calls (e.g. GET /api/projects) use a stale JWT
+      // that fails validateCustomClaims → 401 "Organization context required".
+      try {
+        await supabase.auth.refreshSession();
+        dlog('OrgContext: session refreshed after setOrganizationContext');
+      } catch (refreshErr) {
+        // Non-fatal: if the refresh fails the existing JWT may still work
+        dlog('OrgContext: session refresh failed (non-fatal)', { refreshErr });
+      }
+
       dlog('Organization context updated with backend validation', {
         orgId: org.id,
         orgName: org.name,
