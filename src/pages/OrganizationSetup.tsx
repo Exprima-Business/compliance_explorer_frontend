@@ -106,7 +106,7 @@ const OrganizationSetup: React.FC = () => {
               access_token: data.token,
               refresh_token: data.refreshToken || ''
             });
-            
+
             if (sessionError) {
               dlog('OrganizationSetup: Failed to update session with new token', { error: sessionError });
             } else {
@@ -115,25 +115,31 @@ const OrganizationSetup: React.FC = () => {
           } catch (sessionError) {
             dlog('OrganizationSetup: Error updating session', { error: sessionError });
           }
-        }
-
-        // Clear the setup_required flag from user metadata
-        try {
-          const { error: updateError } = await supabase.auth.updateUser({
-            data: { setup_required: false }
-          });
-          
-          if (updateError) {
-            dlog('OrganizationSetup: Failed to clear setup_required flag', { error: updateError });
-          } else {
-            dlog('OrganizationSetup: Successfully cleared setup_required flag');
+        } else {
+          // Backend updated user metadata server-side — force a session refresh
+          // so the JWT in the browser picks up the new custom_claims and setup_required=false
+          try {
+            const { error: refreshError } = await supabase.auth.refreshSession();
+            if (refreshError) {
+              dlog('OrganizationSetup: Session refresh failed (non-fatal)', { error: refreshError });
+            } else {
+              dlog('OrganizationSetup: Session refreshed successfully — JWT now has org claims');
+            }
+          } catch (refreshError) {
+            dlog('OrganizationSetup: Error refreshing session (non-fatal)', { error: refreshError });
           }
-        } catch (updateError) {
-          dlog('OrganizationSetup: Error clearing setup_required flag', { error: updateError });
         }
 
-        // Navigate to the specified redirect URL
-        navigate(data.redirectTo || '/');
+        // Use a full page reload rather than client-side navigation so that
+        // useUserState fires fresh with the newly-refreshed JWT (which now has
+        // org claims and setup_required: false). This is a one-time setup flow
+        // so the reload cost is negligible.
+        //
+        // Build the correct absolute URL: in production the basename is '/app',
+        // so '/matrix' from the backend becomes '/app/matrix'.
+        const relativePath = data.redirectTo || '/';
+        const basename = import.meta.env.PROD ? '/app' : '';
+        window.location.href = basename + relativePath;
       } else {
         setError(data.error?.message || 'Setup failed');
         dlog('OrganizationSetup: Setup failed', { error: data.error });
