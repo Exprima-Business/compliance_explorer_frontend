@@ -86,8 +86,13 @@ const OrganizationSetup: React.FC = () => {
           statusText: response.statusText,
           error: errorData
         });
-        
-        throw new Error(errorData.error || `Failed to setup organization: ${response.status} ${response.statusText}`);
+
+        // errorData.error may be an object {code, message, details} — extract the string
+        const errMsg =
+          (typeof errorData.error === 'object' ? errorData.error?.message : errorData.error) ||
+          errorData.message ||
+          `Failed to setup organization: ${response.status} ${response.statusText}`;
+        throw new Error(errMsg);
       }
 
       const data: ApiResponse = await response.json();
@@ -250,7 +255,13 @@ const OrganizationSetup: React.FC = () => {
             disabled={loading}
             sx={{ mb: 2 }}
           />
-          
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
