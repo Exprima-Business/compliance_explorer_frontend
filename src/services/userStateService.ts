@@ -70,8 +70,12 @@ export class UserStateService {
         throw new Error(`Failed to get user state: ${response.status} ${response.statusText}`);
       }
 
-      const data: UserStateResponse = await response.json();
-      
+      const json = await response.json();
+
+      // Backend wraps responses in { data: {...}, error: null }
+      // Handle both wrapped and unwrapped formats for resilience
+      const data: UserStateResponse = json?.data ?? json;
+
       dlog('UserStateService: User state received', {
         needsSetup: data.needsSetup,
         organizationsCount: data.organizations?.length || 0,
