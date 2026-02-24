@@ -41,13 +41,24 @@ export class UserStateService {
         hasToken: !!session.access_token
       });
 
-      const response = await fetch(`${environment.api.url}/api/auth/user-state`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // 12-second timeout — prevents infinite spinner when Railway is deploying
+      // or unreachable.  AbortController is supported in all modern browsers.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+      let response: Response;
+      try {
+        response = await fetch(`${environment.api.url}/api/auth/user-state`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
