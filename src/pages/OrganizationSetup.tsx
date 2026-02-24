@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, TextField, Typography, Stepper, Step, StepLabel, StepContent, Alert, Paper } from '@mui/material';
+import { Box, Button, TextField, Typography, Stepper, Step, StepLabel, StepContent, Alert, Paper, Divider } from '@mui/material';
 import { supabase } from '../lib/supabase';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
@@ -42,6 +42,17 @@ const OrganizationSetup: React.FC = () => {
   
   const { user: authUser } = useAuth();
   const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/login');
+    } catch (err) {
+      dlog('OrganizationSetup: sign out error', { err });
+      // Hard-redirect as fallback
+      window.location.href = (import.meta.env.PROD ? '/app' : '') + '/login';
+    }
+  };
 
   const handleSubmit = async () => {
     if (!authUser) {
@@ -353,6 +364,22 @@ const OrganizationSetup: React.FC = () => {
               </Step>
             ))}
           </Stepper>
+        </Box>
+
+        {/* Sign-out escape hatch */}
+        <Divider sx={{ width: '100%', mt: 4 }} />
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            Already have an account?{' '}
+            <Button
+              size="small"
+              variant="text"
+              onClick={handleSignOut}
+              sx={{ textTransform: 'none', p: 0, minWidth: 0, verticalAlign: 'baseline' }}
+            >
+              Sign out
+            </Button>
+          </Typography>
         </Box>
       </Paper>
     </Box>
