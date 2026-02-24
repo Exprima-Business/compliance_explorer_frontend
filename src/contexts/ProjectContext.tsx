@@ -38,12 +38,22 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
 
     // Only load projects if org context is initialized and we have a current org
-    if (!orgInitialized || !currentOrg) {
-      dlog('ProjectProvider: skipping project load - org not ready', {
+    if (!orgInitialized) {
+      // OrgProvider hasn't finished loading yet — wait silently (don't flip initialized).
+      dlog('ProjectProvider: skipping project load - org not yet initialized');
+      return;
+    }
+
+    if (!currentOrg) {
+      // OrgProvider finished but found no org (e.g. validate-organization failed or
+      // the user genuinely has no membership). Mark projects as initialized so
+      // ProjectGate can render something (ProjectSetupDialog) rather than staying
+      // blank forever.
+      dlog('ProjectProvider: org initialized but no currentOrg - marking projects initialized', {
         orgInitialized,
-        hasCurrentOrg: !!currentOrg
+        hasCurrentOrg: false
       });
-      setInitialized(false);
+      setInitialized(true);
       return;
     }
 
