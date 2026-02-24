@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { apiCall } from '../services/api';
-import { supabase } from '../lib/supabase';
 import { dlog } from '../utils/debugLog';
 import { OrganizationValidationService } from '../services/organizationValidationService';
 
@@ -99,13 +98,8 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     // Always load organizations on mount.
-    // AppContent already routes setup-required users to OrganizationSetup before
-    // MainApp (and therefore OrgProvider) is ever mounted, so the old JWT
-    // setup_required check is redundant here. More importantly, reading
-    // setup_required from the local JWT is fragile: if supabase.auth.refreshSession()
-    // in OrganizationSetup completes but the token hasn't propagated yet, OrgProvider
-    // would see setup_required=true, skip refreshOrgs(), and leave currentOrg=null
-    // forever → ProjectGate returns null → permanent blank white screen.
+    // AppContent routes setup-required users to OrganizationSetup before MainApp
+    // (and therefore OrgProvider) is mounted, so no JWT flag check is needed here.
     refreshOrgs();
   }, [refreshOrgs]);
 
@@ -128,18 +122,6 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           error: validationResult.error
         });
         return;
-      }
-
-      // Force a Supabase session refresh so the browser JWT picks up the updated
-      // user_metadata.custom_claims that setOrganizationContext just wrote server-side.
-      // Without this, subsequent API calls (e.g. GET /api/projects) use a stale JWT
-      // that fails validateCustomClaims → 401 "Organization context required".
-      try {
-        await supabase.auth.refreshSession();
-        dlog('OrgContext: session refreshed after setOrganizationContext');
-      } catch (refreshErr) {
-        // Non-fatal: if the refresh fails the existing JWT may still work
-        dlog('OrgContext: session refresh failed (non-fatal)', { refreshErr });
       }
 
       dlog('Organization context updated with backend validation', {

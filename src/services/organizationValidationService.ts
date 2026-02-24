@@ -152,37 +152,4 @@ export class OrganizationValidationService {
     return this.validateOrganization({ organizationId });
   }
 
-  /**
-   * Check if user has valid organization context
-   */
-  static async hasValidOrganizationContext(): Promise<boolean> {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        return false;
-      }
-
-      // Decode JWT to check for custom claims
-      const tokenParts = session.access_token.split('.');
-      if (tokenParts.length !== 3) {
-        return false;
-      }
-
-      const payload = JSON.parse(atob(tokenParts[1]));
-      const hasCustomClaims = payload.custom_claims && 
-        payload.custom_claims.organizationId && 
-        payload.custom_claims.organizationSlug;
-
-      dlog('Checking organization context', { 
-        hasCustomClaims,
-        claims: payload.custom_claims 
-      });
-
-      return hasCustomClaims;
-    } catch (error) {
-      dlog('Error checking organization context', { error });
-      return false;
-    }
-  }
 } 
