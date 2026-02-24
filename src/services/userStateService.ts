@@ -67,7 +67,17 @@ export class UserStateService {
           statusText: response.statusText,
           error: errorData
         });
-        
+
+        if (response.status === 429) {
+          // Rate limited — signal to the caller to retry after a delay
+          const retryAfterSec = response.headers.get('Retry-After');
+          const retryMs = retryAfterSec ? parseInt(retryAfterSec) * 1000 : 15000;
+          const err = new Error('Too many requests — retrying shortly');
+          (err as any).isRateLimited = true;
+          (err as any).retryAfterMs = retryMs;
+          throw err;
+        }
+
         if (response.status === 403) {
           // User needs organization setup
           return {
@@ -77,7 +87,7 @@ export class UserStateService {
             role: 'unassigned'
           };
         }
-        
+
         throw new Error(`Failed to get user state: ${response.status} ${response.statusText}`);
       }
 

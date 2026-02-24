@@ -27,32 +27,47 @@ const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING =
 
 // Simplified App component that handles routing based on user state
 const AppContent: React.FC = () => {
-  const { userState, loading, error } = useUserState();
+  const { userState, loading, error, refresh } = useUserState();
 
-  // Show loading while getting user state
+  // Show loading while getting user state (also shown while waiting for a 429 retry)
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh' 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh'
       }}>
         <div>Loading...</div>
       </div>
     );
   }
 
-  // Show error if user state failed to load
+  // Show error with retry button if user state failed to load
   if (error) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh' 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        gap: '16px'
       }}>
-        <div>Error: {error}</div>
+        <div style={{ color: '#6b7280' }}>Unable to load — {error}</div>
+        <button
+          onClick={refresh}
+          style={{
+            padding: '8px 20px',
+            borderRadius: '6px',
+            border: '1px solid #d1d5db',
+            background: '#fff',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }

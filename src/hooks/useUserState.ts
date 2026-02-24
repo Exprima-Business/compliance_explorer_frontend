@@ -31,6 +31,7 @@ export const useUserState = (): UseUserStateReturn => {
       return;
     }
 
+    let rateLimited = false;
     try {
       setLoading(true);
       setError(null);
@@ -45,12 +46,24 @@ export const useUserState = (): UseUserStateReturn => {
         organizationsCount: state.organizations?.length || 0,
         hasCurrentOrg: !!state.currentOrganization
       });
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.isRateLimited) {
+        // 429 — keep spinner running and retry after the back-off window.
+        // We set rateLimited=true so the finally block doesn't call setLoading(false).
+        rateLimited = true;
+        const delay = err.retryAfterMs ?? 15000;
+        dlog('useUserState: Rate limited, retrying after', { delayMs: delay });
+        setTimeout(() => loadUserState(), delay);
+        return;
+      }
       const errorMessage = err instanceof Error ? err.message : 'Failed to load user state';
       setError(errorMessage);
       dlog('useUserState: Error loading user state', { error: errorMessage });
     } finally {
-      setLoading(false);
+      // Don't clear the spinner when we're waiting to retry a rate-limited request
+      if (!rateLimited) {
+        setLoading(false);
+      }
     }
   }, [isAuthenticated, userId]);
 
