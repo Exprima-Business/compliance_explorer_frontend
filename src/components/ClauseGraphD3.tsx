@@ -645,11 +645,22 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
   }, [hoverNode, relatedNodeIds])
 
   return (
-    <div 
-      ref={containerRef} 
+    <div
+      ref={containerRef}
       key={graphKey}
       style={{ width: '100%', height: '100%', position: 'relative' }}
     >
+      {transformedData.nodes.length === 0 && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          color: '#9ca3af', gap: '12px', pointerEvents: 'none'
+        }}>
+          <div style={{ fontSize: '18px', fontWeight: 600 }}>No clause data to display</div>
+          <div style={{ fontSize: '14px' }}>Import compliance clause data to see the graph</div>
+        </div>
+      )}
       <svg
         ref={svgRef}
         width={dimensions.width}

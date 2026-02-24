@@ -157,12 +157,6 @@ const Home: React.FC = () => {
       return { nodes: [], links: [] };
     }
 
-    // Don't create graph data if we have no links
-    if (effectiveLinks.length === 0) {
-      dlog('Home: No links available for graph data', { effectiveLinksLength: effectiveLinks.length });
-      return { nodes: [], links: [] };
-    }
-
     // Build nodes from currently filtered clauses
     const nodes: GraphNode[] = filtered.map((clause: Clause) => ({
       id: clause.id || '',
@@ -307,17 +301,40 @@ const Home: React.FC = () => {
   if (loading && clauses.length === 0) {
     dlog('Home: Showing initial loading state', { loading, clausesLength: clauses.length });
     return (
-      <Box sx={{ 
-        display: 'flex', 
+      <Box sx={{
+        display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center', 
-        alignItems: 'center', 
+        justifyContent: 'center',
+        alignItems: 'center',
         height: 'calc(100vh - 64px)',
         gap: 2
       }}>
         <CircularProgress size={60} />
         <Typography variant="h6" color="text.secondary">
           Loading clauses...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Show empty state when clauses have loaded but the DB has no data yet
+  if (!loading && clauses.length === 0) {
+    return (
+      <Box sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: 'calc(100vh - 64px)',
+        gap: 2,
+        textAlign: 'center',
+        px: 3
+      }}>
+        <Typography variant="h5" color="text.secondary" gutterBottom>
+          No clause data available
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Import compliance clause data to populate the visualization.
         </Typography>
       </Box>
     );
