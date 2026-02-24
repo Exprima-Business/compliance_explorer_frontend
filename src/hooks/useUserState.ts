@@ -17,8 +17,14 @@ export const useUserState = (): UseUserStateReturn => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Stable user ID (string | undefined) — does NOT change on TOKEN_REFRESHED.
+  // Using `user` (the object) as a dep would recreate this callback on every token
+  // refresh (new object reference, same ID), which sets loading=true, unmounts
+  // MainApp, remounts OrgProvider, calls setCurrentOrg → refreshSession → loop.
+  const userId = user?.id;
+
   const loadUserState = useCallback(async () => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !userId) {
       setUserState(null);
       setLoading(false);
       setError(null);
@@ -28,12 +34,12 @@ export const useUserState = (): UseUserStateReturn => {
     try {
       setLoading(true);
       setError(null);
-      
-      dlog('useUserState: Loading user state', { userId: user.id });
-      
+
+      dlog('useUserState: Loading user state', { userId });
+
       const state = await UserStateService.getUserState();
       setUserState(state);
-      
+
       dlog('useUserState: User state loaded', {
         needsSetup: state.needsSetup,
         organizationsCount: state.organizations?.length || 0,
@@ -46,7 +52,7 @@ export const useUserState = (): UseUserStateReturn => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, userId]);
 
   const refresh = useCallback(async () => {
     await loadUserState();
