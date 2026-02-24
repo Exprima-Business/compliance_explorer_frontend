@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { apiCall } from '../services/api';
-import { supabase } from '../lib/supabase';
 import { dlog } from '../utils/debugLog';
 import { OrganizationValidationService } from '../services/organizationValidationService';
 
@@ -98,27 +97,15 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
-    // Only load organizations if user doesn't need setup
-    // This prevents unnecessary API calls for setup-required users
-    const shouldLoadOrgs = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const setupRequired = session?.user?.user_metadata?.setup_required;
-        
-        if (!setupRequired) {
-          refreshOrgs();
-        } else {
-          dlog('OrgProvider: Skipping organization load - user needs setup');
-          setInitialized(true);
-        }
-      } catch (error) {
-        dlog('OrgProvider: Error checking setup requirement', { error });
-        // Fall back to loading organizations
-        refreshOrgs();
-      }
-    };
-    
-    shouldLoadOrgs();
+    // Always load organizations on mount.
+    // AppContent already routes setup-required users to OrganizationSetup before
+    // MainApp (and therefore OrgProvider) is ever mounted, so the old JWT
+    // setup_required check is redundant here. More importantly, reading
+    // setup_required from the local JWT is fragile: if supabase.auth.refreshSession()
+    // in OrganizationSetup completes but the token hasn't propagated yet, OrgProvider
+    // would see setup_required=true, skip refreshOrgs(), and leave currentOrg=null
+    // forever → ProjectGate returns null → permanent blank white screen.
+    refreshOrgs();
   }, [refreshOrgs]);
 
   const setCurrentOrg = async (org: Organization) => {
