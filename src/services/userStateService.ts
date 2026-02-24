@@ -89,14 +89,21 @@ export class UserStateService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       dlog('UserStateService: Error getting user state', { error: errorMessage });
-      
-      // If we can't get user state, assume setup is needed
-      return {
-        needsSetup: true,
-        organizations: [],
-        permissions: [],
-        role: 'unassigned'
-      };
+
+      // Only silently return "needs setup" for authentication errors (no session).
+      // For network/server errors, re-throw so AppContent shows a proper error
+      // message instead of silently routing to OrganizationSetup.
+      if (errorMessage === 'No valid session found') {
+        return {
+          needsSetup: true,
+          organizations: [],
+          permissions: [],
+          role: 'unassigned'
+        };
+      }
+
+      // Surface the error — backend may be down, unreachable, or misconfigured.
+      throw error;
     }
   }
 
