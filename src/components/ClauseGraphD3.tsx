@@ -635,7 +635,7 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
       .style('stroke-width', (d: any) => {
         const relationshipType = (d as any).relationshipType || 'SIBLING'
         const baseWidth = relationshipType === 'PARENT' ? 4 : 2
-        
+
         if (!hoverNode) return baseWidth
         if (d.source.id === hoverNode.id || d.target.id === hoverNode.id) {
           return relationshipType === 'PARENT' ? 6 : 3
@@ -643,6 +643,17 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
         return baseWidth
       })
   }, [hoverNode, relatedNodeIds])
+
+  // Update bookmark ring strokes whenever bookmark state changes.
+  // isClauseBookmarked is a useCallback([bookmarks]) so its reference changes
+  // each time the bookmarks array is updated — perfect as an effect dependency.
+  useEffect(() => {
+    if (!svgRef.current) return;
+    d3.select(svgRef.current)
+      .selectAll<SVGCircleElement, D3Node>('.node circle')
+      .attr('stroke', (d) => isClauseBookmarked(d.id) ? '#FFD700' : 'none')
+      .attr('stroke-width', (d) => isClauseBookmarked(d.id) ? 3 : 0);
+  }, [isClauseBookmarked]); // re-runs whenever bookmarks change
 
   return (
     <div

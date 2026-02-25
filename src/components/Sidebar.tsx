@@ -14,6 +14,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { useClause } from '../contexts/ClauseContext';
@@ -25,7 +27,7 @@ const drawerWidth = 320;
 
 export const Sidebar: React.FC = () => {
   const { searchQuery, setSearchQuery, selectedFamily, setSelectedFamily, families, clauses } = useClause();
-  const { bookmarks, toggleBookmark } = useBookmarks();
+  const { bookmarks, toggleBookmark, bookmarkError, clearBookmarkError } = useBookmarks();
 
   const handleFamilyClick = (family: ClauseFamily | null) => {
     setSelectedFamily(family);
@@ -116,6 +118,18 @@ export const Sidebar: React.FC = () => {
           />
         </Box>
       </Box>
+
+      {/* Bookmark error feedback — surfaces failures from Sidebar toggle actions */}
+      <Snackbar
+        open={!!bookmarkError}
+        autoHideDuration={4000}
+        onClose={clearBookmarkError}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={clearBookmarkError} severity="error" sx={{ width: '100%' }}>
+          {bookmarkError}
+        </Alert>
+      </Snackbar>
     </Drawer>
   );
 }; 

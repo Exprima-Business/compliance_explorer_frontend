@@ -89,7 +89,18 @@ export interface ClauseNode extends Clause {
 export interface GraphNode {
   id: string;
   name: string;
+  /**
+   * Human-readable code e.g. "DFARS 252.204-7012". Preferred over clauseId.
+   */
+  clauseCode?: string;
+  /**
+   * @deprecated Alias kept for backward compatibility; prefer clauseCode.
+   */
   clauseId?: string;
+  /**
+   * Whether this node is currently bookmarked. Drives the gold ring in the D3 graph.
+   */
+  isBookmarked?: boolean;
   title?: string;
   riskClassification?: string;
   category?: string;
