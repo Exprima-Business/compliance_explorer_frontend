@@ -46,12 +46,14 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     loadFamilies();
   }, []);
 
-  // Load all clauses on mount
+  // Unified: load all clauses on mount AND whenever the family filter changes
   useEffect(() => {
-    const loadAllClauses = async () => {
+    const loadClauses = async () => {
       try {
         setLoading(true);
-        const resp = await clauseService.getAllClauses();
+        const resp = selectedFamily
+          ? await clauseService.getClausesByFamily(selectedFamily)
+          : await clauseService.getAllClauses();
         if (resp.error) {
           const msg = typeof resp.error === 'string' ? resp.error : (resp.error as ApiError).message;
           throw new Error(msg);
@@ -64,30 +66,7 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
 
-    loadAllClauses();
-  }, []);
-
-  // When the user selects / clears a family, (re)load the appropriate clause set
-  useEffect(() => {
-    if (selectedFamily === null) return; // Don't reload if no family is selected (keep all clauses)
-    
-    const loadByFamily = async () => {
-      try {
-        setLoading(true);
-        const resp = await clauseService.getClausesByFamily(selectedFamily);
-        if (resp.error) {
-          const msg = typeof resp.error === 'string' ? resp.error : (resp.error as ApiError).message;
-          throw new Error(msg);
-        }
-        if (resp.data) setClauses(resp.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch clauses');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadByFamily();
+    loadClauses();
   }, [selectedFamily]);
 
   // Helper function to find parent clauses
