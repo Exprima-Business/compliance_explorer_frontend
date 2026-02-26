@@ -250,8 +250,7 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     })
 
     // ── Link join ─────────────────────────────────────────────
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const linksG = linksGRef.current as any
+    const linksG = linksGRef.current!
     const linkKey = (d: GraphEdge) => {
       const s = typeof d.source === 'object' ? (d.source as D3Node).id : d.source
       const t = typeof d.target === 'object' ? (d.target as D3Node).id : d.target
@@ -277,8 +276,7 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
       Selection<SVGLineElement, GraphEdge, SVGGElement, unknown>
 
     // ── Node join ─────────────────────────────────────────────
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const nodesG = nodesGRef.current as any
+    const nodesG = nodesGRef.current!
     const nodeSel = nodesG.selectAll<SVGGElement, D3Node>('g.node')
       .data(transformedData.nodes, (d: D3Node) => d.id)
     nodeSel.exit().remove()
@@ -318,10 +316,10 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
       .style('text-shadow', '0 1px 2px rgba(255,255,255,0.8)')
 
     nodeEnter
-      .on('mouseenter', function(event, d) {
+      .on('mouseenter', function(this: SVGGElement, event: MouseEvent, d: D3Node) {
         setHoverNode(d)
         setTooltip({ visible: true, x: event.pageX + 10, y: event.pageY - 10, data: d })
-        const node = select(this)
+        const node = select<SVGGElement, D3Node>(this)
         node.select('circle')
           .style('filter', 'drop-shadow(0 0 12px rgba(255,255,255,0.6))')
           .style('transform', 'scale(1.1)')
@@ -329,10 +327,10 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
           .style('font-size', '16px').style('font-weight', '700')
           .style('text-shadow', '0 0 8px rgba(255,255,255,0.8)')
       })
-      .on('mouseleave', function() {
+      .on('mouseleave', function(this: SVGGElement) {
         setHoverNode(null)
         setTooltip(prev => ({ ...prev, visible: false }))
-        const node = select(this)
+        const node = select<SVGGElement, D3Node>(this)
         node.select('circle')
           .style('filter', 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))')
           .style('transform', 'scale(1)')
@@ -340,7 +338,7 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
           .style('font-size', '14px').style('font-weight', '600')
           .style('text-shadow', '0 1px 2px rgba(255,255,255,0.8)')
       })
-      .on('click', (event, d) => {
+      .on('click', (event: MouseEvent, d: D3Node) => {
         if (dragStartRef.current) {
           const dist = Math.hypot(
             event.x - dragStartRef.current.x,
