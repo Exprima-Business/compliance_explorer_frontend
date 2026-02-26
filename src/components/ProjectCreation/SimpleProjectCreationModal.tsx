@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
-import { 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  TextField, 
-  DialogActions, 
-  Button, 
-  CircularProgress, 
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  TextField,
+  DialogActions,
+  Button,
+  CircularProgress,
   Typography,
   Box,
   Alert
 } from '@mui/material';
 import { useProject } from '../../contexts/ProjectContext';
-import { useBookmarks } from '../../contexts/BookmarkContext';
 import { clauseService } from '../../services/clauseService';
+import { apiCall } from '../../services/api';
 
 interface SimpleProjectCreationModalProps {
   isOpen: boolean;
   onClose: () => void;
   scanResults: any[];
+  scanId?: string;                                        // scan to link the new project to
   onProjectCreated: (project: any) => void;
 }
 
@@ -26,11 +27,11 @@ export const SimpleProjectCreationModal: React.FC<SimpleProjectCreationModalProp
   isOpen,
   onClose,
   scanResults,
+  scanId,
   onProjectCreated
 }) => {
   const { createProject } = useProject();
-  const { toggleBookmark } = useBookmarks();
-  
+
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -44,84 +45,96 @@ export const SimpleProjectCreationModal: React.FC<SimpleProjectCreationModalProp
       return;
     }
 
-    if (!scanResults || scanResults.length === 0) {
-      setError('No scan results available to create project from');
-      return;
-    }
-
-    // Store original project context to preserve scan access
-    const originalProjectId = localStorage.getItem('projectId');
-    console.log('Storing original project context:', originalProjectId);
-
     try {
       setError(null);
       setSubmitting(true);
       setStep('creating');
-      setProgress(10);
+      setProgress(20);
 
-      // Step 1: Create the project using existing API
-      console.log('Creating project:', { name: projectName, description });
-      await createProject(projectName.trim(), description.trim() || undefined);
-      setProgress(30);
-
-      // Step 2: Create bookmarks for each scan result
-      setStep('bookmarking');
-      setProgress(40);
-
-      const bookmarkPromises = scanResults.map(async (result, index) => {
-        try {
-          // Extract clause ID from scan result - prioritize clauseId over id
-          const clauseId = result.clauseId || result.clause_id || result.id;
-          if (clauseId) {
-            console.log(`Creating bookmark for clause ${index + 1}/${scanResults.length}:`, clauseId);
-            console.log(`  - Using clauseId: ${result.clauseId || 'undefined'}`);
-            console.log(`  - Scan result id: ${result.id || 'undefined'}`);
-            await clauseService.bookmarkClause(clauseId);
-            setProgress(40 + (index / scanResults.length) * 50); // 40-90% progress
-          } else {
-            console.warn(`No valid clause ID found for result ${index + 1}:`, result);
+      if (scanId) {
+        // ── Preferred path: single atomic call via dedicated endpoint ───────────
+        // Creates project, links sourceScanId, and creates bookmarks server-side.
+        setProgress(40);
+        const resp = await apiCall<{ project: any; clausesCreated: number }>(
+          '/api/projects/create-from-scan',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              scanId,
+              projectName: projectName.trim(),
+              description: description.trim() || undefined,
+              options: { createBookmarks: true },
+            }),
           }
-        } catch (bookmarkError) {
-          console.warn(`Failed to bookmark clause ${index + 1}:`, bookmarkError);
-          // Continue with other bookmarks even if one fails
+        );
+
+        if (resp.error) {
+          const msg = typeof resp.error === 'string'
+            ? resp.error
+            : (resp.error as any).message ?? 'Failed to create project';
+          throw new Error(msg);
         }
-      });
 
-      await Promise.all(bookmarkPromises);
-      setProgress(100);
-      setStep('completed');
+        setProgress(100);
+        setStep('completed');
 
-      // Step 3: Restore original project context to maintain scan access
-      if (originalProjectId) {
-        console.log('Restoring original project context:', originalProjectId);
-        localStorage.setItem('projectId', originalProjectId);
-        // Note: We don't update the ProjectContext state here to avoid UI confusion
-        // The user will see the new project in the dropdown but scan access is preserved
+        setTimeout(() => {
+          onProjectCreated(resp.data!.project);
+          onClose();
+          setProjectName('');
+          setDescription('');
+          setStep('form');
+          setProgress(0);
+        }, 1500);
+
+      } else {
+        // ── Fallback: original two-step approach when scanId is unavailable ─────
+        // Store original project context to preserve scan access
+        const originalProjectId = localStorage.getItem('projectId');
+
+        await createProject(projectName.trim(), description.trim() || undefined);
+        setProgress(30);
+
+        // Create bookmarks for each scan result
+        setStep('bookmarking');
+        setProgress(40);
+
+        const bookmarkPromises = scanResults.map(async (result, index) => {
+          try {
+            const clauseId = result.clauseId || result.clause_id || result.id;
+            if (clauseId) {
+              await clauseService.bookmarkClause(clauseId);
+              setProgress(40 + (index / scanResults.length) * 50);
+            }
+          } catch (bookmarkError) {
+            console.warn(`Failed to bookmark clause ${index + 1}:`, bookmarkError);
+          }
+        });
+
+        await Promise.all(bookmarkPromises);
+        setProgress(100);
+        setStep('completed');
+
+        // Restore original project context to maintain scan access
+        if (originalProjectId) {
+          localStorage.setItem('projectId', originalProjectId);
+        }
+
+        onProjectCreated({ name: projectName, description });
+
+        setTimeout(() => {
+          onClose();
+          setProjectName('');
+          setDescription('');
+          setStep('form');
+          setProgress(0);
+        }, 1500);
       }
-
-      // Step 4: Notify parent component
-      onProjectCreated({ name: projectName, description });
-      
-      // Close modal after a brief success display
-      setTimeout(() => {
-        onClose();
-        // Reset form for next time
-        setProjectName('');
-        setDescription('');
-        setStep('form');
-        setProgress(0);
-      }, 1500);
 
     } catch (err) {
       console.error('Project creation failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to create project');
       setStep('form');
-      
-      // Restore original project context on error
-      if (originalProjectId) {
-        console.log('Restoring original project context after error:', originalProjectId);
-        localStorage.setItem('projectId', originalProjectId);
-      }
     } finally {
       setSubmitting(false);
     }
@@ -130,7 +143,6 @@ export const SimpleProjectCreationModal: React.FC<SimpleProjectCreationModalProp
   const handleClose = () => {
     if (!submitting) {
       onClose();
-      // Reset form
       setProjectName('');
       setDescription('');
       setError(null);
@@ -151,6 +163,17 @@ export const SimpleProjectCreationModal: React.FC<SimpleProjectCreationModalProp
             <Typography variant="body2" color="text.secondary">
               Setting up your new project
             </Typography>
+            <Box sx={{ mt: 2, width: '100%', bgcolor: 'grey.200', borderRadius: 1 }}>
+              <Box
+                sx={{
+                  width: `${progress}%`,
+                  height: 8,
+                  bgcolor: 'primary.main',
+                  borderRadius: 1,
+                  transition: 'width 0.3s ease'
+                }}
+              />
+            </Box>
           </Box>
         );
 
@@ -165,14 +188,14 @@ export const SimpleProjectCreationModal: React.FC<SimpleProjectCreationModalProp
               Adding {scanResults.length} clauses to your project
             </Typography>
             <Box sx={{ mt: 2, width: '100%', bgcolor: 'grey.200', borderRadius: 1 }}>
-              <Box 
-                sx={{ 
-                  width: `${progress}%`, 
-                  height: 8, 
-                  bgcolor: 'primary.main', 
+              <Box
+                sx={{
+                  width: `${progress}%`,
+                  height: 8,
+                  bgcolor: 'primary.main',
                   borderRadius: 1,
                   transition: 'width 0.3s ease'
-                }} 
+                }}
               />
             </Box>
           </Box>
@@ -185,7 +208,7 @@ export const SimpleProjectCreationModal: React.FC<SimpleProjectCreationModalProp
               ✅ Project Created Successfully!
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Your project "{projectName}" has been created with {scanResults.length} bookmarked clauses.
+              Your project "{projectName}" has been created with {scanResults.length} clauses.
             </Typography>
           </Box>
         );
@@ -219,7 +242,7 @@ export const SimpleProjectCreationModal: React.FC<SimpleProjectCreationModalProp
             />
             <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
               <Typography variant="body2" color="text.secondary">
-                This will create a new project with <strong>{scanResults.length} bookmarked clauses</strong> from your scan results.
+                This will create a new project with <strong>{scanResults.length} detected clauses</strong> from your scan results.
               </Typography>
             </Box>
           </>
@@ -228,37 +251,37 @@ export const SimpleProjectCreationModal: React.FC<SimpleProjectCreationModalProp
   };
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onClose={handleClose} 
-      fullWidth 
+    <Dialog
+      open={isOpen}
+      onClose={handleClose}
+      fullWidth
       maxWidth="sm"
       disableEscapeKeyDown={submitting}
     >
       <DialogTitle>
-        {step === 'form' ? 'Create Project from Scan Results' : 
-         step === 'creating' ? 'Creating Project...' :
+        {step === 'form'       ? 'Create Project from Scan Results' :
+         step === 'creating'   ? 'Creating Project...' :
          step === 'bookmarking' ? 'Adding Clauses...' :
          'Project Created!'}
       </DialogTitle>
-      
+
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
-        
+
         {renderContent()}
       </DialogContent>
-      
+
       {step === 'form' && (
         <DialogActions>
           <Button onClick={handleClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             variant="contained"
             disabled={submitting || !projectName.trim()}
             startIcon={submitting ? <CircularProgress size={20} /> : null}

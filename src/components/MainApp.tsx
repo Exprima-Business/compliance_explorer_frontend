@@ -29,6 +29,7 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/matrix" element={<Matrix />} />
+                    <Route path="/matrix/:projectId" element={<Matrix />} />
                     {enableScanner && (
                       <>
                         <Route path="/document-scanner" element={<DocumentScanner />} />

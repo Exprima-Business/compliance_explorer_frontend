@@ -1486,11 +1486,13 @@ export const DocumentScanner: React.FC = () => {
         isOpen={showProjectCreationModal}
         onClose={() => setShowProjectCreationModal(false)}
         scanResults={mainResults}
+        scanId={currentScan?.id || currentScan?.scanId}
         onProjectCreated={(project) => {
-          console.log('[DEBUG] Project created successfully:', project);
           setShowProjectCreationModal(false);
-          // Navigate to the Matrix tab to show the bookmarked clauses
-          // The project will be automatically selected in the context
+          if (project?.id) {
+            // Navigate to the Project Matrix so the user can see the saved clauses
+            navigate(`/matrix/${project.id}`);
+          }
         }}
       />
     </Box>
