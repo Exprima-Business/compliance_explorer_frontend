@@ -5,6 +5,7 @@ import { VirtualMatrixTable } from '../components/Matrix/VirtualMatrixTable';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import { useParams } from 'react-router-dom';
+import { apiCall } from '../services/api';
 import type { Clause, MatrixRow } from '../types/clause';
 import type { Project } from '../types/projectCreation';
 
@@ -31,30 +32,22 @@ const Matrix: React.FC = () => {
     try {
       setProjectLoading(true);
       setProjectError(null);
-      
-      const response = await fetch(`/api/projects/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+      const resp = await apiCall<Project>(`/api/projects/${id}`);
+      if (resp.error) {
+        const msg = typeof resp.error === 'string'
+          ? resp.error
+          : (resp.error as any).message ?? 'Failed to load project';
+        throw new Error(msg);
       }
-      
-      const project = await response.json();
-      setCurrentProject(project);
-      
+      setCurrentProject(resp.data!);
+
     } catch (error) {
       console.error('Failed to load project:', error);
       setProjectError((error as Error).message);
     } finally {
       setProjectLoading(false);
     }
-  };
-
-  const getAuthToken = () => {
-    return localStorage.getItem('auth_token') || '';
   };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
