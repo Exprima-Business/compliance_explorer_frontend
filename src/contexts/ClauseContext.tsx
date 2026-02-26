@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { clauseService } from '../services/clauseService';
-import { usePreferences } from './PreferencesContext';
 import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiError } from '../types/api';
-import { dlog } from '../utils/debugLog';
 
 export interface ClauseContextValue {
   clauses: Clause[];
@@ -25,8 +23,6 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFamily, setSelectedFamily] = useState<ClauseFamily | null>(null);
-  
-  const { preferences } = usePreferences();
 
   // Load families on mount
   useEffect(() => {
@@ -69,60 +65,9 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     loadClauses();
   }, [selectedFamily]);
 
-  // Helper function to find parent clauses
-  const findParentClauses = (clause: Clause): Clause[] => {
-    const parentClauses: Clause[] = [];
-
-    clause.relationships.forEach(rel => {
-      const relAny = rel as any;
-      const rType: string = (relAny.type ?? relAny.relationshipType ?? '').toUpperCase();
-
-      if (rType === 'PARENT') {
-        // For a PARENT relationship stored as
-        //   clauseId           = child
-        //   relatedClauseId    = parent
-        // the parent is in the *relatedClauseId* (or targetClauseId) column.
-        const parentId = relAny.relatedClauseId || relAny.targetClauseId;
-        if (parentId) {
-          const parent = clauses.find(c => c.clauseId === parentId);
-          if (parent) parentClauses.push(parent);
-        }
-      } else if (rType === 'CHILD') {
-        // For a CHILD relationship stored as
-        //   clauseId           = parent
-        //   relatedClauseId    = child
-        // the parent is in the *clauseId* (or sourceClauseId) column.
-        const parentId = relAny.clauseId || relAny.sourceClauseId;
-        if (parentId) {
-          const parent = clauses.find(c => c.clauseId === parentId);
-          if (parent) parentClauses.push(parent);
-        }
-      }
-    });
-
-    return parentClauses;
-  };
-
-  // Helper function to find child clauses
-  const findChildClauses = (clause: Clause): Clause[] => {
-    const childClauses: Clause[] = [];
-    
-    clauses.forEach(otherClause => {
-      otherClause.relationships.forEach(relationship => {
-        // Handle both possible property names
-        const targetId = (relationship as any).targetClauseId || (relationship as any).clauseId;
-        if (relationship.type === 'PARENT' && targetId === clause.clauseId) {
-          childClauses.push(otherClause);
-        }
-      });
-    });
-
-    return childClauses;
-  };
-
-
-
-  const value: ClauseContextValue = {
+  // Memoize the context value so consumers only re-render when something they
+  // actually use has changed — not on every ClauseProvider render.
+  const value = React.useMemo<ClauseContextValue>(() => ({
     clauses,
     families,
     loading,
@@ -130,8 +75,8 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     searchQuery,
     setSearchQuery,
     selectedFamily,
-    setSelectedFamily
-  };
+    setSelectedFamily,
+  }), [clauses, families, loading, error, searchQuery, selectedFamily]);
 
   return (
     <ClauseContext.Provider value={value}>
@@ -146,4 +91,4 @@ export const useClause = (): ClauseContextValue => {
     throw new Error('useClause must be used within a ClauseProvider');
   }
   return context;
-}; 
+};

@@ -46,14 +46,18 @@ const Home: React.FC = () => {
 
   const searchLower = searchQuery.toLowerCase();
 
-  const filtered = clauses.filter((clause): clause is Clause => {
-    if (!clause) return false;
-    if (!searchLower) return true;
-    return (
-      clause.title?.toLowerCase().includes(searchLower) ||
-      (clause.clauseCode || '').toLowerCase().includes(searchLower)
-    );
-  });
+  // Memoized so it only recomputes when clauses or searchQuery change,
+  // not on every render triggered by auth/bookmark state updates.
+  const filtered = React.useMemo(() =>
+    clauses.filter((clause): clause is Clause => {
+      if (!clause) return false;
+      if (!searchLower) return true;
+      return (
+        clause.title?.toLowerCase().includes(searchLower) ||
+        (clause.clauseCode || '').toLowerCase().includes(searchLower)
+      );
+    }),
+  [clauses, searchLower]);
 
   const bookmarkedSet = React.useMemo(() => new Set(bookmarks.map(b=>b.clauseId)), [bookmarks]);
 
@@ -161,7 +165,8 @@ const Home: React.FC = () => {
     const nodes: GraphNode[] = filtered.map((clause: Clause) => ({
       id: clause.id || '',
       name: clause.title || 'Untitled Clause',
-      clauseId: clause.clauseCode || '',
+      clauseCode: clause.clauseCode || '',   // preferred typed field
+      clauseId: clause.clauseCode || '',     // deprecated alias — kept for compat
       title: clause.title || '',
       riskClassification: clause.riskClassification || 'UNKNOWN',
       category: clause.category || '',
@@ -244,12 +249,19 @@ const Home: React.FC = () => {
     }
   }, [graphData, isAuthenticated, authLoading, authStable, linksLoading]);
 
-  const handleNodeClick = (node: GraphNode) => {
+  // Stable reference so D3's click listener always sees the latest clauses
+  // without the effect needing to re-run.
+  const handleNodeClick = React.useCallback((node: GraphNode) => {
     const clause = clauses.find(c => c.id === node.id);
-    if (clause) {
-      setActiveClause(clause);
-    }
-  };
+    if (clause) setActiveClause(clause);
+  }, [clauses]);
+
+  // Stable bookmark toggle for the FloatingPanel — recreating on every render
+  // was causing unnecessary FloatingPanel re-renders.
+  const handleBookmarkToggle = React.useCallback(async () => {
+    if (!activeClause) return;
+    await toggleBookmark(activeClause.id);
+  }, [activeClause, toggleBookmark]);
 
   // Show loading state while auth is loading or graph data is loading
   if (authLoading || linksLoading) {
@@ -361,10 +373,7 @@ const Home: React.FC = () => {
       <FloatingPanel
         clause={activeClause}
         onClose={() => setActiveClause(null)}
-        onBookmarkToggle={async () => {
-          if (!activeClause) return;
-          await toggleBookmark(activeClause.id);
-        }}
+        onBookmarkToggle={handleBookmarkToggle}
       />
 
       <Snackbar
