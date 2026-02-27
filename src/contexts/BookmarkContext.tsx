@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { useOrg } from './OrgContext';
 import { useProject } from './ProjectContext';
 import { dlog } from '../utils/debugLog';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 interface BookmarkContextValue {
   bookmarks: Bookmark[];
@@ -283,8 +284,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const resp = await clauseService.bookmarkClause(clauseId);
       if (resp.error) {
-        const msg = typeof resp.error === 'string' ? resp.error : (resp.error as any).message;
-        throw new Error(msg);
+        throw new Error(extractErrorMessage(resp.error, 'Bookmark operation failed'));
       }
 
       dlog('Bookmark API response received', {

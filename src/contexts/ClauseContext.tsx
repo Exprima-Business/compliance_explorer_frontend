@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { clauseService } from '../services/clauseService';
 import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiError } from '../types/api';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export interface ClauseContextValue {
   clauses: Clause[];
@@ -30,8 +31,7 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const resp = await clauseService.getClauseFamilies();
         if (resp.error) {
-          const msg = typeof resp.error === 'string' ? resp.error : (resp.error as ApiError).message;
-          throw new Error(msg);
+          throw new Error(extractErrorMessage(resp.error, 'Failed to fetch families'));
         }
         if (resp.data) setFamilies(resp.data);
       } catch (err) {
@@ -51,8 +51,7 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ? await clauseService.getClausesByFamily(selectedFamily)
           : await clauseService.getAllClauses();
         if (resp.error) {
-          const msg = typeof resp.error === 'string' ? resp.error : (resp.error as ApiError).message;
-          throw new Error(msg);
+          throw new Error(extractErrorMessage(resp.error, 'Failed to fetch clauses'));
         }
         if (resp.data) setClauses(resp.data);
       } catch (err) {

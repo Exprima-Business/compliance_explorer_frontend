@@ -40,6 +40,8 @@ import {
   type ProgressiveResults
 } from '../../services/scanApi';
 import { useNavigate, useParams } from 'react-router-dom';
+import { dlog } from '../../utils/debugLog';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 interface UploadState {
   status: 'idle' | 'uploading' | 'processing' | 'loading-from-be' | 'complete' | 'error';
@@ -76,7 +78,6 @@ interface UploadState {
  * progress indicator is shown at any time, with clear state transitions.
  */
 export const DocumentScanner: React.FC = () => {
-  console.log('[COMPONENT MOUNT] DocumentScanner component is mounting');
   const { user } = useAuth();
   const organization = { id: localStorage.getItem('orgId') || '00000000-0000-0000-0000-000000000000' };
   const navigate = useNavigate();
@@ -185,7 +186,6 @@ export const DocumentScanner: React.FC = () => {
 
   // Load existing scan data on mount (no polling during processing)
   useEffect(() => {
-    console.log('[USEEFFECT] loadExistingScan useEffect is running');
     const loadExistingScan = async () => {
       // Check if we have a scanId from URL or localStorage
       let scanIdToFetch: string | undefined = urlScanId;
@@ -194,15 +194,14 @@ export const DocumentScanner: React.FC = () => {
       if ((!urlScanId || urlScanId === 'undefined') && typeof window !== 'undefined') {
         const storedScanId = localStorage.getItem('currentScanId');
         if (storedScanId) {
-          console.log('[PERSISTENCE DEBUG] No scanId in URL, but found in localStorage:', storedScanId);
-          console.log('[PERSISTENCE DEBUG] Redirecting to preserve scan state');
+          dlog('[PERSISTENCE] No scanId in URL, found in localStorage — redirecting:', storedScanId);
           navigate(`/document-scanner/${storedScanId}`, { replace: true });
           return;
         }
       }
       
       if (scanIdToFetch && scanIdToFetch !== 'undefined') {
-        console.log('[DEBUG] Loading existing scan for scanId:', scanIdToFetch);
+        dlog('[SCAN] Loading existing scan for scanId:', scanIdToFetch);
         try {
           setUploadState({ 
             status: 'processing', 
@@ -230,8 +229,8 @@ export const DocumentScanner: React.FC = () => {
           }
           
           const scanSession = response.data;
-          console.log('[DEBUG] Loaded scan session:', scanSession);
-          
+          dlog('[SCAN] Loaded scan session:', scanSession);
+
           // Set the scan data
           setCurrentScan(scanSession);
           setMainResults(scanSession.results || []);
@@ -240,7 +239,7 @@ export const DocumentScanner: React.FC = () => {
           
           if (scanSession.status === 'complete') {
             // Scan is complete, show results
-            console.log('[DEBUG] Scan is complete, showing results');
+            dlog('[SCAN] Scan is complete, showing results');
             setUploadState({
               status: 'complete',
               message: scanSession.results && scanSession.results.length > 0 
@@ -259,16 +258,11 @@ export const DocumentScanner: React.FC = () => {
             });
           } else if (scanSession.status === 'processing') {
             // Scan is still processing, establish SSE connection for real-time updates
-            console.log('[DEBUG] Scan is processing, establishing SSE connection');
-            
+            dlog('[SCAN] Scan is processing, establishing SSE connection');
+
             // Extract scanId from the correct field (backend returns scanId, not id)
             const scanId = scanSession.scanId || scanSession.id;
-            
-            console.log('[DEBUG] Scan session fields:', {
-              scanId: scanSession.scanId,
-              id: scanSession.id,
-              extractedScanId: scanId
-            });
+            dlog('[SCAN] Scan session fields:', { scanId: scanSession.scanId, id: scanSession.id, extractedScanId: scanId });
             
             setUploadState({
               status: 'processing',
@@ -287,7 +281,7 @@ export const DocumentScanner: React.FC = () => {
             
             // Validate scanId before establishing SSE connection
             if (scanId && scanId !== 'undefined' && scanId !== 'null') {
-              console.log('[DEBUG] Establishing SSE connection for existing scan:', scanId);
+              dlog('[SSE] Establishing SSE connection for existing scan:', scanId);
               establishSSEConnection(scanId);
             } else {
               console.error('[DEBUG] Cannot establish SSE connection: Invalid scanId:', scanId);
@@ -332,76 +326,55 @@ export const DocumentScanner: React.FC = () => {
       setMainResults([]);
       setInProgressResults([]);
 
-      // Debug: Log upload initiation
-      console.log('[UPLOAD DEBUG] Starting upload for file:', {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        organizationId: organization.id
-      });
+      dlog('[UPLOAD] Starting upload for file:', { name: file.name, size: file.size, type: file.type, organizationId: organization.id });
 
       // Upload document
       const response = await scanApi.uploadDocument(file, organization.id);
-      
-      // Debug: Log full response for analysis
-      console.log('[UPLOAD DEBUG] Full upload response:', response);
-      console.log('[UPLOAD DEBUG] Response status:', response.error ? 'ERROR' : 'SUCCESS');
-      
+      dlog('[UPLOAD] Response status:', response.error ? 'ERROR' : 'SUCCESS');
+
       if (response.error) {
         console.error('[UPLOAD DEBUG] Upload failed with error:', response.error);
-        throw new Error(typeof response.error === 'string' ? response.error : response.error.message);
+        throw new Error(extractErrorMessage(response.error, 'Upload failed'));
       }
 
       // Validate response structure
       if (!response.data) {
-        console.error('[UPLOAD DEBUG] No response data received');
+        console.error('[UPLOAD] No response data received');
         throw new Error('No response data received from server');
       }
 
-      // Debug: Log response data structure
-      console.log('[UPLOAD DEBUG] Response data:', response.data);
-      console.log('[UPLOAD DEBUG] Response data type:', typeof response.data);
-      console.log('[UPLOAD DEBUG] Response data keys:', Object.keys(response.data));
-      
       // Extract and validate scanId with comprehensive checks
       const scanId = response.data.scanId;
-      
-      // Debug: Log scanId extraction
-      console.log('[UPLOAD DEBUG] Raw scanId from response:', scanId);
-      console.log('[UPLOAD DEBUG] scanId type:', typeof scanId);
-      console.log('[UPLOAD DEBUG] scanId length:', scanId ? scanId.length : 'N/A');
-      
+      dlog('[UPLOAD] scanId from response:', scanId);
+
       // Comprehensive scanId validation
       if (!scanId) {
-        console.error('[UPLOAD DEBUG] scanId is falsy:', scanId);
-        console.error('[UPLOAD DEBUG] Full response data for debugging:', response.data);
+        console.error('[UPLOAD] scanId is falsy — full response data:', response.data);
         throw new Error('Scan ID is missing from server response');
       }
-      
+
       if (typeof scanId !== 'string') {
-        console.error('[UPLOAD DEBUG] scanId is not a string:', typeof scanId, scanId);
+        console.error('[UPLOAD] scanId is not a string:', typeof scanId, scanId);
         throw new Error('Invalid scan ID format received from server');
       }
-      
+
       if (scanId === 'undefined' || scanId === 'null' || scanId.trim() === '') {
-        console.error('[UPLOAD DEBUG] scanId is invalid string:', scanId);
+        console.error('[UPLOAD] scanId is invalid string:', scanId);
         throw new Error('Invalid scan ID received from server');
       }
-      
+
       // Validate UUID format (basic check)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(scanId)) {
-        console.error('[UPLOAD DEBUG] scanId does not match UUID format:', scanId);
+        console.error('[UPLOAD] scanId does not match UUID format:', scanId);
         // Don't throw error here as backend might use different format
-        console.warn('[UPLOAD DEBUG] scanId format warning, but continuing:', scanId);
+        console.warn('[UPLOAD] scanId format warning, but continuing:', scanId);
       }
-      
-      console.log('[UPLOAD DEBUG] Valid scanId confirmed:', scanId);
-      
+
       // Store scanId in localStorage for persistence
       if (typeof window !== 'undefined') {
         localStorage.setItem('currentScanId', scanId);
-        console.log('[PERSISTENCE DEBUG] Stored scanId in localStorage:', scanId);
+        dlog('[PERSISTENCE] Stored scanId in localStorage:', scanId);
       }
       
       // Create scan session object
@@ -446,7 +419,7 @@ export const DocumentScanner: React.FC = () => {
       navigate(`/document-scanner/${scanId}`, { replace: false });
       
       // Establish SSE connection with validated scanId
-      console.log('[UPLOAD DEBUG] Establishing SSE connection with validated scanId:', scanId);
+      dlog('[UPLOAD] Establishing SSE connection with scanId:', scanId);
       establishSSEConnection(scanId);
 
     } catch (err) {
@@ -468,7 +441,7 @@ export const DocumentScanner: React.FC = () => {
 
   const establishSSEConnection = (scanId: string) => {
     // Comprehensive scanId validation before establishing connection
-    console.log('[SSE DEBUG] Attempting to establish SSE connection for scanId:', scanId);
+    dlog('[SSE] Attempting to establish SSE connection for scanId:', scanId);
     
     if (!scanId) {
       console.error('[SSE DEBUG] Cannot establish SSE connection: scanId is falsy');
@@ -494,20 +467,17 @@ export const DocumentScanner: React.FC = () => {
     // Validate UUID format (basic check)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(scanId)) {
-      console.warn('[SSE DEBUG] scanId does not match UUID format, but continuing:', scanId);
+      console.warn('[SSE] scanId does not match UUID format, but continuing:', scanId);
     }
-    
-    console.log('[SSE DEBUG] scanId validation passed, proceeding with SSE connection');
-    
+
     try {
       // Clean up existing connection
       if (sseConnectionRef.current) {
-        console.log('[SSE DEBUG] Cleaning up existing SSE connection');
         sseConnectionRef.current.disconnect();
       }
 
       // Create new SSE connection with validated scanId
-      console.log('[SSE DEBUG] Creating new ScanSSEConnection with scanId:', scanId);
+      dlog('[SSE] Creating new ScanSSEConnection with scanId:', scanId);
       sseConnectionRef.current = new ScanSSEConnection(
         scanId,
         (data) => handleSSEMessage(data),
@@ -515,7 +485,6 @@ export const DocumentScanner: React.FC = () => {
         () => handleSSEComplete()
       );
 
-      console.log('[SSE DEBUG] Initiating SSE connection...');
       sseConnectionRef.current.connect();
       
     } catch (error) {
@@ -524,17 +493,17 @@ export const DocumentScanner: React.FC = () => {
       setUploadState({ status: 'error', message: 'Failed to establish connection.' });
       
       // Start fallback polling if SSE fails
-      console.log('[SSE DEBUG] Starting fallback polling due to SSE creation error');
+      dlog('[SSE] Starting fallback polling due to SSE creation error');
       startPolling(scanId);
     }
   };
 
   const handleSSEMessage = async (data: any) => {
-    console.log('[DEBUG] SSE message received:', data);
+    dlog('[SSE] Message received:', data);
 
     // Handle completion messages FIRST (before progress updates)
     if (data.status === 'complete') {
-      console.log('[DEBUG] SSE completion message received:', data);
+      dlog('[SSE] Completion message received:', data);
       
       // Set upload state to complete
       setUploadState({ 
@@ -555,36 +524,35 @@ export const DocumentScanner: React.FC = () => {
       // Keep scanId in localStorage for persistence instead of clearing it
       if (typeof window !== 'undefined') {
         localStorage.setItem('currentScanId', data.scanId);
-        console.log('[PERSISTENCE DEBUG] Kept scanId in localStorage for persistence:', data.scanId);
+        dlog('[PERSISTENCE] Kept scanId in localStorage for persistence:', data.scanId);
       }
-      
+
       // Navigate to results page
-      console.log('[DEBUG] Navigating to scanId:', data.scanId);
+      dlog('[SSE] Navigating to scanId:', data.scanId);
       setErrorSafe(null);
       navigate(`/document-scanner/${data.scanId}`, { replace: false });
-      
+
       // Fetch final results from API (authoritative source)
       try {
-        console.log('[DEBUG] Fetching final results from API after SSE completion');
+        dlog('[SSE] Fetching final results from API after completion');
         const response = await scanApi.getScan(data.scanId);
         if (response.error) {
-          console.error('[DEBUG] Error fetching final results:', response.error);
+          console.error('[SSE] Error fetching final results:', response.error);
           setErrorSafe('Failed to load scan results. Please try refreshing the page.');
           return;
         }
-        
+
         const finalScanSession = response.data;
         if (finalScanSession) {
-          console.log('[DEBUG] Final results from API:', finalScanSession.results);
-          console.log('[DEBUG] Results count:', finalScanSession.results?.length || 0);
+          dlog('[SSE] Final results from API, count:', finalScanSession.results?.length || 0);
           setMainResults(finalScanSession.results || []);
           setCurrentScan(finalScanSession);
         } else {
-          console.error('[DEBUG] No scan session data returned from API');
+          console.error('[SSE] No scan session data returned from API');
           setErrorSafe('No scan data found. Please try again or contact support.');
         }
       } catch (err) {
-        console.error('[DEBUG] Error fetching final results after SSE completion:', err);
+        console.error('[SSE] Error fetching final results after completion:', err);
         setErrorSafe('Failed to load scan results. Please try refreshing the page.');
       }
       return; // Exit early to prevent further processing
@@ -592,7 +560,7 @@ export const DocumentScanner: React.FC = () => {
 
     // Handle error messages
     if (data.status === 'error') {
-      console.error('[DEBUG] SSE error message received:', data);
+      console.error('[SSE] Error message received:', data);
       setErrorSafe(data.message || 'An error occurred during processing');
       setUploadState({ status: 'error', message: data.message || 'Processing error' });
       return; // Exit early to prevent further processing
@@ -600,57 +568,45 @@ export const DocumentScanner: React.FC = () => {
 
     // Handle direct progress messages (current backend format)
     if (data.progress !== undefined && data.status) {
-      setUploadState(prev => {
-        const newState = {
-          ...prev,
-          progress: {
-            scanId: data.scanId,
-            current: data.currentChunk || 0,
-            total: data.totalChunks || 1,
-            status: 'processing' as const, // Always 'processing' during analysis, not 'error'
-            message: data.status === 'analyzing' ? 'Analyzing document...' : data.message || 'Processing...',
-            estimatedTimeRemaining: data.estimatedTimeRemaining || 0,
-            pagesProcessed: data.pagesProcessed || 0,
-            totalPages: data.totalPages || 0
-          },
-          message: data.status === 'analyzing' ? 'Analyzing document...' : data.message || 'Processing...'
-        };
-        console.log('[DEBUG] SSE progress update, new uploadState:', newState);
-        return newState;
-      });
+      setUploadState(prev => ({
+        ...prev,
+        progress: {
+          scanId: data.scanId,
+          current: data.currentChunk || 0,
+          total: data.totalChunks || 1,
+          status: 'processing' as const, // Always 'processing' during analysis, not 'error'
+          message: data.status === 'analyzing' ? 'Analyzing document...' : data.message || 'Processing...',
+          estimatedTimeRemaining: data.estimatedTimeRemaining || 0,
+          pagesProcessed: data.pagesProcessed || 0,
+          totalPages: data.totalPages || 0
+        },
+        message: data.status === 'analyzing' ? 'Analyzing document...' : data.message || 'Processing...'
+      }));
     } else if (data.type === 'progress') {
-      setUploadState(prev => {
-        const newState = {
-          ...prev,
-          progress: data.data,
-          message: data.data.message
-        };
-        console.log('[DEBUG] SSE progress update, new uploadState:', newState);
-        return newState;
-      });
+      setUploadState(prev => ({
+        ...prev,
+        progress: data.data,
+        message: data.data.message
+      }));
     } else if (data.type === 'progressive_update') {
       const progressiveData: ProgressiveResults = data.data;
-      console.log('[DEBUG] SSE progressive_update:', progressiveData);
+      dlog('[SSE] progressive_update:', progressiveData);
       setInProgressResults(progressiveData.partialResults);
-      setUploadState(prev => {
-        const newState = {
-          ...prev,
-          progress: {
-            ...prev.progress!,
-            status: 'processing' as const, // Ensure status is 'processing' during analysis
-            pagesProcessed: progressiveData.pagesProcessed,
-            totalPages: progressiveData.totalPages,
-            estimatedTimeRemaining: progressiveData.estimatedTimeRemaining
-          }
-        };
-        console.log('[DEBUG] SSE progressive_update, new uploadState:', newState);
-        return newState;
-      });
+      setUploadState(prev => ({
+        ...prev,
+        progress: {
+          ...prev.progress!,
+          status: 'processing' as const, // Ensure status is 'processing' during analysis
+          pagesProcessed: progressiveData.pagesProcessed,
+          totalPages: progressiveData.totalPages,
+          estimatedTimeRemaining: progressiveData.estimatedTimeRemaining
+        }
+      }));
     } else if (data.type === 'complete') {
       // Legacy completion event format - just signals that processing is done
       // We'll fetch the actual results from the API
       const scanId = data.data?.scanId || data.data?.id;
-      console.log('[DEBUG] SSE complete event received for scanId:', scanId);
+      dlog('[SSE] Legacy complete event received for scanId:', scanId);
       
       if (!scanId || scanId === 'undefined') {
         console.error('[DEBUG] SSE complete event missing valid scanId:', data);
@@ -678,36 +634,35 @@ export const DocumentScanner: React.FC = () => {
       // Keep scanId in localStorage for persistence instead of clearing it
       if (typeof window !== 'undefined') {
         localStorage.setItem('currentScanId', data.scanId);
-        console.log('[PERSISTENCE DEBUG] Kept scanId in localStorage for persistence:', data.scanId);
+        dlog('[PERSISTENCE] Kept scanId in localStorage for persistence:', data.scanId);
       }
-      
+
       // Navigate to results page
-      console.log('[DEBUG] Navigating to scanId:', scanId);
+      dlog('[SSE] Navigating to scanId:', scanId);
       setErrorSafe(null);
       navigate(`/document-scanner/${scanId}`, { replace: false });
-      
+
       // Fetch final results from API (authoritative source)
       try {
-        console.log('[DEBUG] Fetching final results from API after SSE completion');
+        dlog('[SSE] Fetching final results from API after legacy complete event');
         const response = await scanApi.getScan(scanId);
         if (response.error) {
-          console.error('[DEBUG] Error fetching final results:', response.error);
+          console.error('[SSE] Error fetching final results:', response.error);
           setErrorSafe('Failed to load scan results. Please try refreshing the page.');
           return;
         }
-        
+
         const finalScanSession = response.data;
         if (finalScanSession) {
-          console.log('[DEBUG] Final results from API:', finalScanSession.results);
-          console.log('[DEBUG] Results count:', finalScanSession.results?.length || 0);
+          dlog('[SSE] Final results from API, count:', finalScanSession.results?.length || 0);
           setMainResults(finalScanSession.results || []);
           setCurrentScan(finalScanSession);
         } else {
-          console.error('[DEBUG] No scan session data returned from API');
+          console.error('[SSE] No scan session data returned from API');
           setErrorSafe('No scan data found. Please try again or contact support.');
         }
       } catch (err) {
-        console.error('[DEBUG] Error fetching final results after SSE completion:', err);
+        console.error('[SSE] Error fetching final results after legacy complete event:', err);
         setErrorSafe('Failed to load scan results. Please try refreshing the page.');
       }
     }
@@ -721,7 +676,7 @@ export const DocumentScanner: React.FC = () => {
     // Start polling as fallback if SSE fails
     const scanId = currentScan?.scanId || currentScan?.id;
     if (scanId) {
-      console.log('[DEBUG] Starting fallback polling due to SSE error');
+      dlog('[SSE] Starting fallback polling due to SSE error');
       startPolling(scanId);
     }
   };
@@ -733,21 +688,21 @@ export const DocumentScanner: React.FC = () => {
       clearInterval(pollingInterval);
     }
     
-    console.log('[DEBUG] Starting fallback polling for scanId:', scanId);
-    
+    dlog('[POLLING] Starting fallback polling for scanId:', scanId);
+
     const interval = setInterval(async () => {
       try {
         const response = await scanApi.getScan(scanId);
         if (response.error || !response.data) {
-          console.error('[DEBUG] Polling error:', response.error);
+          console.error('[POLLING] Error:', response.error);
           return;
         }
-        
+
         const scanSession = response.data;
-        console.log('[DEBUG] Polling update:', scanSession.status);
-        
+        dlog('[POLLING] Status update:', scanSession.status);
+
         if (scanSession.status === 'complete') {
-          console.log('[DEBUG] Scan completed via polling');
+          dlog('[POLLING] Scan completed');
           setCurrentScan(scanSession);
           setMainResults(scanSession.results || []);
           setUploadState({
@@ -766,14 +721,14 @@ export const DocumentScanner: React.FC = () => {
           });
           stopPolling();
         } else if (scanSession.status === 'error') {
-          console.error('[DEBUG] Scan failed via polling');
+          console.error('[POLLING] Scan failed');
           setErrorSafe('Document processing failed. Please try again.');
           setUploadState({ status: 'error', message: 'Processing failed' });
           stopPolling();
         }
         // If still processing, continue polling
       } catch (err) {
-        console.error('[DEBUG] Polling error:', err);
+        console.error('[POLLING] Error:', err);
       }
     }, 5000); // Poll every 5 seconds
     
@@ -784,12 +739,12 @@ export const DocumentScanner: React.FC = () => {
     if (pollingInterval) {
       clearInterval(pollingInterval);
       setPollingInterval(null);
-      console.log('[DEBUG] Stopped fallback polling');
+      dlog('[POLLING] Stopped fallback polling');
     }
   };
 
   const handleSSEComplete = () => {
-    console.log('SSE connection completed');
+    dlog('[SSE] Connection completed');
     if (sseConnectionRef.current) {
       sseConnectionRef.current.disconnect();
       sseConnectionRef.current = null;
@@ -808,16 +763,16 @@ export const DocumentScanner: React.FC = () => {
       const response = await scanApi.retryScan(currentScan.id);
       
       if (response.error) {
-        throw new Error(typeof response.error === 'string' ? response.error : response.error.message);
+        throw new Error(extractErrorMessage(response.error, 'Retry failed'));
       }
 
       // Re-establish SSE connection with validation
       const scanId = currentScan.scanId || currentScan.id;
       if (scanId && scanId !== 'undefined' && scanId !== 'null') {
-        console.log('[DEBUG] Re-establishing SSE connection for retry:', scanId);
+        dlog('[SSE] Re-establishing SSE connection for retry:', scanId);
         establishSSEConnection(scanId);
       } else {
-        console.error('[DEBUG] Cannot re-establish SSE connection: Invalid scanId:', scanId);
+        console.error('[SSE] Cannot re-establish SSE connection — invalid scanId:', scanId);
         setErrorSafe('Invalid scan ID. Cannot establish connection to server.');
         setUploadState({ status: 'error', message: 'Invalid scan ID.' });
       }
@@ -833,7 +788,7 @@ export const DocumentScanner: React.FC = () => {
   const handleManualRefresh = async () => {
     if (!urlScanId || urlScanId === 'undefined') return;
 
-    console.log('[MANUAL REFRESH] User triggered manual refresh for scanId:', urlScanId);
+    dlog('[REFRESH] Manual refresh triggered for scanId:', urlScanId);
     
     try {
       setErrorSafe(null);
@@ -864,7 +819,7 @@ export const DocumentScanner: React.FC = () => {
       }
       
       const scanSession = response.data;
-      console.log('[MANUAL REFRESH] Fresh data from BE:', scanSession);
+      dlog('[REFRESH] Fresh data from backend:', scanSession);
       
       // Extract scanId from the correct field
       const scanId = scanSession.scanId || scanSession.id;
@@ -875,11 +830,11 @@ export const DocumentScanner: React.FC = () => {
       
       // If scan is still processing, re-establish SSE connection
       if (scanSession.status === 'processing') {
-        console.log('[MANUAL REFRESH] Scan is processing, re-establishing SSE connection');
+        dlog('[REFRESH] Scan is processing, re-establishing SSE connection');
         if (scanId && scanId !== 'undefined' && scanId !== 'null') {
           establishSSEConnection(scanId);
         } else {
-          console.error('[MANUAL REFRESH] Cannot re-establish SSE connection: Invalid scanId:', scanId);
+          console.error('[REFRESH] Cannot re-establish SSE connection — invalid scanId:', scanId);
           setErrorSafe('Invalid scan ID. Cannot establish connection to server.');
           setUploadState({ status: 'error', message: 'Invalid scan ID.' });
         }
@@ -920,7 +875,7 @@ export const DocumentScanner: React.FC = () => {
     // Clear localStorage when resetting
     if (typeof window !== 'undefined') {
       localStorage.removeItem('currentScanId');
-      console.log('[PERSISTENCE DEBUG] Cleared scanId from localStorage');
+      dlog('[PERSISTENCE] Cleared scanId from localStorage');
     }
     
     if (sseConnectionRef.current) {
@@ -937,7 +892,6 @@ export const DocumentScanner: React.FC = () => {
 
   // Function to clear all scan results and return to initial state
   const clearAllResults = () => {
-    console.log('[DEBUG] Clearing all scan results and returning to initial state');
     handleReset();
   };
 
@@ -959,7 +913,6 @@ export const DocumentScanner: React.FC = () => {
       // Escape key to clear results and return to upload state
       if (event.key === 'Escape' && (error || currentScan || mainResults.length > 0)) {
         event.preventDefault();
-        console.log('[DEBUG] Escape key pressed - clearing results');
         clearAllResults();
       }
     };
@@ -1448,12 +1401,7 @@ export const DocumentScanner: React.FC = () => {
                     variant="outlined" 
                     onClick={() => {
                       const scanId = currentScan?.id || currentScan?.scanId;
-                      console.log('[DEBUG] Opening project creation modal for scan:', {
-                        currentScan,
-                        scanId,
-                        id: currentScan?.id,
-                        scanIdField: currentScan?.scanId
-                      });
+                      dlog('[MODAL] Opening project creation modal for scanId:', scanId);
                       setShowProjectCreationModal(true);
                     }}
                     sx={{

@@ -14,6 +14,7 @@ import {
 import { useProject } from '../../contexts/ProjectContext';
 import { clauseService } from '../../services/clauseService';
 import { apiCall } from '../../services/api';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 interface SimpleProjectCreationModalProps {
   isOpen: boolean;
@@ -69,10 +70,7 @@ export const SimpleProjectCreationModal: React.FC<SimpleProjectCreationModalProp
         );
 
         if (resp.error) {
-          const msg = typeof resp.error === 'string'
-            ? resp.error
-            : (resp.error as any).message ?? 'Failed to create project';
-          throw new Error(msg);
+          throw new Error(extractErrorMessage(resp.error, 'Failed to create project'));
         }
 
         setProgress(100);

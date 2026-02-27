@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, CircularProgress, Alert, Button, Card, CardContent, Tabs, Tab } from '@mui/material';
 import { ComplianceMatrix } from '../components/ComplianceMatrix';
 import { VirtualMatrixTable } from '../components/Matrix/VirtualMatrixTable';
@@ -8,6 +8,7 @@ import { useParams } from 'react-router-dom';
 import { apiCall } from '../services/api';
 import type { Clause, MatrixRow } from '../types/clause';
 import type { Project } from '../types/projectCreation';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 const Matrix: React.FC = () => {
   const { clauses, loading, error } = useClause();
@@ -35,15 +36,11 @@ const Matrix: React.FC = () => {
 
       const resp = await apiCall<Project>(`/api/projects/${id}`);
       if (resp.error) {
-        const msg = typeof resp.error === 'string'
-          ? resp.error
-          : (resp.error as any).message ?? 'Failed to load project';
-        throw new Error(msg);
+        throw new Error(extractErrorMessage(resp.error, 'Failed to load project'));
       }
       setCurrentProject(resp.data!);
 
     } catch (error) {
-      console.error('Failed to load project:', error);
       setProjectError((error as Error).message);
     } finally {
       setProjectLoading(false);
@@ -54,14 +51,12 @@ const Matrix: React.FC = () => {
     setActiveTab(newValue);
   };
 
-  const handleClauseSelect = (clause: any) => {
-    console.log('Clause selected:', clause);
-    // Implement clause selection logic
+  const handleClauseSelect = (_clause: any) => {
+    // TODO: implement clause selection logic
   };
 
-  const handleClauseDeselect = (clauseId: string) => {
-    console.log('Clause deselected:', clauseId);
-    // Implement clause deselection logic
+  const handleClauseDeselect = (_clauseId: string) => {
+    // TODO: implement clause deselection logic
   };
 
   if (loading || projectLoading) {
@@ -110,46 +105,48 @@ const Matrix: React.FC = () => {
     return parentClauses;
   };
 
-  // Get all bookmarked clauses and their parent clauses
-  const bookmarkedClauses = bookmarks
-    .map(b => clauses.find(c => c.id === b.clauseId))
-    .filter((c): c is Clause => Boolean(c));
-
-  if (bookmarkedClauses.length !== bookmarks.length) {
-    const missing = bookmarks.filter(b => !bookmarkedClauses.some(c => c.id === b.clauseId));
-    console.warn('Matrix: some bookmarked clause IDs missing from current clause list', missing);
-  }
-
-  const parentClauses = new Set<string>();
-  
-  // Add parent clauses of bookmarked clauses
-  bookmarkedClauses.forEach(clause => {
-    const parents = findParentClauses(clause);
-    parents.forEach(parent => {
-      parentClauses.add(parent.id);
-    });
-  });
-
-  // Combine bookmarked clauses with their parent clauses
-  const matrixClauses = clauses.filter((clause: Clause) => 
-    bookmarks.some(b=>b.clauseId===clause.id) || parentClauses.has(clause.id)
+  // Memoize all derived data — these are expensive array scans that should not
+  // re-run on every render if bookmarks and clauses haven't changed.
+  const bookmarkedClauses = useMemo(
+    () => bookmarks
+      .map(b => clauses.find(c => c.id === b.clauseId))
+      .filter((c): c is Clause => Boolean(c)),
+    [bookmarks, clauses]
   );
 
-  const matrixData = matrixClauses.map((clause: Clause) => ({
-    id: clause.id,
-    clauseId: clause.clauseCode,
-    title: clause.title,
-    description: clause.description,
-    intent: clause.intent,
-    status: clause.status,
-    category: clause.category,
-    family: clause.family ?? { id: 'unknown', name: 'Uncategorized' },
-    conditions: clause.conditions,
-    implementationGuidance: clause.implementationGuidance,
-    assessmentMethod: clause.assessmentMethod,
-    riskClassification: clause.riskClassification,
-    referenceUrl: clause.referenceUrl
-  }));
+  const parentClauseIds = useMemo(() => {
+    const ids = new Set<string>();
+    bookmarkedClauses.forEach(clause => {
+      findParentClauses(clause).forEach(parent => ids.add(parent.id));
+    });
+    return ids;
+  }, [bookmarkedClauses]);
+
+  const matrixClauses = useMemo(
+    () => clauses.filter((clause: Clause) =>
+      bookmarks.some(b => b.clauseId === clause.id) || parentClauseIds.has(clause.id)
+    ),
+    [clauses, bookmarks, parentClauseIds]
+  );
+
+  const matrixData = useMemo(
+    () => matrixClauses.map((clause: Clause) => ({
+      id: clause.id,
+      clauseId: clause.clauseCode,
+      title: clause.title,
+      description: clause.description,
+      intent: clause.intent,
+      status: clause.status,
+      category: clause.category,
+      family: clause.family ?? { id: 'unknown', name: 'Uncategorized' },
+      conditions: clause.conditions,
+      implementationGuidance: clause.implementationGuidance,
+      assessmentMethod: clause.assessmentMethod,
+      riskClassification: clause.riskClassification,
+      referenceUrl: clause.referenceUrl
+    })),
+    [matrixClauses]
+  );
 
   return (
     <Box sx={{ p: 3 }}>

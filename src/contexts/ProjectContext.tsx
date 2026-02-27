@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { apiCall } from '../services/api';
 import { useOrg } from './OrgContext';
 import { dlog } from '../utils/debugLog';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export interface Project {
   id: string;
@@ -101,8 +102,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       body: JSON.stringify({ name, description }),
     });
     if (resp.error) {
-      const msg = typeof resp.error === 'string' ? resp.error : resp.error.message;
-      throw new Error(msg);
+      throw new Error(extractErrorMessage(resp.error, 'Failed to create project'));
     }
     if (resp.data) {
       setProjects(prev => [...prev, resp.data!]);

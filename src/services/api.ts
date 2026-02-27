@@ -74,11 +74,7 @@ class ApiError extends Error {
 async function handleApiResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type');
   if (!contentType || !contentType.includes('application/json')) {
-    console.error('Invalid content type:', contentType);
-    console.error('Response status:', response.status);
-    console.error('Response status text:', response.statusText);
-    const text = await response.text();
-    console.error('Response body:', text);
+    dlog('[api] Unexpected content type:', { contentType, status: response.status });
     throw new ApiError(`Invalid content type: ${contentType}`, response.status);
   }
 
@@ -87,7 +83,6 @@ async function handleApiResponse<T>(response: Response): Promise<T> {
       const error = await response.json();
       throw new ApiError(error.message || 'API request failed', response.status, error);
     } catch (e) {
-      console.error('Failed to parse error response:', e);
       throw new ApiError(`API request failed: ${response.statusText}`, response.status);
     }
   }
@@ -95,7 +90,6 @@ async function handleApiResponse<T>(response: Response): Promise<T> {
   try {
     return await response.json();
   } catch (e) {
-    console.error('Failed to parse response:', e);
     throw new ApiError('Failed to parse API response', response.status);
   }
 }
@@ -104,12 +98,12 @@ export async function getAuthToken(): Promise<string | null> {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error) {
-      console.error('Failed to get auth session:', error.message);
+      dlog('[api] Failed to get auth session:', error.message);
       return null;
     }
     return session?.access_token ?? null;
   } catch (error) {
-    console.error('Error getting auth token:', error);
+    dlog('[api] Error getting auth token:', error);
     return null;
   }
 }
@@ -126,7 +120,7 @@ async function getCommonHeaders(requireAuth: boolean = false): Promise<HeadersIn
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     } else {
-      console.warn('Auth token not available for protected endpoint');
+      dlog('[api] Auth token not available for protected endpoint');
     }
   }
 
@@ -175,17 +169,13 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
 
     // Debug: log request details for scan uploads
     if (endpoint.includes('/scans')) {
-      console.log('Scan API request:', {
+      dlog('[api] Scan request:', {
         endpoint,
         method: fetchOptions.method || 'GET',
         hasBody: !!fetchOptions.body,
         bodyType: fetchOptions.body ? (fetchOptions.body instanceof FormData ? 'FormData' : 'JSON') : 'None',
-        headers: {
-          'x-org-id': headers['x-org-id'],
-          'x-project-id': headers['x-project-id'],
-          hasAuth: !!headers['Authorization'],
-          contentType: headers['Content-Type']
-        }
+        hasAuth: !!headers['Authorization'],
+        orgId: headers['x-org-id'],
       });
     }
 
@@ -209,18 +199,27 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
       });
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...fetchOptions,
-      headers,
-      credentials: 'include',  // Add credentials for CORS
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
-    // Handle CORS errors
+    let response: Response;
+    try {
+      response = await fetch(`${API_URL}${endpoint}`, {
+        ...fetchOptions,
+        headers,
+        credentials: 'include',
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    // Handle CORS / network-level errors
     if (response.type === 'opaque' || response.status === 0) {
-      console.error('CORS Error: Unable to access the API');
+      dlog('[api] CORS or network error:', { endpoint });
       return {
         data: null as unknown as T,
-        error: 'Unable to access the API. Please check CORS configuration.'
+        error: { code: 'CORS_ERROR', message: 'Unable to reach the API. Please check your connection.' }
       };
     }
 
@@ -232,16 +231,9 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
               code: (errorData.code as string) || 'UNKNOWN',
               message: (errorData.message as string) || 'Request failed',
             }
-          : { code: 'UNKNOWN', message: `HTTP error! status: ${response.status}` };
-      
-      // Log detailed error information
-      console.error('API Error:', {
-        endpoint,
-        status: response.status,
-        statusText: response.statusText,
-        error: errObj,
-      });
+          : { code: 'UNKNOWN', message: `HTTP ${response.status}: ${response.statusText}` };
 
+      dlog('[api] API error:', { endpoint, status: response.status, error: errObj });
       throw new Error(errObj.message);
     }
 
@@ -258,12 +250,19 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
       error: null,
     };
   } catch (error) {
-    console.error('API call failed:', {
+    if (error instanceof Error && error.name === 'AbortError') {
+      dlog('[api] Request timed out:', { endpoint });
+      return {
+        data: null as unknown as T,
+        error: { code: 'TIMEOUT', message: 'Request timed out. Please try again.' },
+      };
+    }
+
+    dlog('[api] API call failed:', {
       endpoint,
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
     });
-    
+
     const err: ApiErrorObj =
       error && error instanceof Error
         ? { code: 'UNKNOWN', message: error.message }
@@ -276,77 +275,38 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
   }
 };
 
-// Public endpoints (no auth required)
-export async function fetchClauses(): Promise<ApiResponse<Clause[]>> {
-  try {
-    return await apiCall<Clause[]>('/api/clauses');
-  } catch (error) {
-    console.error('Error fetching clauses:', error);
-    throw error;
-  }
-}
+// ── Public API helpers ────────────────────────────────────────────────────────
+// These thin wrappers exist for convenience; apiCall itself never throws.
 
-export async function getClausesByFamily(family: ClauseFamily): Promise<ApiResponse<Clause[]>> {
-  try {
-    return await apiCall<Clause[]>(`/api/clauses/family/${encodeURIComponent(family.id)}`);
-  } catch (error) {
-    console.error('Error fetching clauses by family:', error);
-    throw error;
-  }
-}
+export const fetchClauses = (): Promise<ApiResponse<Clause[]>> =>
+  apiCall<Clause[]>('/api/clauses');
 
-export async function getClauseFamilies(): Promise<ApiResponse<ClauseFamilyGroup[]>> {
-  try {
-    return await apiCall<ClauseFamilyGroup[]>('/api/clauses/families');
-  } catch (error) {
-    console.error('Error fetching clause families:', error);
-    throw error;
-  }
-}
+export const getClausesByFamily = (family: ClauseFamily): Promise<ApiResponse<Clause[]>> =>
+  apiCall<Clause[]>(`/api/clauses/family/${encodeURIComponent(family.id)}`);
 
-export async function getClauseById(id: string): Promise<ApiResponse<Clause>> {
-  try {
-    return await apiCall<Clause>(`/api/clauses/${id}`);
-  } catch (error) {
-    console.error(`Error fetching clause ${id}:`, error);
-    throw error;
-  }
-}
+export const getClauseFamilies = (): Promise<ApiResponse<ClauseFamilyGroup[]>> =>
+  apiCall<ClauseFamilyGroup[]>('/api/clauses/families');
 
-export async function searchClauses(query: string): Promise<ApiResponse<Clause[]>> {
-  try {
-    return await apiCall<Clause[]>(`/api/clauses/search?q=${encodeURIComponent(query)}`);
-  } catch (error) {
-    console.error('Error searching clauses:', error);
-    throw error;
-  }
-}
+export const getClauseById = (id: string): Promise<ApiResponse<Clause>> =>
+  apiCall<Clause>(`/api/clauses/${id}`);
 
-// Protected endpoints (auth required)
+export const searchClauses = (query: string): Promise<ApiResponse<Clause[]>> =>
+  apiCall<Clause[]>(`/api/clauses/search?q=${encodeURIComponent(query)}`);
+
+// ── Protected API helpers ─────────────────────────────────────────────────────
+
 export async function uploadDocument(file: File): Promise<ApiResponse<any>> {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    return await apiCall<ApiResponse<any>>('/api/documents/upload', {
-      method: 'POST',
-      body: formData,
-      requireAuth: true
-    });
-  } catch (error) {
-    console.error('Error uploading document:', error);
-    throw error;
-  }
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiCall<ApiResponse<any>>('/api/documents/upload', {
+    method: 'POST',
+    body: formData,
+    requireAuth: true
+  });
 }
 
-export async function analyzeDocument(documentId: string): Promise<ApiResponse<any>> {
-  try {
-    return await apiCall<ApiResponse<any>>(`/api/documents/${documentId}/analyze`, {
-      method: 'POST',
-      requireAuth: true
-    });
-  } catch (error) {
-    console.error(`Error analyzing document ${documentId}:`, error);
-    throw error;
-  }
-} 
+export const analyzeDocument = (documentId: string): Promise<ApiResponse<any>> =>
+  apiCall<ApiResponse<any>>(`/api/documents/${documentId}/analyze`, {
+    method: 'POST',
+    requireAuth: true
+  }); 

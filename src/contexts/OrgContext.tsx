@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { apiCall } from '../services/api';
 import { dlog } from '../utils/debugLog';
 import { OrganizationValidationService } from '../services/organizationValidationService';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export interface Organization {
   id: string;
@@ -144,7 +145,7 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (resp.error) {
-      throw new Error(typeof resp.error === 'string' ? resp.error : resp.error.message);
+      throw new Error(extractErrorMessage(resp.error, 'Failed to create organization'));
     }
 
     // Push new org into state
