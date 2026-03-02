@@ -86,7 +86,7 @@ export const DocumentScanner: React.FC = () => {
   const [mainResults, setMainResults] = useState<DetectedClause[]>([]);
   const [inProgressResults, setInProgressResults] = useState<DetectedClause[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Project Creation Modal state
   const [showProjectCreationModal, setShowProjectCreationModal] = useState(false);
@@ -729,12 +729,12 @@ export const DocumentScanner: React.FC = () => {
   // Fallback polling mechanism
   const startPolling = (scanId: string) => {
     // Clear any existing polling
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
     }
-    
+
     console.log('[DEBUG] Starting fallback polling for scanId:', scanId);
-    
+
     const interval = setInterval(async () => {
       try {
         const response = await scanApi.getScan(scanId);
@@ -742,12 +742,13 @@ export const DocumentScanner: React.FC = () => {
           console.error('[DEBUG] Polling error:', response.error);
           return;
         }
-        
+
         const scanSession = response.data;
         console.log('[DEBUG] Polling update:', scanSession.status);
-        
+
         if (scanSession.status === 'complete') {
           console.log('[DEBUG] Scan completed via polling');
+          setErrorSafe(null); // Clear any SSE error since we got results
           setCurrentScan(scanSession);
           setMainResults(scanSession.results || []);
           setUploadState({
@@ -776,14 +777,14 @@ export const DocumentScanner: React.FC = () => {
         console.error('[DEBUG] Polling error:', err);
       }
     }, 5000); // Poll every 5 seconds
-    
-    setPollingInterval(interval);
+
+    pollingIntervalRef.current = interval;
   };
 
   const stopPolling = () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      setPollingInterval(null);
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
       console.log('[DEBUG] Stopped fallback polling');
     }
   };
@@ -947,11 +948,11 @@ export const DocumentScanner: React.FC = () => {
       if (sseConnectionRef.current) {
         sseConnectionRef.current.disconnect();
       }
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [pollingInterval]);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
