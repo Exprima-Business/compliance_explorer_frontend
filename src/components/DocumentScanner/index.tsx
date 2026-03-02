@@ -87,7 +87,7 @@ export const DocumentScanner: React.FC = () => {
   const [mainResults, setMainResults] = useState<DetectedClause[]>([]);
   const [inProgressResults, setInProgressResults] = useState<DetectedClause[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Project Creation Modal state
   const [showProjectCreationModal, setShowProjectCreationModal] = useState(false);
@@ -152,37 +152,6 @@ export const DocumentScanner: React.FC = () => {
   //   console.log('[URL DEBUG] URL changed to:', window.location.pathname);
   //   console.log('[URL DEBUG] urlScanId from params:', urlScanId);
   // }, [urlScanId]);
-
-  // Auto-save hook for user modifications
-  const useAutoSave = (scanId: string, data: any) => {
-    const [isSaving, setIsSaving] = useState(false);
-    const [lastSaved, setLastSaved] = useState<Date | null>(null);
-    
-    const debouncedSave = useCallback(
-      async (data: any) => {
-        setIsSaving(true);
-        try {
-          await scanApi.updateScanResults(scanId, data);
-          setLastSaved(new Date());
-        } catch (error) {
-          console.error('Auto-save failed:', error);
-        } finally {
-          setIsSaving(false);
-        }
-      },
-      [scanId]
-    );
-    
-    useEffect(() => {
-      const timeoutId = setTimeout(() => {
-        debouncedSave(data);
-      }, 2000);
-      
-      return () => clearTimeout(timeoutId);
-    }, [data, debouncedSave]);
-    
-    return { isSaving, lastSaved };
-  };
 
   // Load existing scan data on mount (no polling during processing)
   useEffect(() => {
@@ -279,11 +248,11 @@ export const DocumentScanner: React.FC = () => {
               }
             });
             
-            // Validate scanId before establishing SSE connection
-            if (scanId && scanId !== 'undefined' && scanId !== 'null') {
+            // Validate scanId before establishing SSE connection (skip if one is already active)
+            if (scanId && scanId !== 'undefined' && scanId !== 'null' && !sseConnectionRef.current) {
               dlog('[SSE] Establishing SSE connection for existing scan:', scanId);
               establishSSEConnection(scanId);
-            } else {
+            } else if (!scanId || scanId === 'undefined' || scanId === 'null') {
               console.error('[DEBUG] Cannot establish SSE connection: Invalid scanId:', scanId);
               console.error('[DEBUG] Full scan session for debugging:', scanSession);
               setErrorSafe('Invalid scan ID. Cannot establish connection to server.');
@@ -527,10 +496,10 @@ export const DocumentScanner: React.FC = () => {
         dlog('[PERSISTENCE] Kept scanId in localStorage for persistence:', data.scanId);
       }
 
-      // Navigate to results page
-      dlog('[SSE] Navigating to scanId:', data.scanId);
+      // URL is already set to /document-scanner/:scanId during upload.
+      // Do NOT navigate again here — it triggers the loadExistingScan useEffect
+      // and creates a duplicate SSE connection / race condition.
       setErrorSafe(null);
-      navigate(`/document-scanner/${data.scanId}`, { replace: false });
 
       // Fetch final results from API (authoritative source)
       try {
@@ -684,10 +653,10 @@ export const DocumentScanner: React.FC = () => {
   // Fallback polling mechanism
   const startPolling = (scanId: string) => {
     // Clear any existing polling
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
     }
-    
+
     dlog('[POLLING] Starting fallback polling for scanId:', scanId);
 
     const interval = setInterval(async () => {
@@ -703,6 +672,7 @@ export const DocumentScanner: React.FC = () => {
 
         if (scanSession.status === 'complete') {
           dlog('[POLLING] Scan completed');
+          setErrorSafe(null); // Clear any SSE error since we got results
           setCurrentScan(scanSession);
           setMainResults(scanSession.results || []);
           setUploadState({
@@ -731,14 +701,14 @@ export const DocumentScanner: React.FC = () => {
         console.error('[POLLING] Error:', err);
       }
     }, 5000); // Poll every 5 seconds
-    
-    setPollingInterval(interval);
+
+    pollingIntervalRef.current = interval;
   };
 
   const stopPolling = () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      setPollingInterval(null);
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
       dlog('[POLLING] Stopped fallback polling');
     }
   };
@@ -901,11 +871,11 @@ export const DocumentScanner: React.FC = () => {
       if (sseConnectionRef.current) {
         sseConnectionRef.current.disconnect();
       }
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [pollingInterval]);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
