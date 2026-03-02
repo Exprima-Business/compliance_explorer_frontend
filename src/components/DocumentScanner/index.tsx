@@ -152,37 +152,6 @@ export const DocumentScanner: React.FC = () => {
   //   console.log('[URL DEBUG] urlScanId from params:', urlScanId);
   // }, [urlScanId]);
 
-  // Auto-save hook for user modifications
-  const useAutoSave = (scanId: string, data: any) => {
-    const [isSaving, setIsSaving] = useState(false);
-    const [lastSaved, setLastSaved] = useState<Date | null>(null);
-    
-    const debouncedSave = useCallback(
-      async (data: any) => {
-        setIsSaving(true);
-        try {
-          await scanApi.updateScanResults(scanId, data);
-          setLastSaved(new Date());
-        } catch (error) {
-          console.error('Auto-save failed:', error);
-        } finally {
-          setIsSaving(false);
-        }
-      },
-      [scanId]
-    );
-    
-    useEffect(() => {
-      const timeoutId = setTimeout(() => {
-        debouncedSave(data);
-      }, 2000);
-      
-      return () => clearTimeout(timeoutId);
-    }, [data, debouncedSave]);
-    
-    return { isSaving, lastSaved };
-  };
-
   // Load existing scan data on mount (no polling during processing)
   useEffect(() => {
     console.log('[USEEFFECT] loadExistingScan useEffect is running');
@@ -285,11 +254,11 @@ export const DocumentScanner: React.FC = () => {
               }
             });
             
-            // Validate scanId before establishing SSE connection
-            if (scanId && scanId !== 'undefined' && scanId !== 'null') {
+            // Validate scanId before establishing SSE connection (skip if one is already active)
+            if (scanId && scanId !== 'undefined' && scanId !== 'null' && !sseConnectionRef.current) {
               console.log('[DEBUG] Establishing SSE connection for existing scan:', scanId);
               establishSSEConnection(scanId);
-            } else {
+            } else if (!scanId || scanId === 'undefined' || scanId === 'null') {
               console.error('[DEBUG] Cannot establish SSE connection: Invalid scanId:', scanId);
               console.error('[DEBUG] Full scan session for debugging:', scanSession);
               setErrorSafe('Invalid scan ID. Cannot establish connection to server.');
@@ -558,11 +527,11 @@ export const DocumentScanner: React.FC = () => {
         console.log('[PERSISTENCE DEBUG] Kept scanId in localStorage for persistence:', data.scanId);
       }
       
-      // Navigate to results page
-      console.log('[DEBUG] Navigating to scanId:', data.scanId);
+      // URL is already set to /document-scanner/:scanId during upload (line 446).
+      // Do NOT navigate again here — it triggers the loadExistingScan useEffect
+      // and creates a duplicate SSE connection / race condition.
       setErrorSafe(null);
-      navigate(`/document-scanner/${data.scanId}`, { replace: false });
-      
+
       // Fetch final results from API (authoritative source)
       try {
         console.log('[DEBUG] Fetching final results from API after SSE completion');
