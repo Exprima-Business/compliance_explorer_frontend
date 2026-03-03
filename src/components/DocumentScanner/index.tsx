@@ -606,10 +606,10 @@ export const DocumentScanner: React.FC = () => {
         dlog('[PERSISTENCE] Kept scanId in localStorage for persistence:', data.scanId);
       }
 
-      // Navigate to results page
-      dlog('[SSE] Navigating to scanId:', scanId);
+      // URL is already set to /document-scanner/:scanId during upload.
+      // Do NOT navigate again — it triggers the loadExistingScan useEffect
+      // and can cause component remount / hook count mismatch (React Error #300).
       setErrorSafe(null);
-      navigate(`/document-scanner/${scanId}`, { replace: false });
 
       // Fetch final results from API (authoritative source)
       try {
