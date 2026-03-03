@@ -649,12 +649,12 @@ export const DocumentScanner: React.FC = () => {
         localStorage.setItem('currentScanId', data.scanId);
         console.log('[PERSISTENCE DEBUG] Kept scanId in localStorage for persistence:', data.scanId);
       }
-      
-      // Navigate to results page
-      console.log('[DEBUG] Navigating to scanId:', scanId);
+
+      // URL is already set to /document-scanner/:scanId during upload.
+      // Do NOT navigate again — it triggers the loadExistingScan useEffect
+      // and can cause component remount / hook count mismatch (React Error #300).
       setErrorSafe(null);
-      navigate(`/document-scanner/${scanId}`, { replace: false });
-      
+
       // Fetch final results from API (authoritative source)
       try {
         console.log('[DEBUG] Fetching final results from API after SSE completion');
@@ -664,7 +664,7 @@ export const DocumentScanner: React.FC = () => {
           setErrorSafe('Failed to load scan results. Please try refreshing the page.');
           return;
         }
-        
+
         const finalScanSession = response.data;
         if (finalScanSession) {
           console.log('[DEBUG] Final results from API:', finalScanSession.results);
