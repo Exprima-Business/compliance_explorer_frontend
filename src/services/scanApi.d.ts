@@ -11,7 +11,6 @@ export interface ScanSession {
     completedAt?: string;
     results: DetectedClause[];
     metadata: ProcessingMetadata;
-    userModifications?: UserModifications;
     expiresAt: string;
 }
 export interface DetectedClause {
@@ -41,12 +40,6 @@ export interface ProcessingMetadata {
     chunksProcessed: number;
     totalChunks: number;
 }
-export interface UserModifications {
-    notes: string;
-    selectedClauses: string[];
-    customTags: string[];
-    lastModified: string;
-}
 export interface ScanProgress {
     scanId: string;
     current: number;
@@ -57,55 +50,37 @@ export interface ScanProgress {
     pagesProcessed: number;
     totalPages: number;
 }
-export interface ProgressiveResults {
-    scanId: string;
-    partialResults: DetectedClause[];
-    isComplete: boolean;
-    estimatedTimeRemaining: number;
-    pagesProcessed: number;
-    totalPages: number;
-}
 export interface CreateProjectFromScanRequest {
     scanId: string;
     projectName: string;
     selectedClauses: string[];
     organizationId: string;
 }
-export interface ImportClausesRequest {
-    scanId: string;
-    projectId: string;
-    selectedClauses: string[];
-}
 export declare const validateFile: (file: File) => boolean;
-export declare const handleScanError: (error: any) => string;
 export declare const scanApi: {
+    /** Upload a document and start an AI scan */
     uploadDocument: (file: File, organizationId: string) => Promise<ApiResponse<{
         scanId: string;
         status: string;
         estimatedTime: number;
         sseUrl: string;
     }>>;
+    /** Fetch a single scan by ID */
     getScan: (scanId: string) => Promise<ApiResponse<ScanSession>>;
+    /** List all scans for the current user / org */
     getScans: () => Promise<ApiResponse<ScanSession[]>>;
+    /** Retry a failed scan */
     retryScan: (scanId: string) => Promise<ApiResponse<{
         scanId: string;
         status: string;
     }>>;
+    /** Delete a scan */
     deleteScan: (scanId: string) => Promise<ApiResponse<void>>;
+    /**
+     * Create a project from completed scan results.
+     *
+     * Hits `POST /api/projects/create-from-scan` — the backend handles
+     * project creation, clause validation, and bookmark creation in one call.
+     */
     createProjectFromScan: (request: CreateProjectFromScanRequest) => Promise<ApiResponse<any>>;
-    importClauses: (request: ImportClausesRequest) => Promise<ApiResponse<any>>;
-    updateScanResults: (scanId: string, modifications: Partial<UserModifications>) => Promise<ApiResponse<void>>;
 };
-export declare class ScanSSEConnection {
-    private scanId;
-    private onMessage;
-    private onError;
-    private onComplete;
-    private eventSource;
-    private reconnectAttempts;
-    private maxReconnectAttempts;
-    private reconnectDelay;
-    constructor(scanId: string, onMessage: (data: any) => void, onError: (error: string) => void, onComplete: () => void);
-    connect(): Promise<void>;
-    disconnect(): void;
-}
