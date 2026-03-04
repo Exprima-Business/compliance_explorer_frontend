@@ -29,79 +29,23 @@ const Matrix: React.FC = () => {
     }
   }, [projectId]);
 
-  const loadProjectData = async (id: string) => {
-    try {
-      setProjectLoading(true);
-      setProjectError(null);
+  // ---------------------------------------------------------------------------
+  // ALL useMemo hooks MUST be above any early returns to avoid React Error #300
+  // ("Rendered fewer hooks than expected"). React requires the same number of
+  // hooks on every render — placing them after a conditional `return` meant
+  // they were skipped during loading/error states, changing the hook count.
+  // ---------------------------------------------------------------------------
 
-      const resp = await apiCall<Project>(`/api/projects/${id}`);
-      if (resp.error) {
-        throw new Error(extractErrorMessage(resp.error, 'Failed to load project'));
-      }
-      setCurrentProject(resp.data!);
-
-    } catch (error) {
-      setProjectError((error as Error).message);
-    } finally {
-      setProjectLoading(false);
-    }
-  };
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-  };
-
-  const handleClauseSelect = (_clause: any) => {
-    // TODO: implement clause selection logic
-  };
-
-  const handleClauseDeselect = (_clauseId: string) => {
-    // TODO: implement clause deselection logic
-  };
-
-  if (loading || projectLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error || projectError) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">
-          {error || projectError}
-          {projectError && (
-            <Button 
-              onClick={() => projectId && loadProjectData(projectId)} 
-              variant="outlined" 
-              size="small" 
-              sx={{ mt: 1 }}
-            >
-              Retry
-            </Button>
-          )}
-        </Alert>
-      </Box>
-    );
-  }
-
-  // Helper function to find parent clauses
+  // Helper: find parent clauses for a given clause
   const findParentClauses = (clause: Clause): Clause[] => {
     if (!clause.relationships || !Array.isArray(clause.relationships)) return [];
-
     const parentClauses: Clause[] = [];
-    
     clause.relationships.forEach(relationship => {
       if (relationship.type === 'PARENT') {
         const parentClause = clauses.find(c => c.id === relationship.targetClauseId);
-        if (parentClause) {
-          parentClauses.push(parentClause);
-        }
+        if (parentClause) parentClauses.push(parentClause);
       }
     });
-
     return parentClauses;
   };
 
@@ -147,6 +91,68 @@ const Matrix: React.FC = () => {
     })),
     [matrixClauses]
   );
+
+  // -- Callbacks (not hooks, but kept near the hooks section for clarity) -----
+
+  const loadProjectData = async (id: string) => {
+    try {
+      setProjectLoading(true);
+      setProjectError(null);
+
+      const resp = await apiCall<Project>(`/api/projects/${id}`);
+      if (resp.error) {
+        throw new Error(extractErrorMessage(resp.error, 'Failed to load project'));
+      }
+      setCurrentProject(resp.data!);
+
+    } catch (error) {
+      setProjectError((error as Error).message);
+    } finally {
+      setProjectLoading(false);
+    }
+  };
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
+
+  const handleClauseSelect = (_clause: any) => {
+    // TODO: implement clause selection logic
+  };
+
+  const handleClauseDeselect = (_clauseId: string) => {
+    // TODO: implement clause deselection logic
+  };
+
+  // -- Early returns (AFTER all hooks) ----------------------------------------
+
+  if (loading || projectLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error || projectError) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">
+          {error || projectError}
+          {projectError && (
+            <Button
+              onClick={() => projectId && loadProjectData(projectId)}
+              variant="outlined"
+              size="small"
+              sx={{ mt: 1 }}
+            >
+              Retry
+            </Button>
+          )}
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>
