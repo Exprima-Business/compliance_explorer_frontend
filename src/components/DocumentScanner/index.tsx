@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, Alert, Paper } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SaveIcon from '@mui/icons-material/Save';
@@ -20,6 +20,7 @@ export const DocumentScanner: React.FC = () => {
   const { user } = useAuth();
   const { scanId: urlScanId } = useParams<{ scanId?: string }>();
 
+  const navigate = useNavigate();
   const scan = useScanUpload(urlScanId);
 
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -110,10 +111,12 @@ export const DocumentScanner: React.FC = () => {
             onClose={() => setShowSaveDialog(false)}
             scanId={scan.scanId}
             selectedClauseIds={selectedClauses}
-            onProjectCreated={() => {
-              // After successful project creation, reset scanner
-              setShowSaveDialog(false);
-              scan.reset();
+            onProjectCreated={(projectId) => {
+              // Navigate to the Matrix page for the new project.
+              // SaveAsProjectDialog already set localStorage('projectId')
+              // and called refreshProjects(), so the project selector and
+              // BookmarkContext will pick up the new project automatically.
+              navigate(`/matrix/${projectId}`);
             }}
           />
         </>

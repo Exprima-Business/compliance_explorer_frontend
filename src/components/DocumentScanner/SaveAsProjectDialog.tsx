@@ -93,20 +93,29 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
         return;
       }
 
-      // Refresh the project list so the new project appears in the selector
-      // without triggering a currentProject switch cascade
-      await refreshProjects();
-
-      // Notify parent
-      if (resp.data?.project?.id) {
-        onProjectCreated?.(resp.data.project.id);
+      // Point localStorage at the new project BEFORE refreshing.
+      // refreshProjects() reads localStorage('projectId') to decide which
+      // project becomes currentProject — so this ensures the new project
+      // is automatically selected without a manual setCurrentProject() call.
+      const newProjectId = resp.data?.project?.id;
+      if (newProjectId) {
+        localStorage.setItem('projectId', newProjectId);
       }
+
+      // Refresh the project list — picks up the new project and sets it
+      // as currentProject via the localStorage key we just wrote.
+      await refreshProjects();
 
       // Clean up form state and close
       setName('');
       setDescription('');
       setError(null);
       onClose();
+
+      // Notify parent with the new project ID so it can navigate
+      if (newProjectId) {
+        onProjectCreated?.(newProjectId);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create project');
     } finally {
