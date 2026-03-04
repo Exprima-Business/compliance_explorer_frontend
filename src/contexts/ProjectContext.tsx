@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { apiCall } from '../services/api';
 import { useOrg } from './OrgContext';
 import { dlog } from '../utils/debugLog';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export interface Project {
   id: string;
@@ -38,12 +39,22 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
 
     // Only load projects if org context is initialized and we have a current org
-    if (!orgInitialized || !currentOrg) {
-      dlog('ProjectProvider: skipping project load - org not ready', {
+    if (!orgInitialized) {
+      // OrgProvider hasn't finished loading yet — wait silently (don't flip initialized).
+      dlog('ProjectProvider: skipping project load - org not yet initialized');
+      return;
+    }
+
+    if (!currentOrg) {
+      // OrgProvider finished but found no org (e.g. validate-organization failed or
+      // the user genuinely has no membership). Mark projects as initialized so
+      // ProjectGate can render something (ProjectSetupDialog) rather than staying
+      // blank forever.
+      dlog('ProjectProvider: org initialized but no currentOrg - marking projects initialized', {
         orgInitialized,
-        hasCurrentOrg: !!currentOrg
+        hasCurrentOrg: false
       });
-      setInitialized(false);
+      setInitialized(true);
       return;
     }
 
@@ -71,6 +82,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setInitialized(true);
     } else {
       dlog('ProjectProvider: failed to load projects', { error: resp.error });
+      // Always mark initialized even on error so ProjectGate never spins forever
+      setInitialized(true);
     }
   }, [orgInitialized, currentOrg]);
 
@@ -89,8 +102,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       body: JSON.stringify({ name, description }),
     });
     if (resp.error) {
-      const msg = typeof resp.error === 'string' ? resp.error : resp.error.message;
-      throw new Error(msg);
+      throw new Error(extractErrorMessage(resp.error, 'Failed to create project'));
     }
     if (resp.data) {
       setProjects(prev => [...prev, resp.data!]);

@@ -4,6 +4,7 @@ import Layout from './Layout';
 import Home from '../pages/Home';
 import Matrix from '../pages/Matrix';
 import { DocumentScanner } from './DocumentScanner';
+import { ErrorBoundary } from './ErrorBoundary';
 import { PreferencesProvider } from '../contexts/PreferencesContext';
 import { ClauseProvider } from '../contexts/ClauseContext';
 import { BookmarkProvider } from '../contexts/BookmarkContext';
@@ -29,11 +30,13 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/matrix" element={<Matrix />} />
+                    <Route path="/matrix/:projectId" element={<Matrix />} />
                     {enableScanner && (
-                      <>
-                        <Route path="/document-scanner" element={<DocumentScanner />} />
-                        <Route path="/document-scanner/:scanId" element={<DocumentScanner />} />
-                      </>
+                      <Route path="/document-scanner/:scanId?" element={
+                        <ErrorBoundary fallbackMessage="The document scanner encountered an error. Click below to try again.">
+                          <DocumentScanner />
+                        </ErrorBoundary>
+                      } />
                     )}
                   </Routes>
                 </Layout>

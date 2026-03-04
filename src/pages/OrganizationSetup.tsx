@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, TextField, Typography, Stepper, Step, StepLabel, StepContent, Alert, Paper } from '@mui/material';
+import { Box, Button, TextField, Typography, Stepper, Step, StepLabel, StepContent, Alert, Paper, Divider } from '@mui/material';
 import { supabase } from '../lib/supabase';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
@@ -42,6 +42,17 @@ const OrganizationSetup: React.FC = () => {
   
   const { user: authUser } = useAuth();
   const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/login');
+    } catch (err) {
+      dlog('OrganizationSetup: sign out error', { err });
+      // Hard-redirect as fallback
+      window.location.href = (import.meta.env.PROD ? '/app' : '') + '/login';
+    }
+  };
 
   const handleSubmit = async () => {
     if (!authUser) {
@@ -86,8 +97,13 @@ const OrganizationSetup: React.FC = () => {
           statusText: response.statusText,
           error: errorData
         });
-        
-        throw new Error(errorData.error || `Failed to setup organization: ${response.status} ${response.statusText}`);
+
+        // errorData.error may be an object {code, message, details} — extract the string
+        const errMsg =
+          (typeof errorData.error === 'object' ? errorData.error?.message : errorData.error) ||
+          errorData.message ||
+          `Failed to setup organization: ${response.status} ${response.statusText}`;
+        throw new Error(errMsg);
       }
 
       const data: ApiResponse = await response.json();
@@ -250,7 +266,13 @@ const OrganizationSetup: React.FC = () => {
             disabled={loading}
             sx={{ mb: 2 }}
           />
-          
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
@@ -342,6 +364,22 @@ const OrganizationSetup: React.FC = () => {
               </Step>
             ))}
           </Stepper>
+        </Box>
+
+        {/* Sign-out escape hatch */}
+        <Divider sx={{ width: '100%', mt: 4 }} />
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            Already have an account?{' '}
+            <Button
+              size="small"
+              variant="text"
+              onClick={handleSignOut}
+              sx={{ textTransform: 'none', p: 0, minWidth: 0, verticalAlign: 'baseline' }}
+            >
+              Sign out
+            </Button>
+          </Typography>
         </Box>
       </Paper>
     </Box>

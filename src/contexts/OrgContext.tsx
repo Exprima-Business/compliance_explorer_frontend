@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { apiCall } from '../services/api';
-import { supabase } from '../lib/supabase';
 import { dlog } from '../utils/debugLog';
 import { OrganizationValidationService } from '../services/organizationValidationService';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export interface Organization {
   id: string;
@@ -98,51 +98,42 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
-    // Only load organizations if user doesn't need setup
-    // This prevents unnecessary API calls for setup-required users
-    const shouldLoadOrgs = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const setupRequired = session?.user?.user_metadata?.setup_required;
-        
-        if (!setupRequired) {
-          refreshOrgs();
-        } else {
-          dlog('OrgProvider: Skipping organization load - user needs setup');
-          setInitialized(true);
-        }
-      } catch (error) {
-        dlog('OrgProvider: Error checking setup requirement', { error });
-        // Fall back to loading organizations
-        refreshOrgs();
-      }
-    };
-    
-    shouldLoadOrgs();
+    // Always load organizations on mount.
+    // AppContent routes setup-required users to OrganizationSetup before MainApp
+    // (and therefore OrgProvider) is mounted, so no JWT flag check is needed here.
+    refreshOrgs();
   }, [refreshOrgs]);
 
   const setCurrentOrg = async (org: Organization) => {
+    // Optimistic update: store org immediately so downstream callers (ProjectProvider,
+    // api.ts x-org-id header) always have a valid org ID even if backend validation is slow
+    // or temporarily unavailable.
+    setCurrentOrgState(org);
+    localStorage.setItem(ORG_KEY, org.id);
+
     try {
-      // Validate organization access with backend
+      // Validate organization access with backend (non-blocking for the UI)
       const validationResult = await OrganizationValidationService.setOrganizationContext(org.id);
-      
+
       if (!validationResult.valid) {
-        throw new Error(validationResult.error || 'Failed to validate organization access');
+        // Log but don't throw — the org came from the backend getUserOrganizations call
+        // so it's known-good; a transient failure here shouldn't block the UI.
+        dlog('Organization context: backend validation returned invalid (proceeding anyway)', {
+          orgId: org.id,
+          error: validationResult.error
+        });
+        return;
       }
 
-      // Update local state only after successful validation
-      setCurrentOrgState(org);
-      localStorage.setItem(ORG_KEY, org.id);
-      
-      dlog('Organization context updated with backend validation', { 
-        orgId: org.id, 
+      dlog('Organization context updated with backend validation', {
+        orgId: org.id,
         orgName: org.name,
         validated: true
       });
     } catch (error) {
+      // Non-fatal: org is already stored optimistically; log and continue.
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      dlog('Error updating organization context:', errorMessage);
-      throw new Error(`Organization selection failed: ${errorMessage}`);
+      dlog('Error updating organization context (non-fatal, proceeding):', errorMessage);
     }
   };
 
@@ -154,7 +145,7 @@ export const OrgProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (resp.error) {
-      throw new Error(typeof resp.error === 'string' ? resp.error : resp.error.message);
+      throw new Error(extractErrorMessage(resp.error, 'Failed to create organization'));
     }
 
     // Push new org into state

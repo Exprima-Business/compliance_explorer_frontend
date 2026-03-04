@@ -99,10 +99,8 @@ if (typeof window !== 'undefined') {
   (window as any).debugOrganizationValidation = async () => {
     try {
       const { OrganizationValidationService } = await import('./services/organizationValidationService');
-      const hasContext = await OrganizationValidationService.hasValidOrganizationContext();
       const userOrgs = await OrganizationValidationService.getUserOrganizations();
       console.log('[ORGANIZATION VALIDATION DEBUG]', {
-        hasValidContext: hasContext,
         userOrganizations: userOrgs
       });
     } catch (e) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, CircularProgress, Alert } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, Snackbar } from '@mui/material';
 import { ClauseGraphD3 as ClauseGraph } from '../components/ClauseGraphD3';
 import { FloatingPanel } from '../components/FloatingPanel';
 import { useClause } from '../contexts/ClauseContext';
@@ -46,14 +46,18 @@ const Home: React.FC = () => {
 
   const searchLower = searchQuery.toLowerCase();
 
-  const filtered = clauses.filter((clause): clause is Clause => {
-    if (!clause) return false;
-    if (!searchLower) return true;
-    return (
-      clause.title?.toLowerCase().includes(searchLower) ||
-      (clause.clauseCode || '').toLowerCase().includes(searchLower)
-    );
-  });
+  // Memoized so it only recomputes when clauses or searchQuery change,
+  // not on every render triggered by auth/bookmark state updates.
+  const filtered = React.useMemo(() =>
+    clauses.filter((clause): clause is Clause => {
+      if (!clause) return false;
+      if (!searchLower) return true;
+      return (
+        clause.title?.toLowerCase().includes(searchLower) ||
+        (clause.clauseCode || '').toLowerCase().includes(searchLower)
+      );
+    }),
+  [clauses, searchLower]);
 
   const bookmarkedSet = React.useMemo(() => new Set(bookmarks.map(b=>b.clauseId)), [bookmarks]);
 
@@ -157,17 +161,12 @@ const Home: React.FC = () => {
       return { nodes: [], links: [] };
     }
 
-    // Don't create graph data if we have no links
-    if (effectiveLinks.length === 0) {
-      dlog('Home: No links available for graph data', { effectiveLinksLength: effectiveLinks.length });
-      return { nodes: [], links: [] };
-    }
-
     // Build nodes from currently filtered clauses
     const nodes: GraphNode[] = filtered.map((clause: Clause) => ({
       id: clause.id || '',
       name: clause.title || 'Untitled Clause',
-      clauseId: clause.clauseCode || '',
+      clauseCode: clause.clauseCode || '',   // preferred typed field
+      clauseId: clause.clauseCode || '',     // deprecated alias — kept for compat
       title: clause.title || '',
       riskClassification: clause.riskClassification || 'UNKNOWN',
       category: clause.category || '',
@@ -250,12 +249,19 @@ const Home: React.FC = () => {
     }
   }, [graphData, isAuthenticated, authLoading, authStable, linksLoading]);
 
-  const handleNodeClick = (node: GraphNode) => {
+  // Stable reference so D3's click listener always sees the latest clauses
+  // without the effect needing to re-run.
+  const handleNodeClick = React.useCallback((node: GraphNode) => {
     const clause = clauses.find(c => c.id === node.id);
-    if (clause) {
-      setActiveClause(clause);
-    }
-  };
+    if (clause) setActiveClause(clause);
+  }, [clauses]);
+
+  // Stable bookmark toggle for the FloatingPanel — recreating on every render
+  // was causing unnecessary FloatingPanel re-renders.
+  const handleBookmarkToggle = React.useCallback(async () => {
+    if (!activeClause) return;
+    await toggleBookmark(activeClause.id);
+  }, [activeClause, toggleBookmark]);
 
   // Show loading state while auth is loading or graph data is loading
   if (authLoading || linksLoading) {
@@ -307,17 +313,40 @@ const Home: React.FC = () => {
   if (loading && clauses.length === 0) {
     dlog('Home: Showing initial loading state', { loading, clausesLength: clauses.length });
     return (
-      <Box sx={{ 
-        display: 'flex', 
+      <Box sx={{
+        display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center', 
-        alignItems: 'center', 
+        justifyContent: 'center',
+        alignItems: 'center',
         height: 'calc(100vh - 64px)',
         gap: 2
       }}>
         <CircularProgress size={60} />
         <Typography variant="h6" color="text.secondary">
           Loading clauses...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Show empty state when clauses have loaded but the DB has no data yet
+  if (!loading && clauses.length === 0) {
+    return (
+      <Box sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: 'calc(100vh - 64px)',
+        gap: 2,
+        textAlign: 'center',
+        px: 3
+      }}>
+        <Typography variant="h5" color="text.secondary" gutterBottom>
+          No clause data available
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Import compliance clause data to populate the visualization.
         </Typography>
       </Box>
     );
@@ -344,11 +373,23 @@ const Home: React.FC = () => {
       <FloatingPanel
         clause={activeClause}
         onClose={() => setActiveClause(null)}
-        onBookmarkToggle={async () => {
-          if (!activeClause) return;
-          await toggleBookmark(activeClause.id);
-        }}
+        onBookmarkToggle={handleBookmarkToggle}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

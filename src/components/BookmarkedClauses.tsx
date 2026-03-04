@@ -5,14 +5,15 @@ import type { Clause } from '../types/clause';
 
 interface BookmarkedClausesProps {
   bookmarkedClauses: Clause[];
-  onClauseClick: (clause: Clause) => void;
+  /** Optional: called when the clause card is clicked. Future use: open clause in main view. */
+  onClauseClick?: (clause: Clause) => void;
   onBookmarkToggle: (clause: Clause) => void;
 }
 
-export const BookmarkedClauses = ({ 
-  bookmarkedClauses, 
+export const BookmarkedClauses = ({
+  bookmarkedClauses,
   onClauseClick,
-  onBookmarkToggle 
+  onBookmarkToggle
 }: BookmarkedClausesProps) => {
   return (
     <Box sx={{ mt: 3 }}>
@@ -62,7 +63,7 @@ export const BookmarkedClauses = ({
                 transform: 'translateY(-1px)',
               }
             }}
-            onClick={() => onClauseClick(clause)}
+            onClick={() => onClauseClick?.(clause)}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <Box>

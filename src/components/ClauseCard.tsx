@@ -430,7 +430,7 @@ export const ClauseCard = ({ clause, onBookmarkToggle, onClose, sx, compact = fa
         {renderField('Conditions', clause.conditions)}
         {renderField('Implementation Guidance', clause.implementationGuidance)}
         {renderField('Assessment Method', clause.assessmentMethod)}
-        {renderField('Penalties', clause.metadata.penalties)}
+        {renderField('Penalties', clause.metadata?.penalties)}
       </CardContent>
     </Card>
   );

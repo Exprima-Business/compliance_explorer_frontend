@@ -26,6 +26,8 @@ import {
   Sort as SortIcon
 } from '@mui/icons-material';
 import type { Clause, MatrixDataResponse } from '../../types/projectCreation';
+import { apiCall } from '../../services/api';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 interface VirtualMatrixTableProps {
   projectId: string;
@@ -81,21 +83,15 @@ export const VirtualMatrixTable: React.FC<VirtualMatrixTableProps> = ({
         ...(filters.confidence !== 'all' && { confidence: filters.confidence })
       });
       
-      const response = await fetch(
-        `/api/projects/${projectId}/matrix-data?${queryParams}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${getAuthToken()}`
-          }
-        }
+      const resp = await apiCall<MatrixDataResponse>(
+        `/api/projects/${projectId}/matrix-data?${queryParams}`
       );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+      if (resp.error) {
+        throw new Error(extractErrorMessage(resp.error, 'Failed to load matrix data'));
       }
-      
-      const data: MatrixDataResponse = await response.json();
-      
+
+      const data = resp.data!;
       setClauses(data.clauses);
       setPagination(prev => ({
         ...prev,
@@ -104,7 +100,6 @@ export const VirtualMatrixTable: React.FC<VirtualMatrixTableProps> = ({
       }));
       
     } catch (error) {
-      console.error('Failed to load matrix data:', error);
       setError((error as Error).message);
     } finally {
       setLoading(false);
@@ -186,35 +181,43 @@ export const VirtualMatrixTable: React.FC<VirtualMatrixTableProps> = ({
       setExporting(true);
       const selectedClauseIds = Array.from(selectedClauses);
       
-      const response = await fetch(`/api/projects/${projectId}/export`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAuthToken()}`
-        },
-        body: JSON.stringify({ 
-          clauseIds: selectedClauseIds,
-          format: 'xlsx',
-          includeMetadata: true
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const resp = await apiCall<{ data: Record<string, any>[]; metadata: any }>(
+        `/api/projects/${projectId}/export`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            clauseIds: selectedClauseIds,
+            format: 'csv',
+            includeMetadata: true
+          })
+        }
+      );
+
+      if (resp.error) {
+        throw new Error(extractErrorMessage(resp.error, 'Export failed'));
       }
-      
-      const blob = await response.blob();
+
+      const rows = resp.data?.data ?? [];
+      if (rows.length === 0) throw new Error('No data to export');
+
+      const headers = Object.keys(rows[0]);
+      const csvLines = [
+        headers.join(','),
+        ...rows.map(row =>
+          headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(',')
+        )
+      ];
+      const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `project-${projectId}-export-${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = `project-${projectId}-export-${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
     } catch (error) {
-      console.error('Export failed:', error);
       setError((error as Error).message);
     } finally {
       setExporting(false);
@@ -244,10 +247,6 @@ export const VirtualMatrixTable: React.FC<VirtualMatrixTableProps> = ({
     if (confidence >= 0.8) return 'success';
     if (confidence >= 0.5) return 'warning';
     return 'error';
-  };
-
-  const getAuthToken = () => {
-    return localStorage.getItem('auth_token') || '';
   };
 
   if (loading) {

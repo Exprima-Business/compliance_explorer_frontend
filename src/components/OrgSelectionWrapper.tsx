@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrg } from '../contexts/OrgContext';
-import { OrganizationValidationService } from '../services/organizationValidationService';
 import { OrgSelectionFlow } from './OrgSelectionFlow';
 import { dlog } from '../utils/debugLog';
 
@@ -13,98 +12,41 @@ interface OrgSelectionWrapperProps {
 export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ children }) => {
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { currentOrg, initialized: orgInitialized, orgs, setCurrentOrg } = useOrg();
-  const [claimsValidated, setClaimsValidated] = useState(false);
-  const [validatingClaims, setValidatingClaims] = useState(true);
   const [autoAssigning, setAutoAssigning] = useState(false);
   const [setupRequired, setSetupRequired] = useState(false);
   const navigate = useNavigate();
 
-  // Effect for checking setup required and validating claims
+  // Check if user needs organization setup (JWT flag is still the fast client-side signal here)
   useEffect(() => {
-    const checkSetupAndValidateClaims = async () => {
-      if (!isAuthenticated || !orgInitialized) {
-        setValidatingClaims(false);
-        return;
-      }
+    if (isAuthenticated && user?.user_metadata?.setup_required) {
+      dlog('User requires organization setup', { userId: user?.id });
+      setSetupRequired(true);
+    }
+  }, [isAuthenticated, user]);
 
-      // Check if user needs organization setup
-      const userSetupRequired = user?.user_metadata?.setup_required;
-      if (userSetupRequired) {
-        dlog('User requires organization setup', { 
-          userId: user?.id, 
-          setupRequired: userSetupRequired 
-        });
-        setSetupRequired(true);
-        setValidatingClaims(false);
-        return;
-      }
-
-      try {
-        setValidatingClaims(true);
-        const hasValidContext = await OrganizationValidationService.hasValidOrganizationContext();
-        
-        if (hasValidContext) {
-          dlog('Organization context validation successful');
-          setClaimsValidated(true);
-        } else {
-          dlog('Organization context validation failed - no valid context found');
-          setClaimsValidated(false);
-        }
-      } catch (error) {
-        dlog('Error validating organization context:', error);
-        setClaimsValidated(false);
-      } finally {
-        setValidatingClaims(false);
-      }
-    };
-
-    checkSetupAndValidateClaims();
-  }, [isAuthenticated, orgInitialized, user]);
-
-  // Effect for auto-assigning single organization
+  // Auto-assign when there is exactly one org and none is selected yet
   useEffect(() => {
     const autoAssignSingleOrg = async () => {
-      // Auto-assign if we have a single org and either no current org OR claims not validated
-      if (orgs.length === 1 && !validatingClaims && !autoAssigning) {
-        // Check if we need to auto-assign (no current org) OR if we have current org but claims not validated
-        const needsAutoAssign = !currentOrg || (currentOrg && !claimsValidated);
-        
-        if (needsAutoAssign) {
-          dlog('Auto-assigning single organization', { 
-            orgId: orgs[0].id, 
-            orgName: orgs[0].name,
-            hasCurrentOrg: !!currentOrg,
-            claimsValidated,
-            reason: !currentOrg ? 'no current org' : 'claims not validated'
-          });
-          setAutoAssigning(true);
-          
-          try {
-            await setCurrentOrg(orgs[0]);
-            setClaimsValidated(true);
-            dlog('Auto-assignment successful');
-          } catch (error) {
-            dlog('Auto-assignment failed', { error });
-            // Fall back to manual selection if auto-assignment fails
-          } finally {
-            setAutoAssigning(false);
-          }
+      if (orgs.length === 1 && !currentOrg && orgInitialized && !autoAssigning) {
+        dlog('Auto-assigning single organization', { orgId: orgs[0].id, orgName: orgs[0].name });
+        setAutoAssigning(true);
+        try {
+          await setCurrentOrg(orgs[0]);
+          dlog('Auto-assignment successful');
+        } catch (error) {
+          dlog('Auto-assignment failed', { error });
+        } finally {
+          setAutoAssigning(false);
         }
       }
     };
-
     autoAssignSingleOrg();
-  }, [orgs, currentOrg, claimsValidated, validatingClaims, autoAssigning, setCurrentOrg]);
+  }, [orgs, currentOrg, orgInitialized, autoAssigning, setCurrentOrg]);
 
   // Show loading while authentication or organization context is initializing
-  if (authLoading || !orgInitialized || validatingClaims || autoAssigning) {
+  if (authLoading || !orgInitialized || autoAssigning) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh' 
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <div>{autoAssigning ? 'Setting up your organization...' : 'Loading...'}</div>
       </div>
     );
@@ -120,29 +62,21 @@ export const OrgSelectionWrapper: React.FC<OrgSelectionWrapperProps> = ({ childr
     dlog('Redirecting to organization setup', { userId: user?.id });
     navigate('/setup-organization');
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh' 
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <div>Redirecting to organization setup...</div>
       </div>
     );
   }
 
-  // If no current organization or claims are invalid, show selection
-  if (!currentOrg || !claimsValidated) {
+  // If no current organization, show selection flow
+  if (!currentOrg) {
     return (
-      <OrgSelectionFlow 
-        onOrganizationSelected={() => {
-          dlog('Organization selected, re-validating claims');
-          setClaimsValidated(true);
-        }}
+      <OrgSelectionFlow
+        onOrganizationSelected={() => dlog('Organization selected')}
       />
     );
   }
 
-  // User is authenticated and has valid organization claims, show the app
+  // User is authenticated and has a current organization — show the app
   return <>{children}</>;
 }; 

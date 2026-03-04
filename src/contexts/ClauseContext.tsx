@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { clauseService } from '../services/clauseService';
-import { usePreferences } from './PreferencesContext';
 import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiError } from '../types/api';
-import { dlog } from '../utils/debugLog';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export interface ClauseContextValue {
   clauses: Clause[];
@@ -25,8 +24,6 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFamily, setSelectedFamily] = useState<ClauseFamily | null>(null);
-  
-  const { preferences } = usePreferences();
 
   // Load families on mount
   useEffect(() => {
@@ -34,8 +31,7 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const resp = await clauseService.getClauseFamilies();
         if (resp.error) {
-          const msg = typeof resp.error === 'string' ? resp.error : (resp.error as ApiError).message;
-          throw new Error(msg);
+          throw new Error(extractErrorMessage(resp.error, 'Failed to fetch families'));
         }
         if (resp.data) setFamilies(resp.data);
       } catch (err) {
@@ -46,15 +42,16 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     loadFamilies();
   }, []);
 
-  // Load all clauses on mount
+  // Unified: load all clauses on mount AND whenever the family filter changes
   useEffect(() => {
-    const loadAllClauses = async () => {
+    const loadClauses = async () => {
       try {
         setLoading(true);
-        const resp = await clauseService.getAllClauses();
+        const resp = selectedFamily
+          ? await clauseService.getClausesByFamily(selectedFamily)
+          : await clauseService.getAllClauses();
         if (resp.error) {
-          const msg = typeof resp.error === 'string' ? resp.error : (resp.error as ApiError).message;
-          throw new Error(msg);
+          throw new Error(extractErrorMessage(resp.error, 'Failed to fetch clauses'));
         }
         if (resp.data) setClauses(resp.data);
       } catch (err) {
@@ -64,86 +61,12 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
 
-    loadAllClauses();
-  }, []);
-
-  // When the user selects / clears a family, (re)load the appropriate clause set
-  useEffect(() => {
-    if (selectedFamily === null) return; // Don't reload if no family is selected (keep all clauses)
-    
-    const loadByFamily = async () => {
-      try {
-        setLoading(true);
-        const resp = await clauseService.getClausesByFamily(selectedFamily);
-        if (resp.error) {
-          const msg = typeof resp.error === 'string' ? resp.error : (resp.error as ApiError).message;
-          throw new Error(msg);
-        }
-        if (resp.data) setClauses(resp.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch clauses');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadByFamily();
+    loadClauses();
   }, [selectedFamily]);
 
-  // Helper function to find parent clauses
-  const findParentClauses = (clause: Clause): Clause[] => {
-    const parentClauses: Clause[] = [];
-
-    clause.relationships.forEach(rel => {
-      const relAny = rel as any;
-      const rType: string = (relAny.type ?? relAny.relationshipType ?? '').toUpperCase();
-
-      if (rType === 'PARENT') {
-        // For a PARENT relationship stored as
-        //   clauseId           = child
-        //   relatedClauseId    = parent
-        // the parent is in the *relatedClauseId* (or targetClauseId) column.
-        const parentId = relAny.relatedClauseId || relAny.targetClauseId;
-        if (parentId) {
-          const parent = clauses.find(c => c.clauseId === parentId);
-          if (parent) parentClauses.push(parent);
-        }
-      } else if (rType === 'CHILD') {
-        // For a CHILD relationship stored as
-        //   clauseId           = parent
-        //   relatedClauseId    = child
-        // the parent is in the *clauseId* (or sourceClauseId) column.
-        const parentId = relAny.clauseId || relAny.sourceClauseId;
-        if (parentId) {
-          const parent = clauses.find(c => c.clauseId === parentId);
-          if (parent) parentClauses.push(parent);
-        }
-      }
-    });
-
-    return parentClauses;
-  };
-
-  // Helper function to find child clauses
-  const findChildClauses = (clause: Clause): Clause[] => {
-    const childClauses: Clause[] = [];
-    
-    clauses.forEach(otherClause => {
-      otherClause.relationships.forEach(relationship => {
-        // Handle both possible property names
-        const targetId = (relationship as any).targetClauseId || (relationship as any).clauseId;
-        if (relationship.type === 'PARENT' && targetId === clause.clauseId) {
-          childClauses.push(otherClause);
-        }
-      });
-    });
-
-    return childClauses;
-  };
-
-
-
-  const value: ClauseContextValue = {
+  // Memoize the context value so consumers only re-render when something they
+  // actually use has changed — not on every ClauseProvider render.
+  const value = React.useMemo<ClauseContextValue>(() => ({
     clauses,
     families,
     loading,
@@ -151,8 +74,8 @@ export const ClauseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     searchQuery,
     setSearchQuery,
     selectedFamily,
-    setSelectedFamily
-  };
+    setSelectedFamily,
+  }), [clauses, families, loading, error, searchQuery, selectedFamily]);
 
   return (
     <ClauseContext.Provider value={value}>
@@ -167,4 +90,4 @@ export const useClause = (): ClauseContextValue => {
     throw new Error('useClause must be used within a ClauseProvider');
   }
   return context;
-}; 
+};

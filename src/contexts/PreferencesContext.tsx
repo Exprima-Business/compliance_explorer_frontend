@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface Preferences {
   removeParentWithChild: boolean | null;
@@ -43,6 +44,21 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
       console.error('Failed to save preferences:', error);
     }
   }, [preferences]);
+
+  // Clear preferences on logout so the next user starts with defaults
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {
+          // ignore storage errors
+        }
+        setPreferences(defaultPreferences);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const updatePreference = (key: keyof Preferences, value: any) => {
     setPreferences(prev => ({

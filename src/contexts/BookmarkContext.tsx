@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { useOrg } from './OrgContext';
 import { useProject } from './ProjectContext';
 import { dlog } from '../utils/debugLog';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 interface BookmarkContextValue {
   bookmarks: Bookmark[];
@@ -13,12 +14,13 @@ interface BookmarkContextValue {
   toggleBookmark: (clauseId: string) => Promise<void>;
   connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
   isClauseBookmarked: (clauseId: string) => boolean;
+  bookmarkError: string | null;
+  clearBookmarkError: () => void;
 }
 
 const BookmarkContext = createContext<BookmarkContextValue | undefined>(undefined);
 
 // Connection management constants
-const KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
 const MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_RECONNECT_DELAY = 1000; // 1 second
 const MAX_RECONNECT_DELAY = 30000; // 30 seconds
@@ -29,11 +31,11 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected' | 'error'>('disconnected');
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
   const connectionStatusRef = useRef(connectionStatus);
-  
+
   // Connection management refs
   const channelRef = useRef<any>(null);
-  const keepAliveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const isReconnectingRef = useRef(false);
@@ -42,6 +44,10 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     connectionStatusRef.current = connectionStatus;
   }, [connectionStatus]);
+
+  const clearBookmarkError = useCallback(() => {
+    setBookmarkError(null);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -63,19 +69,13 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Cleanup function for connection management
   const cleanupConnection = useCallback(() => {
     dlog('Cleaning up connection resources');
-    
-    // Clear keep-alive interval
-    if (keepAliveIntervalRef.current) {
-      clearInterval(keepAliveIntervalRef.current);
-      keepAliveIntervalRef.current = null;
-    }
-    
+
     // Clear reconnect timeout
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
-    
+
     // Unsubscribe from channel
     if (channelRef.current) {
       channelRef.current
@@ -86,46 +86,31 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
       channelRef.current = null;
     }
-    
+
     isReconnectingRef.current = false;
     reconnectAttemptsRef.current = 0;
-  }, []);
-
-  // Keep-alive ping function
-  const sendKeepAlive = useCallback(() => {
-    if (channelRef.current && connectionStatusRef.current === 'connected') {
-      dlog('Sending keep-alive ping');
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'keep-alive',
-        payload: { timestamp: Date.now() }
-      }).catch((err: unknown) => {
-        console.warn('Keep-alive ping failed:', err);
-        setConnectionStatus('error');
-      });
-    }
   }, []);
 
   // Reconnection logic with exponential backoff
   const attemptReconnect = useCallback(() => {
     if (isReconnectingRef.current || !currentOrg || !currentProject) return;
-    
+
     if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
       dlog('Max reconnection attempts reached, giving up');
       setConnectionStatus('error');
       return;
     }
-    
+
     isReconnectingRef.current = true;
     setConnectionStatus('connecting');
-    
+
     const delay = Math.min(
       INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current),
       MAX_RECONNECT_DELAY
     );
-    
+
     dlog(`Attempting reconnection in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})`);
-    
+
     reconnectTimeoutRef.current = setTimeout(() => {
       reconnectAttemptsRef.current++;
       setupRealtimeSubscription();
@@ -141,7 +126,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Cleanup existing connection
     cleanupConnection();
-    
+
     dlog('Setting up realtime subscription for bookmarks');
     setConnectionStatus('connecting');
 
@@ -157,111 +142,65 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           filter: `organizationId=eq.${currentOrg.id}`
         },
         (payload) => {
-          // Backend's comprehensive payload logging
-          console.log('=== REALTIME EVENT DEBUG ===');
-          console.log('Event type:', payload.eventType);
-          console.log('Table:', payload.table);
-          console.log('Schema:', payload.schema);
-          console.log('Commit timestamp:', payload.commit_timestamp);
-          console.log('Event timestamp:', (payload as any).event_timestamp);
-          console.log('Errors:', payload.errors);
-          console.log('Payload:', JSON.stringify(payload, null, 2));
-          console.log('Payload keys:', Object.keys(payload));
-          console.log('Payload type:', typeof payload);
-          console.log('Payload length:', payload ? Object.keys(payload).length : 'null');
-          
-          // Specifically log the old/new objects for DELETE events
-          if (payload.eventType === 'DELETE') {
-            console.log('DELETE old object:', JSON.stringify(payload.old, null, 2));
-            console.log('DELETE old object keys:', payload.old ? Object.keys(payload.old) : 'null');
-            console.log('DELETE new object:', JSON.stringify(payload.new, null, 2));
-            console.log('DELETE new object keys:', payload.new ? Object.keys(payload.new) : 'null');
-          }
-          
-          console.log('=== END DEBUG ===');
-
-          // Generic log for every event before any filtering – helps debug missing DELETEs
-          dlog('RT payload', {
+          dlog('Bookmark realtime event received', {
             eventType: payload.eventType,
             new: payload.new,
             old: payload.old,
-            table: payload.table,
             filterOrg: currentOrg.id,
             filterProject: currentProject.id,
           });
 
-          dlog('Bookmark realtime event received:', {
-            eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old,
-            currentProject: currentProject.id,
-            table: payload.table,
-            schema: payload.schema,
-            commit_timestamp: payload.commit_timestamp,
-            errors: payload.errors
-          });
-
           if (payload.eventType === 'INSERT') {
             const b = payload.new as Bookmark;
-            dlog('Processing INSERT event:', { bookmark: b, currentProject: currentProject.id });
-            
+            dlog('Processing INSERT event', { bookmark: b, currentProject: currentProject.id });
+
             // Only process changes for the current project
             if (b.projectId !== currentProject.id) {
-              dlog('Skipping INSERT - wrong project:', { bookmarkProject: b.projectId, currentProject: currentProject.id });
+              dlog('Skipping INSERT - wrong project', { bookmarkProject: b.projectId, currentProject: currentProject.id });
               return;
             }
-            
+
             setBookmarks(prev => {
               // avoid duplicates by checking both id and clauseId
               const exists = prev.some(item => item.id === b.id || item.clauseId === b.clauseId);
               if (exists) {
-                dlog('Skipping INSERT - bookmark already exists:', { bookmarkId: b.id, clauseId: b.clauseId });
+                dlog('Skipping INSERT - bookmark already exists', { bookmarkId: b.id, clauseId: b.clauseId });
                 return prev;
               }
-              dlog('Adding bookmark to state:', { bookmark: b, newCount: prev.length + 1 });
+              dlog('Adding bookmark to state via realtime', { bookmark: b, newCount: prev.length + 1 });
               return [...prev, b];
             });
           } else if (payload.eventType === 'DELETE') {
-            // Since we now handle UI updates immediately via API response,
-            // DELETE events are mainly for multi-user synchronization
-            // We can safely ignore them since the UI is already updated
-            dlog('DELETE event received - UI already updated via API response, skipping');
-            return;
+            // Handle DELETE for multi-tab synchronisation
+            const old = payload.old as Partial<Bookmark>;
+            dlog('Processing DELETE event', { old, currentProject: currentProject.id });
+            if (old?.clauseId) {
+              setBookmarks(prev => prev.filter(b => b.clauseId !== old.clauseId));
+            }
           } else if (payload.eventType === 'UPDATE') {
             const b = payload.new as Bookmark;
-            dlog('Processing UPDATE event:', { bookmark: b, currentProject: currentProject.id });
-            
+            dlog('Processing UPDATE event', { bookmark: b, currentProject: currentProject.id });
+
             // Only process changes for the current project
             if (b.projectId !== currentProject.id) {
-              dlog('Skipping UPDATE - wrong project:', { bookmarkProject: b.projectId, currentProject: currentProject.id });
+              dlog('Skipping UPDATE - wrong project', { bookmarkProject: b.projectId, currentProject: currentProject.id });
               return;
             }
-            
+
             setBookmarks(prev => prev.map(item => item.id === b.id ? b : item));
           } else {
-            dlog('Unknown event type:', (payload as any).eventType);
+            dlog('Unknown event type', (payload as any).eventType);
           }
         }
       )
       .subscribe((status) => {
-        console.log('=== SUBSCRIPTION STATUS ===');
-        console.log('Status:', status);
-        console.log('Channel:', channel);
-        console.log('=== END STATUS ===');
-        
-        dlog('Realtime subscription status:', status);
-        
+        dlog('Realtime subscription status', status);
+
         if (status === 'SUBSCRIBED') {
           setConnectionStatus('connected');
           isReconnectingRef.current = false;
           reconnectAttemptsRef.current = 0;
-          
-          // Backend's subscription verification logging
-          console.log('Realtime subscription established for bookmarks');
-          
-          // Start keep-alive ping
-          keepAliveIntervalRef.current = setInterval(sendKeepAlive, KEEP_ALIVE_INTERVAL);
-          dlog('Realtime subscription established, keep-alive started');
+          dlog('Realtime subscription established for bookmarks');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setConnectionStatus('error');
           dlog('Realtime subscription error, attempting reconnection');
@@ -273,7 +212,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
     channelRef.current = channel;
-  }, [currentOrg, currentProject, cleanupConnection, sendKeepAlive, attemptReconnect]);
+  }, [currentOrg, currentProject, cleanupConnection, attemptReconnect]);
 
   // ---------------------------------------------
   // Realtime subscription: keep bookmarks in sync
@@ -328,13 +267,15 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [connectionStatus, attemptReconnect]);
 
-  const toggleBookmark = async (clauseId: string) => {
+  const toggleBookmark = useCallback(async (clauseId: string) => {
+    setBookmarkError(null);
+
     if (!currentProject) {
-      console.warn('toggleBookmark called without currentProject');
+      setBookmarkError('No project selected');
       return;
     }
 
-    dlog('toggleBookmark called:', {
+    dlog('toggleBookmark called', {
       clauseId,
       currentProject: currentProject.id,
       currentOrg: currentOrg?.id
@@ -343,11 +284,10 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const resp = await clauseService.bookmarkClause(clauseId);
       if (resp.error) {
-        const msg = typeof resp.error === 'string' ? resp.error : resp.error.message;
-        throw new Error(msg);
+        throw new Error(extractErrorMessage(resp.error, 'Bookmark operation failed'));
       }
 
-      dlog('API response received:', {
+      dlog('Bookmark API response received', {
         clauseId,
         response: resp.data,
         isBookmarked: resp.data?.isBookmarked
@@ -356,72 +296,68 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // ---------------------------------------------
       // IMMEDIATE UI UPDATE USING API RESPONSE
       // ---------------------------------------------
-      // Use the API response to update UI immediately, then let realtime events
-      // handle multi-user synchronization and verification
+      // Use the API response to update UI immediately; realtime events handle
+      // multi-user synchronisation and verification (INSERT/UPDATE).
       if (resp.data) {
         const { id: responseClauseId, isBookmarked } = resp.data;
-        
+
         if (isBookmarked) {
           // Add bookmark to state immediately
           setBookmarks(prev => {
-            // Check if bookmark already exists
             const exists = prev.some(item => item.clauseId === responseClauseId);
             if (exists) {
-              dlog('Bookmark already exists in state, skipping add:', { clauseId: responseClauseId });
+              dlog('Bookmark already exists in state, skipping add', { clauseId: responseClauseId });
               return prev;
             }
-            
-            // Create a minimal bookmark object for immediate UI update
+
+            // Minimal bookmark object for immediate UI update; real record arrives via realtime INSERT
             const newBookmark: Bookmark = {
-              id: '', // Will be filled by realtime event
+              id: '',
               clauseId: responseClauseId,
               organizationId: currentOrg?.id || '',
               projectId: currentProject.id,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             };
-            
-            dlog('Adding bookmark to state immediately:', { 
-              clauseId: responseClauseId, 
-              newCount: prev.length + 1 
-            });
+
+            dlog('Adding bookmark to state immediately', { clauseId: responseClauseId, newCount: prev.length + 1 });
             return [...prev, newBookmark];
           });
         } else {
           // Remove bookmark from state immediately
           setBookmarks(prev => {
             const newState = prev.filter(item => item.clauseId !== responseClauseId);
-            const removed = prev.length - newState.length;
-            
-            dlog('Removing bookmark from state immediately:', {
+            dlog('Removing bookmark from state immediately', {
               clauseId: responseClauseId,
               oldCount: prev.length,
               newCount: newState.length,
-              removed
             });
-            
             return newState;
           });
         }
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Bookmark operation failed';
       console.error('toggle bookmark failed', err);
+      setBookmarkError(msg);
     }
-  };
+  }, [currentProject, currentOrg]);
 
   // Helper function to check if a clause is bookmarked
   const isClauseBookmarked = useCallback((clauseId: string): boolean => {
     return bookmarks.some(bookmark => bookmark.clauseId === clauseId);
   }, [bookmarks]);
 
-  const value: BookmarkContextValue = { 
-    bookmarks, 
-    loading, 
+  const value: BookmarkContextValue = {
+    bookmarks,
+    loading,
     toggleBookmark,
     connectionStatus,
-    isClauseBookmarked
+    isClauseBookmarked,
+    bookmarkError,
+    clearBookmarkError,
   };
-  
+
   return <BookmarkContext.Provider value={value}>{children}</BookmarkContext.Provider>;
 };
 
@@ -429,4 +365,4 @@ export const useBookmarks = (): BookmarkContextValue => {
   const ctx = useContext(BookmarkContext);
   if (!ctx) throw new Error('useBookmarks must be within BookmarkProvider');
   return ctx;
-}; 
+};

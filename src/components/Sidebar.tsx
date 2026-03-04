@@ -1,19 +1,15 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   Drawer,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
   Box,
   TextField,
-  InputAdornment,
-  Typography,
   Divider,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { useClause } from '../contexts/ClauseContext';
@@ -25,32 +21,28 @@ const drawerWidth = 320;
 
 export const Sidebar: React.FC = () => {
   const { searchQuery, setSearchQuery, selectedFamily, setSelectedFamily, families, clauses } = useClause();
-  const { bookmarks, toggleBookmark } = useBookmarks();
+  const { bookmarks, toggleBookmark, bookmarkError, clearBookmarkError } = useBookmarks();
 
-  const handleFamilyClick = (family: ClauseFamily | null) => {
+  const handleFamilyClick = useCallback((family: ClauseFamily | null) => {
     setSelectedFamily(family);
-  };
+  }, [setSelectedFamily]);
 
-  const validFamilies = Array.isArray(families)
-    ? families.filter((fg): fg is ClauseFamilyGroup =>
-        Boolean(fg && fg.family && fg.family.id && fg.family.name)
-      )
-    : []
+  const validFamilies = useMemo(() =>
+    Array.isArray(families)
+      ? families.filter((fg): fg is ClauseFamilyGroup =>
+          Boolean(fg && fg.family && fg.family.id && fg.family.name)
+        )
+      : [],
+  [families]);
 
   // Get bookmarked clauses using BookmarkContext as authority
-  const bookmarkedClauses = clauses.filter(clause => 
-    bookmarks.some(bookmark => bookmark.clauseId === clause.id)
-  );
+  const bookmarkedClauses = useMemo(() =>
+    clauses.filter(clause => bookmarks.some(bookmark => bookmark.clauseId === clause.id)),
+  [clauses, bookmarks]);
 
-  const handleClauseClick = (clause: Clause) => {
-    // This could trigger opening the clause in the main view
-    // For now, we'll just log it
-    console.log('Clause clicked:', clause.clauseCode);
-  };
-
-  const handleBookmarkToggle = async (clause: Clause) => {
+  const handleBookmarkToggle = useCallback(async (clause: Clause) => {
     await toggleBookmark(clause.id);
-  };
+  }, [toggleBookmark]);
 
   return (
     <Drawer
@@ -104,18 +96,29 @@ export const Sidebar: React.FC = () => {
             ))}
           </Select>
         </FormControl>
-        
+
         <Divider />
-        
+
         {/* Bookmarked Clauses Section */}
         <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
           <BookmarkedClauses
             bookmarkedClauses={bookmarkedClauses}
-            onClauseClick={handleClauseClick}
             onBookmarkToggle={handleBookmarkToggle}
           />
         </Box>
       </Box>
+
+      {/* Bookmark error feedback — surfaces failures from Sidebar toggle actions */}
+      <Snackbar
+        open={!!bookmarkError}
+        autoHideDuration={4000}
+        onClose={clearBookmarkError}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={clearBookmarkError} severity="error" sx={{ width: '100%' }}>
+          {bookmarkError}
+        </Alert>
+      </Snackbar>
     </Drawer>
   );
-}; 
+};
