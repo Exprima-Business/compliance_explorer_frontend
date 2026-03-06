@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, CircularProgress, Alert, Button, Card, CardContent, Tabs, Tab } from '@mui/material';
 import { ComplianceMatrix } from '../components/ComplianceMatrix';
-import { VirtualMatrixTable } from '../components/Matrix/VirtualMatrixTable';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import { useParams } from 'react-router-dom';
@@ -116,14 +115,6 @@ const Matrix: React.FC = () => {
     setActiveTab(newValue);
   };
 
-  const handleClauseSelect = (_clause: any) => {
-    // TODO: implement clause selection logic
-  };
-
-  const handleClauseDeselect = (_clauseId: string) => {
-    // TODO: implement clause deselection logic
-  };
-
   // -- Early returns (AFTER all hooks) ----------------------------------------
 
   if (loading || projectLoading) {
@@ -219,12 +210,30 @@ const Matrix: React.FC = () => {
           )}
           
           {activeTab === 1 && currentProject && (
-            // Project Matrix Tab
-            <VirtualMatrixTable
-              projectId={currentProject.id}
-              onClauseSelect={handleClauseSelect}
-              onClauseDeselect={handleClauseDeselect}
-            />
+            // Project Matrix Tab — reuses ComplianceMatrix so the layout
+            // matches the Bookmark Matrix. The same matrixData is used
+            // because bookmarks created by create-from-scan are loaded
+            // through BookmarkContext for the current project.
+            matrixData.length === 0 ? (
+              <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                py: 8,
+                textAlign: 'center'
+              }}>
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  No matched clauses found
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Scan results are cross-referenced against the clauses database.
+                  Only clauses that match an existing entry are displayed here.
+                </Typography>
+              </Box>
+            ) : (
+              <ComplianceMatrix rows={matrixData} />
+            )
           )}
           
           {activeTab === 1 && !currentProject && (
