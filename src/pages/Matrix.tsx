@@ -11,7 +11,7 @@ import { extractErrorMessage } from '../utils/errorUtils';
 
 const Matrix: React.FC = () => {
   const { clauses, loading, error } = useClause();
-  const { bookmarks } = useBookmarks();
+  const { bookmarks, loading: bookmarkLoading } = useBookmarks();
   const { projectId } = useParams<{ projectId?: string }>();
   
   // State for matrix mode
@@ -117,7 +117,7 @@ const Matrix: React.FC = () => {
 
   // -- Early returns (AFTER all hooks) ----------------------------------------
 
-  if (loading || projectLoading) {
+  if (loading || projectLoading || bookmarkLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />

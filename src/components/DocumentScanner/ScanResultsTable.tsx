@@ -11,22 +11,25 @@ import {
   Typography,
   Chip,
   Checkbox,
-  Button,
   Collapse,
   IconButton,
+  Tooltip,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import LinkIcon from '@mui/icons-material/Link';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import type { DetectedClause } from '../../services/scanApi';
+import type { ValidatedClause, MatchType } from '../../utils/clauseMatching';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 interface ScanResultsTableProps {
-  results: DetectedClause[];
+  results: ValidatedClause[];
   onSelectionChange: (selectedClauseIds: string[]) => void;
 }
 
@@ -44,14 +47,32 @@ function confidenceIcon(c: number) {
   return c >= 0.8 ? <CheckCircleIcon /> : <WarningIcon />;
 }
 
+function matchLabel(type: MatchType): string {
+  switch (type) {
+    case 'exact':      return 'Exact match';
+    case 'normalized': return 'Matched (normalized)';
+    case 'title':      return 'Matched by title';
+    case 'none':       return 'Not in database';
+  }
+}
+
+function matchChipColor(type: MatchType): 'success' | 'info' | 'warning' | 'error' {
+  switch (type) {
+    case 'exact':      return 'success';
+    case 'normalized': return 'success';
+    case 'title':      return 'info';
+    case 'none':       return 'error';
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectionChange }) => {
   const [selected, setSelected] = useState<Set<string>>(() => {
-    // Default: select all clauses
-    return new Set(results.map(r => r.clauseId));
+    // Default: select only clauses that have a DB match
+    return new Set(results.filter(r => r.matchType !== 'none').map(r => r.clauseId));
   });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -95,12 +116,14 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
     });
   };
 
-  // Memoized selected count
+  // Memoized counts
   const selectedCount = useMemo(() => selected.size, [selected]);
+  const matchedCount = useMemo(() => results.filter(r => r.matchType !== 'none').length, [results]);
 
-  // Notify parent of initial selection (all selected) on first render
+  // Notify parent of initial selection on first render
   React.useEffect(() => {
-    onSelectionChange(results.map(r => r.clauseId));
+    const initialSelection = results.filter(r => r.matchType !== 'none').map(r => r.clauseId);
+    onSelectionChange(initialSelection);
     // Only on mount / when results change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results]);
@@ -119,9 +142,27 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
         <Typography variant="h6">
           Scan Results &mdash; {results.length} clause{results.length !== 1 && 's'} detected
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {selectedCount} selected
-        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Chip
+            icon={<LinkIcon />}
+            label={`${matchedCount} matched in DB`}
+            color="success"
+            variant="outlined"
+            size="small"
+          />
+          {results.length - matchedCount > 0 && (
+            <Chip
+              icon={<LinkOffIcon />}
+              label={`${results.length - matchedCount} not in DB`}
+              color="error"
+              variant="outlined"
+              size="small"
+            />
+          )}
+          <Typography variant="body2" color="text.secondary">
+            {selectedCount} selected
+          </Typography>
+        </Box>
       </Box>
 
       <TableContainer component={Paper} variant="outlined">
@@ -139,27 +180,53 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
               <TableCell>Title</TableCell>
               <TableCell>Family</TableCell>
               <TableCell>Confidence</TableCell>
+              <TableCell>DB Status</TableCell>
               <TableCell align="center">Details</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {results.map(row => {
               const isExpanded = expandedRows.has(row.clauseId);
+              const isUnmatched = row.matchType === 'none';
               return (
                 <React.Fragment key={row.clauseId}>
                   <TableRow
                     hover
                     selected={selected.has(row.clauseId)}
-                    sx={{ '& > *': { borderBottom: isExpanded ? 'none' : undefined } }}
+                    sx={{
+                      '& > *': { borderBottom: isExpanded ? 'none' : undefined },
+                      opacity: isUnmatched ? 0.7 : 1,
+                    }}
                   >
                     <TableCell padding="checkbox">
-                      <Checkbox
-                        checked={selected.has(row.clauseId)}
-                        onChange={() => toggleRow(row.clauseId)}
-                      />
+                      <Tooltip
+                        title={isUnmatched
+                          ? 'This clause is not in the database. Including it may result in limited data in the project matrix.'
+                          : ''
+                        }
+                      >
+                        <Checkbox
+                          checked={selected.has(row.clauseId)}
+                          onChange={() => toggleRow(row.clauseId)}
+                        />
+                      </Tooltip>
                     </TableCell>
-                    <TableCell>{row.clauseId}</TableCell>
-                    <TableCell>{row.title}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: isUnmatched ? 'normal' : 'medium' }}>
+                        {row.clauseId}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {row.dbMatch ? (
+                        <Tooltip title={`DB title: ${row.dbMatch.title}`}>
+                          <Typography variant="body2">{row.dbMatch.title}</Typography>
+                        </Tooltip>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          {row.title}
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>{row.family || '\u2014'}</TableCell>
                     <TableCell>
                       <Chip
@@ -169,8 +236,17 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
                         size="small"
                       />
                     </TableCell>
+                    <TableCell>
+                      <Chip
+                        icon={isUnmatched ? <ErrorOutlineIcon /> : <CheckCircleIcon />}
+                        label={matchLabel(row.matchType)}
+                        color={matchChipColor(row.matchType)}
+                        size="small"
+                        variant={isUnmatched ? 'outlined' : 'filled'}
+                      />
+                    </TableCell>
                     <TableCell align="center">
-                      {row.supportingContext && (
+                      {(row.supportingContext || row.dbMatch) && (
                         <IconButton size="small" onClick={() => toggleExpand(row.clauseId)}>
                           {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                         </IconButton>
@@ -178,32 +254,64 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
                     </TableCell>
                   </TableRow>
 
-                  {/* Expandable context row */}
-                  {row.supportingContext && (
+                  {/* Expandable detail row */}
+                  {(row.supportingContext || row.dbMatch) && (
                     <TableRow>
-                      <TableCell colSpan={6} sx={{ py: 0 }}>
+                      <TableCell colSpan={7} sx={{ py: 0 }}>
                         <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                           <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, my: 1 }}>
-                            <Typography variant="subtitle2" color="primary" gutterBottom>
-                              Supporting Context
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                              {row.supportingContext}
-                            </Typography>
-                            {row.conditions && (
-                              <Box sx={{ mt: 1 }}>
-                                <Typography variant="subtitle2" gutterBottom>Conditions</Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  {row.conditions}
+                            {/* DB match info */}
+                            {row.dbMatch && (
+                              <Box sx={{ mb: row.supportingContext ? 2 : 0 }}>
+                                <Typography variant="subtitle2" color="success.main" gutterBottom>
+                                  Matched Database Entry
+                                </Typography>
+                                {row.dbMatch.description && (
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                    <strong>Description:</strong> {row.dbMatch.description}
+                                  </Typography>
+                                )}
+                                {row.dbMatch.intent && (
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                    <strong>Intent:</strong> {row.dbMatch.intent}
+                                  </Typography>
+                                )}
+                                {row.dbMatch.category && (
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                    <strong>Category:</strong> {row.dbMatch.category}
+                                  </Typography>
+                                )}
+                                <Typography variant="caption" color="text.disabled">
+                                  Clause Code: {row.dbMatch.clauseCode} | Match: {matchLabel(row.matchType)}
                                 </Typography>
                               </Box>
                             )}
-                            {row.implementationRequirements && (
-                              <Box sx={{ mt: 1 }}>
-                                <Typography variant="subtitle2" gutterBottom>Implementation Requirements</Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  {row.implementationRequirements}
+
+                            {/* Scan supporting context */}
+                            {row.supportingContext && (
+                              <Box>
+                                <Typography variant="subtitle2" color="primary" gutterBottom>
+                                  Supporting Context
                                 </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                                  {row.supportingContext}
+                                </Typography>
+                                {row.conditions && (
+                                  <Box sx={{ mt: 1 }}>
+                                    <Typography variant="subtitle2" gutterBottom>Conditions</Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {row.conditions}
+                                    </Typography>
+                                  </Box>
+                                )}
+                                {row.implementationRequirements && (
+                                  <Box sx={{ mt: 1 }}>
+                                    <Typography variant="subtitle2" gutterBottom>Implementation Requirements</Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {row.implementationRequirements}
+                                    </Typography>
+                                  </Box>
+                                )}
                               </Box>
                             )}
                           </Box>
@@ -217,6 +325,14 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Summary note about unmatched clauses */}
+      {results.length - matchedCount > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, fontStyle: 'italic' }}>
+          Clauses not found in the database will have limited data in the project matrix.
+          Unmatched clauses are deselected by default.
+        </Typography>
+      )}
     </Box>
   );
 };
