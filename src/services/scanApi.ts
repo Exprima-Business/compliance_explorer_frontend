@@ -63,8 +63,13 @@ export interface ScanProgress {
 export interface CreateProjectFromScanRequest {
   scanId: string;
   projectName: string;
-  selectedClauses: string[];
+  description?: string;
   organizationId: string;
+  options?: {
+    saveToExisting?: boolean;
+    existingProjectId?: string;
+    clauseFilter?: string[];
+  };
 }
 
 // ---------------------------------------------------------------------------

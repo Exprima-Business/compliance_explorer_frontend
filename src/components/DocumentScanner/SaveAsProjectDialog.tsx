@@ -10,6 +10,13 @@ import {
   Alert,
   CircularProgress,
   Box,
+  RadioGroup,
+  Radio,
+  FormControlLabel,
+  FormControl,
+  Select,
+  MenuItem,
+  InputLabel,
 } from '@mui/material';
 import { scanApi } from '../../services/scanApi';
 import { useProject } from '../../contexts/ProjectContext';
@@ -19,12 +26,14 @@ import { useOrg } from '../../contexts/OrgContext';
 // Types
 // ---------------------------------------------------------------------------
 
+type SaveMode = 'create' | 'existing';
+
 interface SaveAsProjectDialogProps {
   open: boolean;
   onClose: () => void;
   scanId: string | null;
   selectedClauseIds: string[];
-  /** Called after the project is successfully created */
+  /** Called after the project is successfully created / updated */
   onProjectCreated?: (projectId: string) => void;
 }
 
@@ -35,11 +44,12 @@ interface SaveAsProjectDialogProps {
 /**
  * SaveAsProjectDialog
  *
- * Creates a new project from scan results using ONE backend API call
- * (`POST /api/projects/create-from-scan`). The backend handles:
- *   - project creation
- *   - clause validation against the DB
- *   - bookmark creation
+ * Allows the user to either **create a new project** or **add scan results
+ * to an existing project** using ONE backend API call
+ * (`POST /api/projects/create-from-scan`).
+ *
+ * The backend already supports the `options.saveToExisting` and
+ * `options.existingProjectId` fields, so no backend changes are needed.
  *
  * **Why this fixes React #300:**
  * We do NOT call `ProjectContext.createProject()`, so `currentProject` is
@@ -54,25 +64,40 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
   selectedClauseIds,
   onProjectCreated,
 }) => {
+  const [mode, setMode] = useState<SaveMode>('create');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { refreshProjects } = useProject();
+  const { projects, refreshProjects } = useProject();
   const { currentOrg } = useOrg();
+
+  const selectedProject = projects.find(p => p.id === selectedProjectId) ?? null;
+
+  const canSubmit =
+    mode === 'create'
+      ? !!name.trim()
+      : !!selectedProjectId;
 
   const handleSubmit = async () => {
     if (!scanId) {
       setError('No scan ID available.');
       return;
     }
-    if (!name.trim()) {
+    if (!currentOrg) {
+      setError('No organization selected.');
+      return;
+    }
+
+    // Validate per mode
+    if (mode === 'create' && !name.trim()) {
       setError('Project name is required.');
       return;
     }
-    if (!currentOrg) {
-      setError('No organization selected.');
+    if (mode === 'existing' && !selectedProjectId) {
+      setError('Please select a project.');
       return;
     }
 
@@ -82,9 +107,16 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
     try {
       const resp = await scanApi.createProjectFromScan({
         scanId,
-        projectName: name.trim(),
-        selectedClauses: selectedClauseIds,
+        // Backend requires non-empty projectName even for existing projects.
+        // Send the existing project's name as a workaround.
+        projectName: mode === 'create' ? name.trim() : (selectedProject?.name ?? 'Existing Project'),
+        description: mode === 'create' ? description.trim() || undefined : undefined,
         organizationId: currentOrg.id,
+        options: {
+          saveToExisting: mode === 'existing',
+          existingProjectId: mode === 'existing' ? selectedProjectId : undefined,
+          clauseFilter: selectedClauseIds,
+        },
       });
 
       if (resp.error) {
@@ -93,73 +125,140 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
         return;
       }
 
-      // Point localStorage at the new project BEFORE refreshing.
+      // Determine the target project ID
+      const targetProjectId =
+        mode === 'existing'
+          ? selectedProjectId
+          : resp.data?.project?.id;
+
+      // Point localStorage at the target project BEFORE refreshing.
       // refreshProjects() reads localStorage('projectId') to decide which
-      // project becomes currentProject — so this ensures the new project
+      // project becomes currentProject — so this ensures the target project
       // is automatically selected without a manual setCurrentProject() call.
-      const newProjectId = resp.data?.project?.id;
-      if (newProjectId) {
-        localStorage.setItem('projectId', newProjectId);
+      if (targetProjectId) {
+        localStorage.setItem('projectId', targetProjectId);
       }
 
-      // Refresh the project list — picks up the new project and sets it
-      // as currentProject via the localStorage key we just wrote.
+      // Refresh the project list — picks up the new/updated project and sets
+      // it as currentProject via the localStorage key we just wrote.
       await refreshProjects();
 
       // Clean up form state and close
-      setName('');
-      setDescription('');
-      setError(null);
+      resetForm();
       onClose();
 
-      // Notify parent with the new project ID so it can navigate
-      if (newProjectId) {
-        onProjectCreated?.(newProjectId);
+      // Notify parent with the project ID so it can navigate
+      if (targetProjectId) {
+        onProjectCreated?.(targetProjectId);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create project');
+      setError(err instanceof Error ? err.message : 'Failed to save project');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClose = () => {
-    if (loading) return; // don't close while saving
+  const resetForm = () => {
     setName('');
     setDescription('');
+    setSelectedProjectId('');
+    setMode('create');
     setError(null);
+  };
+
+  const handleClose = () => {
+    if (loading) return; // don't close while saving
+    resetForm();
     onClose();
   };
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Save Scan Results as Project</DialogTitle>
+      <DialogTitle>Save Scan Results to Project</DialogTitle>
 
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Create a new project with {selectedClauseIds.length} selected clause
+          Save {selectedClauseIds.length} selected clause
           {selectedClauseIds.length !== 1 && 's'} as bookmarks.
         </Typography>
 
-        <TextField
-          autoFocus
-          fullWidth
-          label="Project Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          disabled={loading}
-          sx={{ mb: 2 }}
-        />
+        {/* Mode toggle */}
+        <FormControl component="fieldset" sx={{ mb: 2, width: '100%' }}>
+          <RadioGroup
+            row
+            value={mode}
+            onChange={(e) => {
+              setMode(e.target.value as SaveMode);
+              setError(null);
+            }}
+          >
+            <FormControlLabel
+              value="create"
+              control={<Radio />}
+              label="Create New Project"
+              disabled={loading}
+            />
+            <FormControlLabel
+              value="existing"
+              control={<Radio />}
+              label="Add to Existing Project"
+              disabled={loading}
+            />
+          </RadioGroup>
+        </FormControl>
 
-        <TextField
-          fullWidth
-          label="Description (optional)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          multiline
-          rows={2}
-          disabled={loading}
-        />
+        {/* Create New mode */}
+        {mode === 'create' && (
+          <Box>
+            <TextField
+              autoFocus
+              fullWidth
+              label="Project Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={loading}
+              sx={{ mb: 2 }}
+            />
+
+            <TextField
+              fullWidth
+              label="Description (optional)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              multiline
+              rows={2}
+              disabled={loading}
+            />
+          </Box>
+        )}
+
+        {/* Add to Existing mode */}
+        {mode === 'existing' && (
+          <Box>
+            {projects.length === 0 ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                No existing projects found. Switch to &ldquo;Create New Project&rdquo; to get started.
+              </Alert>
+            ) : (
+              <FormControl fullWidth>
+                <InputLabel id="existing-project-label">Select Project</InputLabel>
+                <Select
+                  labelId="existing-project-label"
+                  value={selectedProjectId}
+                  label="Select Project"
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  disabled={loading}
+                >
+                  {projects.map(p => (
+                    <MenuItem key={p.id} value={p.id}>
+                      {p.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </Box>
+        )}
 
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
@@ -175,10 +274,15 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={loading || !name.trim()}
+          disabled={loading || !canSubmit}
           startIcon={loading ? <CircularProgress size={18} /> : undefined}
         >
-          {loading ? 'Creating...' : 'Create Project'}
+          {loading
+            ? 'Saving...'
+            : mode === 'create'
+              ? 'Create Project'
+              : 'Add to Project'
+          }
         </Button>
       </DialogActions>
     </Dialog>

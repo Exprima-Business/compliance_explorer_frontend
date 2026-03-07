@@ -1,30 +1,24 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, CircularProgress, Alert, Button, Card, CardContent, Tabs, Tab } from '@mui/material';
+import React, { useEffect, useMemo } from 'react';
+import { Box, Typography, CircularProgress, Alert, Card, CardContent } from '@mui/material';
 import { ComplianceMatrix } from '../components/ComplianceMatrix';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
+import { useProject } from '../contexts/ProjectContext';
 import { useParams } from 'react-router-dom';
-import { apiCall } from '../services/api';
-import type { Clause, MatrixRow } from '../types/clause';
-import type { Project } from '../types/projectCreation';
-import { extractErrorMessage } from '../utils/errorUtils';
+import type { Clause } from '../types/clause';
 
 const Matrix: React.FC = () => {
   const { clauses, loading, error } = useClause();
   const { bookmarks, loading: bookmarkLoading } = useBookmarks();
+  const { currentProject } = useProject();
   const { projectId } = useParams<{ projectId?: string }>();
-  
-  // State for matrix mode
-  const [activeTab, setActiveTab] = useState(0);
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [projectLoading, setProjectLoading] = useState(false);
-  const [projectError, setProjectError] = useState<string | null>(null);
 
-  // Load project data if projectId is provided
+  // If the URL contains a projectId, persist it to localStorage so that
+  // ProjectContext picks it up on its next refresh cycle. This allows
+  // direct links like /matrix/:projectId to work correctly.
   useEffect(() => {
     if (projectId) {
-      loadProjectData(projectId);
-      setActiveTab(1); // Switch to project matrix tab
+      localStorage.setItem('projectId', projectId);
     }
   }, [projectId]);
 
@@ -91,33 +85,9 @@ const Matrix: React.FC = () => {
     [matrixClauses]
   );
 
-  // -- Callbacks (not hooks, but kept near the hooks section for clarity) -----
-
-  const loadProjectData = async (id: string) => {
-    try {
-      setProjectLoading(true);
-      setProjectError(null);
-
-      const resp = await apiCall<Project>(`/api/projects/${id}`);
-      if (resp.error) {
-        throw new Error(extractErrorMessage(resp.error, 'Failed to load project'));
-      }
-      setCurrentProject(resp.data!);
-
-    } catch (error) {
-      setProjectError((error as Error).message);
-    } finally {
-      setProjectLoading(false);
-    }
-  };
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-  };
-
   // -- Early returns (AFTER all hooks) ----------------------------------------
 
-  if (loading || projectLoading || bookmarkLoading) {
+  if (loading || bookmarkLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
@@ -125,21 +95,11 @@ const Matrix: React.FC = () => {
     );
   }
 
-  if (error || projectError) {
+  if (error) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">
-          {error || projectError}
-          {projectError && (
-            <Button
-              onClick={() => projectId && loadProjectData(projectId)}
-              variant="outlined"
-              size="small"
-              sx={{ mt: 1 }}
-            >
-              Retry
-            </Button>
-          )}
+          {error}
         </Alert>
       </Box>
     );
@@ -150,7 +110,7 @@ const Matrix: React.FC = () => {
       <Typography variant="h4" gutterBottom>
         Compliance Matrix
       </Typography>
-      
+
       {/* Project Info Card */}
       {currentProject && (
         <Card sx={{ mb: 3 }}>
@@ -170,88 +130,27 @@ const Matrix: React.FC = () => {
         </Card>
       )}
 
-      {/* Matrix Tabs */}
+      {/* Single Compliance Matrix */}
       <Card>
-        <Tabs 
-          value={activeTab} 
-          onChange={handleTabChange} 
-          aria-label="matrix tabs"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          <Tab label="Bookmark Matrix" />
-          <Tab 
-            label="Project Matrix" 
-            disabled={!currentProject}
-          />
-        </Tabs>
-        
         <Box sx={{ p: 3 }}>
-          {activeTab === 0 && (
-            // Bookmark Matrix Tab
-            matrixData.length === 0 ? (
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                py: 8,
-                textAlign: 'center'
-              }}>
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  No bookmarked clauses yet
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Bookmark clauses from the Clauses tab to see them appear in the matrix
-                </Typography>
-              </Box>
-            ) : (
-              <ComplianceMatrix rows={matrixData} />
-            )
-          )}
-          
-          {activeTab === 1 && currentProject && (
-            // Project Matrix Tab — reuses ComplianceMatrix so the layout
-            // matches the Bookmark Matrix. The same matrixData is used
-            // because bookmarks created by create-from-scan are loaded
-            // through BookmarkContext for the current project.
-            matrixData.length === 0 ? (
-              <Box sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                py: 8,
-                textAlign: 'center'
-              }}>
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  No matched clauses found
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Scan results are cross-referenced against the clauses database.
-                  Only clauses that match an existing entry are displayed here.
-                </Typography>
-              </Box>
-            ) : (
-              <ComplianceMatrix rows={matrixData} />
-            )
-          )}
-          
-          {activeTab === 1 && !currentProject && (
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
+          {matrixData.length === 0 ? (
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
               py: 8,
               textAlign: 'center'
             }}>
               <Typography variant="h6" color="text.secondary" gutterBottom>
-                No project selected
+                No clauses in this project yet
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Create a project from scan results to view project matrix data
+                Use the Document Scanner to scan a document and save matching clauses to this project.
               </Typography>
             </Box>
+          ) : (
+            <ComplianceMatrix rows={matrixData} />
           )}
         </Box>
       </Card>
@@ -259,4 +158,4 @@ const Matrix: React.FC = () => {
   );
 };
 
-export default Matrix; 
+export default Matrix;

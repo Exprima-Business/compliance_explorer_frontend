@@ -112,7 +112,7 @@ export const DocumentScanner: React.FC = () => {
               onClick={() => setShowSaveDialog(true)}
               disabled={selectedClauses.length === 0}
             >
-              Save as Project ({selectedClauses.length})
+              Save to Project ({selectedClauses.length})
             </Button>
           </Box>
 
