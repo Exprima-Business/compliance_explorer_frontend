@@ -22,7 +22,7 @@ import {
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
   Menu as MenuIcon,
-  BubbleChart as BubbleChartIcon,
+  Dashboard as DashboardIcon,
   TableChart as TableChartIcon,
   DocumentScanner as ScannerIcon,
 } from '@mui/icons-material';
@@ -123,9 +123,23 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               indicatorColor="secondary"
               textColor="primary"
             >
-              <Tab label={isMobile ? undefined : "Clauses"} icon={isMobile ? <BubbleChartIcon /> : undefined} iconPosition="start" />
-              <Tab label={isMobile ? undefined : "Matrix"} icon={isMobile ? <TableChartIcon /> : undefined} iconPosition="start" />
-              {enableScanner && <Tab label={isMobile ? undefined : "Document Scanner"} icon={isMobile ? <ScannerIcon /> : undefined} iconPosition="start" />}
+              {/* Desktop: Dashboard > Scanner > Matrix */}
+              {/* Mobile:  Scanner > Matrix           */}
+              {!isMobile && (
+                <Tab label="Dashboard" icon={<DashboardIcon />} iconPosition="start" />
+              )}
+              {enableScanner && (
+                <Tab
+                  label={isMobile ? undefined : "Scanner"}
+                  icon={isMobile ? <ScannerIcon /> : undefined}
+                  iconPosition="start"
+                />
+              )}
+              <Tab
+                label={isMobile ? undefined : "Matrix"}
+                icon={isMobile ? <TableChartIcon /> : undefined}
+                iconPosition="start"
+              />
             </Tabs>
           </Box>
           {/* Right: Controls — hidden on mobile (moved to Sidebar) */}

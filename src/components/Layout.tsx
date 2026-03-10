@@ -22,32 +22,46 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { navigateTo, getCurrentPath, isActiveTab } = useURLBasedNavigation();
 
+  // ── Tab-to-route mapping ──────────────────────────────────────────
+  // Desktop tabs: 0=Dashboard  1=Scanner  2=Matrix
+  // Mobile  tabs: 0=Scanner    1=Matrix
+  // Graph is accessible via /graph but has no tab.
+  // ─────────────────────────────────────────────────────────────────
+
+  const tabRoutes = isMobile
+    ? ['/document-scanner', '/matrix']                     // mobile: 2 tabs
+    : ['/', '/document-scanner', '/matrix'];               // desktop: 3 tabs
+
   // Update active tab based on current route
   useEffect(() => {
     const path = getCurrentPath();
-    if (path === '/') setActiveTab(0);
-    else if (path === '/matrix') setActiveTab(1);
-    else if (ENABLE_SCANNER && (path === '/document-scanner' || path.startsWith('/document-scanner/'))) {
-      setActiveTab(2);
-    }
-  }, [getCurrentPath]);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    if (path === '/' || path === '/dashboard') {
+      setActiveTab(isMobile ? -1 : 0); // Dashboard not a tab on mobile
+    } else if (path === '/matrix' || path.startsWith('/matrix/')) {
+      setActiveTab(isMobile ? 1 : 2);
+    } else if (path === '/document-scanner' || path.startsWith('/document-scanner/')) {
+      setActiveTab(isMobile ? 0 : 1);
+    } else if (path === '/graph') {
+      setActiveTab(-1); // Graph has no tab
+    }
+  }, [getCurrentPath, isMobile]);
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
-    if (newValue === 0) navigateTo('/');
-    else if (newValue === 1) navigateTo('/matrix');
-    else if (ENABLE_SCANNER && newValue === 2) {
-      // Check if we're currently on a document scanner page with a scanId
+    const route = tabRoutes[newValue];
+    if (!route) return;
+
+    if (route === '/document-scanner') {
+      // Preserve the current scanId when re-selecting scanner tab
       const currentPath = getCurrentPath();
       const scanIdMatch = currentPath.match(/^\/document-scanner\/([^\/]+)$/);
       if (scanIdMatch) {
-        // Preserve the current scanId when navigating to document scanner
         navigateTo(`/document-scanner/${scanIdMatch[1]}`);
-      } else {
-        // Navigate to new document scanner
-        navigateTo('/document-scanner');
+        return;
       }
     }
+    navigateTo(route);
   };
 
   const handleSettingsClick = () => {
@@ -89,7 +103,7 @@ export default function Layout({ children }: LayoutProps) {
           position: 'absolute',
           left: isMobile ? 0 : '320px',
           right: 0,
-          top: '64px',
+          top: { xs: '56px', sm: '72px' },
           bottom: 0,
           width: 'auto',
           maxWidth: 'none',
