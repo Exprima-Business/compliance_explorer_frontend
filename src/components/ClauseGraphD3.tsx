@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react'
+import { useTheme, useMediaQuery } from '@mui/material'
 // Selective imports keep the D3 bundle ~60 KB smaller than `import * as d3 from 'd3'`
 import { select } from 'd3-selection'
 import type { Selection } from 'd3-selection'
@@ -15,7 +16,8 @@ import type { GraphData, GraphNode, GraphEdge } from '../types/clause'
 import { useBookmarks } from '../contexts/BookmarkContext'
 import { dlog } from '../utils/debugLog'
 
-const NODE_RADIUS = 45
+const NODE_RADIUS_DESKTOP = 45
+const NODE_RADIUS_MOBILE = 38
 
 interface ClauseGraphD3Props {
   graphData: GraphData
@@ -59,6 +61,10 @@ function hashColor(str: string): string {
 }
 
 export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeClick }) => {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const NODE_RADIUS = isMobile ? NODE_RADIUS_MOBILE : NODE_RADIUS_DESKTOP
+
   const { isClauseBookmarked } = useBookmarks()
   const svgRef       = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -311,7 +317,8 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     nodeEnter.append('text')
       .text((d: D3Node) => d.clauseCode || d.clauseId || d.name)
       .attr('text-anchor', 'middle').attr('dy', '.35em')
-      .attr('font-size', '14px').attr('fill', '#000').attr('font-weight', '600')
+      .attr('font-size', isMobile ? '11px' : '14px')
+      .attr('fill', '#000').attr('font-weight', '600')
       .style('pointer-events', 'none')
       .style('text-shadow', '0 1px 2px rgba(255,255,255,0.8)')
 
@@ -500,7 +507,7 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
         style={{ display: 'block' }}
       />
 
-      {tooltip.visible && tooltip.data && (
+      {tooltip.visible && tooltip.data && !isMobile && (
         <div
           style={{
             position: 'fixed',

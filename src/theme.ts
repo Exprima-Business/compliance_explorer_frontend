@@ -113,6 +113,49 @@ export const theme = createTheme({
               backgroundColor: alpha('#6366f1', 0.16),
             },
           },
+          // Ensure touch-friendly min-height on mobile
+          '@media (max-width: 899px)': {
+            minHeight: 44,
+          },
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          // WCAG 2.5.5: 44×44 minimum touch target for mobile
+          '@media (max-width: 899px)': {
+            minWidth: 44,
+            minHeight: 44,
+          },
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          '@media (max-width: 899px)': {
+            minHeight: 44,
+          },
+        },
+      },
+    },
+    MuiTab: {
+      styleOverrides: {
+        root: {
+          '@media (max-width: 899px)': {
+            minHeight: 48,
+            minWidth: 48,
+          },
+        },
+      },
+    },
+    MuiListItemButton: {
+      styleOverrides: {
+        root: {
+          '@media (max-width: 899px)': {
+            minHeight: 44,
+          },
         },
       },
     },

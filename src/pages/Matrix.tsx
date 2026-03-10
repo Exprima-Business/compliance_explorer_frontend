@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Box, Typography, CircularProgress, Alert, Card, CardContent } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, Card, CardContent, useMediaQuery, useTheme } from '@mui/material';
 import { ComplianceMatrix } from '../components/ComplianceMatrix';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
@@ -8,6 +8,9 @@ import { useParams } from 'react-router-dom';
 import type { Clause } from '../types/clause';
 
 const Matrix: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   const { clauses, loading, error } = useClause();
   const { bookmarks, loading: bookmarkLoading } = useBookmarks();
   const { currentProject } = useProject();
@@ -106,16 +109,16 @@ const Matrix: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      <Typography variant={isMobile ? 'h5' : 'h4'} gutterBottom>
         Compliance Matrix
       </Typography>
 
       {/* Project Info Card */}
       {currentProject && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
+        <Card sx={{ mb: { xs: 1.5, md: 3 } }}>
+          <CardContent sx={{ p: { xs: 1.5, md: 2 }, '&:last-child': { pb: { xs: 1.5, md: 2 } } }}>
+            <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
               {currentProject.name}
             </Typography>
             {currentProject.description && (
@@ -123,16 +126,18 @@ const Matrix: React.FC = () => {
                 {currentProject.description}
               </Typography>
             )}
-            <Typography variant="caption" color="text.secondary">
-              Project ID: {currentProject.id} | Created: {new Date(currentProject.createdAt).toLocaleDateString()}
-            </Typography>
+            {!isMobile && (
+              <Typography variant="caption" color="text.secondary">
+                Project ID: {currentProject.id} | Created: {new Date(currentProject.createdAt).toLocaleDateString()}
+              </Typography>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Single Compliance Matrix */}
       <Card>
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 0.5, sm: 1.5, md: 3 } }}>
           {matrixData.length === 0 ? (
             <Box sx={{
               display: 'flex',

@@ -17,6 +17,8 @@ import {
   Select,
   MenuItem,
   InputLabel,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { scanApi } from '../../services/scanApi';
 import { useProject } from '../../contexts/ProjectContext';
@@ -64,6 +66,9 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
   selectedClauseIds,
   onProjectCreated,
 }) => {
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
+
   const [mode, setMode] = useState<SaveMode>('create');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -173,7 +178,7 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
       <DialogTitle>Save Scan Results to Project</DialogTitle>
 
       <DialogContent>

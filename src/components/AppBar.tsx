@@ -21,6 +21,10 @@ import {
   Help as HelpIcon,
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
+  Menu as MenuIcon,
+  BubbleChart as BubbleChartIcon,
+  TableChart as TableChartIcon,
+  DocumentScanner as ScannerIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -33,9 +37,11 @@ interface CustomAppBarProps {
   onTabChange: (event: React.SyntheticEvent, newValue: number) => void;
   onSettingsClick: () => void;
   enableScanner: boolean;
+  isMobile?: boolean;
+  onMenuClick?: () => void;
 }
 
-export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, onSettingsClick, enableScanner }) => {
+export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, onSettingsClick, enableScanner, isMobile = false, onMenuClick }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const { connectionStatus } = useBookmarks();
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -74,7 +80,13 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
           borderBottom: '1px solid rgba(148, 163, 184, 0.1)'
         }}
       >
-        <Toolbar sx={{ px: { xs: 2, sm: 3 }, minHeight: { xs: 64, sm: 72 } }}>
+        <Toolbar sx={{ px: { xs: 1, sm: 3 }, minHeight: { xs: 56, sm: 72 } }}>
+          {/* Mobile: Hamburger menu */}
+          {isMobile && (
+            <IconButton edge="start" color="inherit" onClick={onMenuClick} sx={{ mr: 0.5 }}>
+              <MenuIcon />
+            </IconButton>
+          )}
           {/* Left: Logo and Tabs */}
           <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
             {/* Logo */}
@@ -82,8 +94,8 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               <Box component="img" src="/ClauseAtlasLogoSM.png" alt="ClauseAtlas Logo" sx={{
                 height: 'auto',
                 width: 'auto',
-                maxHeight: 57,
-                mr: 2.5,
+                maxHeight: isMobile ? 36 : 57,
+                mr: isMobile ? 1 : 2.5,
                 display: 'block',
               }} />
             </Box>
@@ -97,9 +109,10 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
                 height: 48,
                 '.MuiTab-root': {
                   fontWeight: 600,
-                  fontSize: '1rem',
-                  px: 3,
+                  fontSize: isMobile ? '0.75rem' : '1rem',
+                  px: isMobile ? 1.5 : 3,
                   minHeight: 48,
+                  minWidth: isMobile ? 'auto' : undefined,
                 },
                 '.MuiTabs-indicator': {
                   height: 3,
@@ -110,46 +123,54 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               indicatorColor="secondary"
               textColor="primary"
             >
-              <Tab label="Clauses" />
-              <Tab label="Matrix" />
-              {enableScanner && <Tab label="Document Scanner" />}
+              <Tab label={isMobile ? undefined : "Clauses"} icon={isMobile ? <BubbleChartIcon /> : undefined} iconPosition="start" />
+              <Tab label={isMobile ? undefined : "Matrix"} icon={isMobile ? <TableChartIcon /> : undefined} iconPosition="start" />
+              {enableScanner && <Tab label={isMobile ? undefined : "Document Scanner"} icon={isMobile ? <ScannerIcon /> : undefined} iconPosition="start" />}
             </Tabs>
           </Box>
-          {/* Right: Org selector, Connection Status, Settings and Auth/User Menu */}
-          <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, gap: 1 }}>
-            <ProjectSelector />
-            <ConnectionStatus status={connectionStatus} showLabel={false} size="small" />
-            <Tooltip title="Settings">
-              <IconButton color="inherit" onClick={onSettingsClick}>
-                <SettingsIcon />
-              </IconButton>
-            </Tooltip>
-            {user ? (
-              <>
-                <Tooltip title={user.email || 'Account settings'}>
-                  <IconButton
-                    onClick={handleProfileMenuOpen}
-                    size="small"
-                    sx={{ ml: 2 }}
-                  >
-                    <Avatar sx={{ width: 32, height: 32 }}>{user.email?.[0]?.toUpperCase() || 'U'}</Avatar>
-                  </IconButton>
-                </Tooltip>
-                <Button color="inherit" onClick={() => setLogoutOpen(true)}>
-                  Logout
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button color="inherit" onClick={() => navigate('/login')} sx={{ ml: 2 }}>
-                  Login
-                </Button>
-                <Button color="secondary" variant="contained" onClick={() => navigate('/login')} sx={{ ml: 1 }}>
-                  Sign Up
-                </Button>
-              </>
-            )}
-          </Box>
+          {/* Right: Controls — hidden on mobile (moved to Sidebar) */}
+          {!isMobile && (
+            <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, gap: 1 }}>
+              <ProjectSelector />
+              <ConnectionStatus status={connectionStatus} showLabel={false} size="small" />
+              <Tooltip title="Settings">
+                <IconButton color="inherit" onClick={onSettingsClick}>
+                  <SettingsIcon />
+                </IconButton>
+              </Tooltip>
+              {user ? (
+                <>
+                  <Tooltip title={user.email || 'Account settings'}>
+                    <IconButton
+                      onClick={handleProfileMenuOpen}
+                      size="small"
+                      sx={{ ml: 2 }}
+                    >
+                      <Avatar sx={{ width: 32, height: 32 }}>{user.email?.[0]?.toUpperCase() || 'U'}</Avatar>
+                    </IconButton>
+                  </Tooltip>
+                  <Button color="inherit" onClick={() => setLogoutOpen(true)}>
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button color="inherit" onClick={() => navigate('/login')} sx={{ ml: 2 }}>
+                    Login
+                  </Button>
+                  <Button color="secondary" variant="contained" onClick={() => navigate('/login')} sx={{ ml: 1 }}>
+                    Sign Up
+                  </Button>
+                </>
+              )}
+            </Box>
+          )}
+          {/* Mobile: Avatar only */}
+          {isMobile && user && (
+            <IconButton onClick={handleProfileMenuOpen} size="small">
+              <Avatar sx={{ width: 28, height: 28 }}>{user.email?.[0]?.toUpperCase() || 'U'}</Avatar>
+            </IconButton>
+          )}
         </Toolbar>
         {/* Profile/User Menu */}
         <Menu

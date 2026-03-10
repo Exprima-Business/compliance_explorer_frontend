@@ -10,18 +10,33 @@ import {
   MenuItem,
   Snackbar,
   Alert,
+  IconButton,
+  Tooltip,
+  Typography,
 } from '@mui/material';
-import { Search as SearchIcon } from '@mui/icons-material';
+import {
+  Search as SearchIcon,
+  Settings as SettingsIcon,
+} from '@mui/icons-material';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import { BookmarkedClauses } from './BookmarkedClauses';
+import ProjectSelector from './ProjectSelector';
+import ConnectionStatus from './ConnectionStatus';
 import type { ClauseFamily, ClauseFamilyGroup, Clause } from '../types/clause';
 
 const drawerWidth = 320;
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isMobile?: boolean;
+  open?: boolean;
+  onClose?: () => void;
+  onSettingsClick?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, open = true, onClose, onSettingsClick }) => {
   const { searchQuery, setSearchQuery, selectedFamily, setSelectedFamily, families, clauses } = useClause();
-  const { bookmarks, toggleBookmark, bookmarkError, clearBookmarkError } = useBookmarks();
+  const { bookmarks, toggleBookmark, bookmarkError, clearBookmarkError, connectionStatus } = useBookmarks();
 
   const handleFamilyClick = useCallback((family: ClauseFamily | null) => {
     setSelectedFamily(family);
@@ -46,14 +61,16 @@ export const Sidebar: React.FC = () => {
 
   return (
     <Drawer
-      variant="permanent"
+      variant={isMobile ? 'temporary' : 'permanent'}
+      open={isMobile ? open : true}
+      onClose={onClose}
       sx={{
-        width: drawerWidth,
+        width: isMobile ? 0 : drawerWidth,
         flexShrink: 0,
         '& .MuiDrawer-paper': {
-          width: drawerWidth,
+          width: isMobile ? 'min(280px, 80vw)' : drawerWidth,
           boxSizing: 'border-box',
-          marginTop: '64px', // Height of AppBar
+          marginTop: isMobile ? 0 : '64px',
           backgroundColor: 'background.paper',
           borderRight: '1px solid rgba(148, 163, 184, 0.1)',
           padding: 2,
@@ -61,6 +78,25 @@ export const Sidebar: React.FC = () => {
       }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+        {/* Mobile-only: project selector, connection status, settings */}
+        {isMobile && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <ProjectSelector />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <ConnectionStatus status={connectionStatus} showLabel={false} size="small" />
+                {onSettingsClick && (
+                  <Tooltip title="Settings">
+                    <IconButton color="inherit" onClick={onSettingsClick} size="small">
+                      <SettingsIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            </Box>
+            <Divider />
+          </Box>
+        )}
         <TextField
           fullWidth
           id="clause-search"

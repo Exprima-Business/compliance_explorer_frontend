@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Box, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
+import {
+  Box,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Paper,
   Typography,
   IconButton,
@@ -20,6 +20,8 @@ import {
   Radio,
   FormControlLabel,
   CircularProgress,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -61,6 +63,9 @@ const ensureString = (value: any): string => {
 };
 
 export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('PDF');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -84,8 +89,16 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
     riskClassification: 100,
   };
 
-  // Define the columns we want to display
-  const columns: GridColDef[] = [
+  // Mobile-optimized column widths (narrower to fit small screens)
+  const MOBILE_COL_WIDTHS: Record<string, number> = {
+    clauseId: 90,
+    title: 180,
+    status: 80,
+    riskClassification: 90,
+  };
+
+  // All columns available on desktop
+  const allColumns: GridColDef[] = [
     { field: 'clauseId', headerName: 'Clause ID', width: 100 },
     { field: 'title', headerName: 'Title', width: 200 },
     { field: 'description', headerName: 'Description', width: 300 },
@@ -96,12 +109,20 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
     { field: 'conditions', headerName: 'Conditions', width: 200 },
     { field: 'implementationGuidance', headerName: 'Implementation Guidance', width: 300 },
     { field: 'assessmentMethod', headerName: 'Assessment Method', width: 200 },
-    { field: 'riskClassification', headerName: 'Risk Classification', width: 150 },
+    { field: 'riskClassification', headerName: 'Risk', width: 150 },
     { field: 'referenceUrl', headerName: 'Reference URL', width: 200 }
   ];
 
-  // Column widths state
-  const [colWidths, setColWidths] = useState(() => ({ ...DEFAULT_COL_WIDTHS }));
+  // Mobile: show only key columns; Desktop: show all
+  const MOBILE_FIELDS = ['clauseId', 'title', 'status', 'riskClassification'];
+  const columns = isMobile
+    ? allColumns.filter(c => MOBILE_FIELDS.includes(c.field))
+    : allColumns;
+
+  // Column widths state — use mobile-optimized widths on small screens
+  const [colWidths, setColWidths] = useState(() =>
+    isMobile ? { ...MOBILE_COL_WIDTHS } : { ...DEFAULT_COL_WIDTHS }
+  );
   const resizingCol = useRef<string | null>(null);
   const startX = useRef<number>(0);
   const startWidth = useRef<number>(0);
@@ -284,9 +305,17 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
 
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{
+        p: isMobile ? 1 : 2,
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between',
+        alignItems: isMobile ? 'stretch' : 'center',
+        gap: isMobile ? 1 : 0,
+      }}>
         <Button
           variant="outlined"
+          size={isMobile ? 'small' : 'medium'}
           onClick={toggleAllRows}
           startIcon={allExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           sx={{
@@ -299,6 +328,7 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
         </Button>
         <Button
           variant="contained"
+          size={isMobile ? 'small' : 'medium'}
           startIcon={<FileDownloadIcon />}
           onClick={handleExport}
           sx={{
@@ -320,7 +350,7 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
           component={Paper}
           sx={{
             maxHeight: '100%',
-            minWidth: 1200,
+            minWidth: isMobile ? 'unset' : 1200,
             overflowX: 'auto',
             borderRadius: 3,
             boxShadow: '0 8px 32px 0 rgba(31,41,55,0.10)',
@@ -416,24 +446,26 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
                           return column.headerName;
                       }
                     })()}
-                    {/* Resizer handle */}
-                    <span
-                      onMouseDown={(e) => handleMouseDown(e, column.field)}
-                      style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: 0,
-                        height: '100%',
-                        width: 7,
-                        cursor: 'col-resize',
-                        zIndex: 10,
-                        background: 'transparent',
-                        transition: 'background 0.2s',
-                        borderRight: '2px solid rgba(99,102,241,0.12)',
-                      }}
-                      onMouseOver={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.08)')}
-                      onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                    />
+                    {/* Resizer handle – hidden on mobile (no mouse drag) */}
+                    {!isMobile && (
+                      <span
+                        onMouseDown={(e) => handleMouseDown(e, column.field)}
+                        style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: 0,
+                          height: '100%',
+                          width: 7,
+                          cursor: 'col-resize',
+                          zIndex: 10,
+                          background: 'transparent',
+                          transition: 'background 0.2s',
+                          borderRight: '2px solid rgba(99,102,241,0.12)',
+                        }}
+                        onMouseOver={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.08)')}
+                        onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                      />
+                    )}
                   </TableCell>
                 ))}
               </TableRow>

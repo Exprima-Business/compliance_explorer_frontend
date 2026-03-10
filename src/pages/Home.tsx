@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, CircularProgress, Alert, Snackbar } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, Snackbar, useMediaQuery, useTheme } from '@mui/material';
 import { ClauseGraphD3 as ClauseGraph } from '../components/ClauseGraphD3';
 import { FloatingPanel } from '../components/FloatingPanel';
 import { useClause } from '../contexts/ClauseContext';
@@ -10,6 +10,10 @@ import type { GraphData, GraphNode, GraphEdge, Clause, ClauseFamily } from '../t
 import { dlog } from '../utils/debugLog';
 
 const Home: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const appBarHeight = isMobile ? 56 : 64;
+
   const { clauses, searchQuery, loading, error } = useClause();
   const { bookmarks, toggleBookmark, isClauseBookmarked } = useBookmarks();
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -272,7 +276,7 @@ const Home: React.FC = () => {
         flexDirection: 'column',
         justifyContent: 'center', 
         alignItems: 'center', 
-        height: 'calc(100vh - 64px)',
+        height: `calc(100vh - ${appBarHeight}px)`,
         gap: 2
       }}>
         <CircularProgress size={60} />
@@ -300,7 +304,7 @@ const Home: React.FC = () => {
         display: 'flex', 
         justifyContent: 'center', 
         alignItems: 'center', 
-        height: 'calc(100vh - 64px)' 
+        height: `calc(100vh - ${appBarHeight}px)` 
       }}>
         <Typography variant="h6" color="text.secondary">
           Please log in to view the graph
@@ -318,7 +322,7 @@ const Home: React.FC = () => {
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        height: 'calc(100vh - 64px)',
+        height: `calc(100vh - ${appBarHeight}px)`,
         gap: 2
       }}>
         <CircularProgress size={60} />
@@ -337,7 +341,7 @@ const Home: React.FC = () => {
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        height: 'calc(100vh - 64px)',
+        height: `calc(100vh - ${appBarHeight}px)`,
         gap: 2,
         textAlign: 'center',
         px: 3
@@ -364,7 +368,7 @@ const Home: React.FC = () => {
   });
 
   return (
-    <Box sx={{ height: 'calc(100vh - 64px)', position: 'relative' }}>
+    <Box sx={{ height: `calc(100vh - ${appBarHeight}px)`, position: 'relative' }}>
       <ClauseGraph
         graphData={graphData}
         onNodeClick={handleNodeClick}

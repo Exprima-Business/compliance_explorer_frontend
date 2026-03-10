@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, CssBaseline } from '@mui/material';
+import { Box, CssBaseline, useMediaQuery, useTheme } from '@mui/material';
 import { AppBar } from './AppBar';
 import { Sidebar } from './Sidebar';
 import { Settings } from './Settings';
@@ -15,8 +15,11 @@ const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
 const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING === 'true';
 
 export default function Layout({ children }: LayoutProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [activeTab, setActiveTab] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { navigateTo, getCurrentPath, isActiveTab } = useURLBasedNavigation();
 
   // Update active tab based on current route
@@ -65,19 +68,26 @@ export default function Layout({ children }: LayoutProps) {
         right: 0,
         zIndex: (theme) => theme.zIndex.drawer + 1
       }}>
-        <AppBar 
+        <AppBar
           activeTab={activeTab}
           onTabChange={handleTabChange}
           onSettingsClick={handleSettingsClick}
           enableScanner={ENABLE_SCANNER}
+          isMobile={isMobile}
+          onMenuClick={() => setSidebarOpen(true)}
         />
       </Box>
-      <Sidebar />
+      <Sidebar
+        isMobile={isMobile}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onSettingsClick={handleSettingsClick}
+      />
       <Box
         component="main"
         sx={{
           position: 'absolute',
-          left: '320px',
+          left: isMobile ? 0 : '320px',
           right: 0,
           top: '64px',
           bottom: 0,

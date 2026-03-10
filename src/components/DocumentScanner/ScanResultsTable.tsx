@@ -14,6 +14,8 @@ import {
   Collapse,
   IconButton,
   Tooltip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -70,6 +72,9 @@ function matchChipColor(type: MatchType): 'success' | 'info' | 'warning' | 'erro
 // ---------------------------------------------------------------------------
 
 const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectionChange }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   const [selected, setSelected] = useState<Set<string>>(() => {
     // Default: select only clauses that have a DB match
     return new Set(results.filter(r => r.matchType !== 'none').map(r => r.clauseId));
@@ -138,14 +143,21 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Typography variant="h6">
+      <Box sx={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        gap: isMobile ? 1 : 0,
+        mb: 1,
+      }}>
+        <Typography variant={isMobile ? 'subtitle1' : 'h6'}>
           Scan Results &mdash; {results.length} clause{results.length !== 1 && 's'} detected
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <Chip
             icon={<LinkIcon />}
-            label={`${matchedCount} matched in DB`}
+            label={`${matchedCount} matched`}
             color="success"
             variant="outlined"
             size="small"
@@ -153,7 +165,7 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
           {results.length - matchedCount > 0 && (
             <Chip
               icon={<LinkOffIcon />}
-              label={`${results.length - matchedCount} not in DB`}
+              label={`${results.length - matchedCount} unmatched`}
               color="error"
               variant="outlined"
               size="small"
@@ -177,11 +189,11 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
                 />
               </TableCell>
               <TableCell>Clause ID</TableCell>
-              <TableCell>Title</TableCell>
-              <TableCell>Family</TableCell>
+              {!isMobile && <TableCell>Title</TableCell>}
+              {!isMobile && <TableCell>Family</TableCell>}
               <TableCell>Confidence</TableCell>
               <TableCell>DB Status</TableCell>
-              <TableCell align="center">Details</TableCell>
+              {!isMobile && <TableCell align="center">Details</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -216,18 +228,20 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
                         {row.clauseId}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      {row.dbMatch ? (
-                        <Tooltip title={`DB title: ${row.dbMatch.title}`}>
-                          <Typography variant="body2">{row.dbMatch.title}</Typography>
-                        </Tooltip>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          {row.title}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>{row.family || '\u2014'}</TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        {row.dbMatch ? (
+                          <Tooltip title={`DB title: ${row.dbMatch.title}`}>
+                            <Typography variant="body2">{row.dbMatch.title}</Typography>
+                          </Tooltip>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            {row.title}
+                          </Typography>
+                        )}
+                      </TableCell>
+                    )}
+                    {!isMobile && <TableCell>{row.family || '\u2014'}</TableCell>}
                     <TableCell>
                       <Chip
                         icon={confidenceIcon(row.confidence)}
@@ -245,17 +259,19 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
                         variant={isUnmatched ? 'outlined' : 'filled'}
                       />
                     </TableCell>
-                    <TableCell align="center">
-                      {(row.supportingContext || row.dbMatch) && (
-                        <IconButton size="small" onClick={() => toggleExpand(row.clauseId)}>
-                          {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                        </IconButton>
-                      )}
-                    </TableCell>
+                    {!isMobile && (
+                      <TableCell align="center">
+                        {(row.supportingContext || row.dbMatch) && (
+                          <IconButton size="small" onClick={() => toggleExpand(row.clauseId)}>
+                            {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          </IconButton>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
 
                   {/* Expandable detail row */}
-                  {(row.supportingContext || row.dbMatch) && (
+                  {!isMobile && (row.supportingContext || row.dbMatch) && (
                     <TableRow>
                       <TableCell colSpan={7} sx={{ py: 0 }}>
                         <Collapse in={isExpanded} timeout="auto" unmountOnExit>

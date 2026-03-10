@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Typography, Button, Alert, Paper } from '@mui/material';
+import { Box, Typography, Button, Alert, Paper, useMediaQuery, useTheme } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SaveIcon from '@mui/icons-material/Save';
 
@@ -19,6 +19,9 @@ import SaveAsProjectDialog from './SaveAsProjectDialog';
 
 export const DocumentScanner: React.FC = () => {
   // -- ALL hooks at the top, unconditionally ---------------------------------
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   const { user } = useAuth();
   const { scanId: urlScanId } = useParams<{ scanId?: string }>();
   const { clauses } = useClause();
@@ -50,12 +53,12 @@ export const DocumentScanner: React.FC = () => {
   }
 
   return (
-    <Box sx={{ maxWidth: 960, mx: 'auto', py: 4, px: 2 }}>
+    <Box sx={{ maxWidth: 960, mx: 'auto', py: isMobile ? 2 : 4, px: isMobile ? 1 : 2 }}>
       {/* Header */}
-      <Typography variant="h4" gutterBottom>
+      <Typography variant={isMobile ? 'h5' : 'h4'} gutterBottom>
         Document Scanner
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: isMobile ? 2 : 4 }}>
         Upload a document to detect compliance clauses using AI analysis.
       </Typography>
 
@@ -98,19 +101,29 @@ export const DocumentScanner: React.FC = () => {
           />
 
           {/* Action bar */}
-          <Box sx={{ display: 'flex', gap: 2, mt: 3, justifyContent: 'flex-end' }}>
+          <Box sx={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: isMobile ? 1.5 : 2,
+            mt: isMobile ? 2 : 3,
+            justifyContent: isMobile ? 'stretch' : 'flex-end',
+          }}>
             <Button
               variant="outlined"
+              size={isMobile ? 'small' : 'medium'}
               startIcon={<RefreshIcon />}
               onClick={scan.reset}
+              fullWidth={isMobile}
             >
               Scan Another Document
             </Button>
             <Button
               variant="contained"
+              size={isMobile ? 'small' : 'medium'}
               startIcon={<SaveIcon />}
               onClick={() => setShowSaveDialog(true)}
               disabled={selectedClauses.length === 0}
+              fullWidth={isMobile}
             >
               Save to Project ({selectedClauses.length})
             </Button>

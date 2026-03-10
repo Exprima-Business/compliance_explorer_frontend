@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography, Paper, useMediaQuery, useTheme } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DescriptionIcon from '@mui/icons-material/Description';
 
@@ -30,6 +30,9 @@ const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
 // ---------------------------------------------------------------------------
 
 const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected, disabled = false }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   const onDrop = useCallback(
     (accepted: File[]) => {
       if (accepted.length > 0) {
@@ -52,7 +55,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected, disabled = fals
       {...getRootProps()}
       variant="outlined"
       sx={{
-        p: 5,
+        p: isMobile ? 3 : 5,
         textAlign: 'center',
         cursor: disabled ? 'default' : 'pointer',
         borderStyle: 'dashed',
@@ -82,9 +85,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected, disabled = fals
           </>
         ) : (
           <>
-            <DescriptionIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
-            <Typography variant="h6">
-              Drag &amp; drop a document here, or click to browse
+            <DescriptionIcon sx={{ fontSize: isMobile ? 36 : 48, color: 'text.secondary' }} />
+            <Typography variant={isMobile ? 'subtitle1' : 'h6'}>
+              {isMobile ? 'Tap to select a document' : 'Drag & drop a document here, or click to browse'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Supported formats: PDF, Word, Excel, Text &mdash; Max 25 MB
