@@ -23,14 +23,14 @@ export default function Layout({ children }: LayoutProps) {
   const { navigateTo, getCurrentPath, isActiveTab } = useURLBasedNavigation();
 
   // ── Tab-to-route mapping ──────────────────────────────────────────
-  // Desktop tabs: 0=Dashboard  1=Scanner  2=Matrix
-  // Mobile  tabs: 0=Scanner    1=Matrix
+  // Desktop tabs: 0=Dashboard  1=Scanner  2=Matrix  3=Controls
+  // Mobile  tabs: 0=Scanner    1=Matrix   2=Controls
   // Graph is accessible via /graph but has no tab.
   // ─────────────────────────────────────────────────────────────────
 
   const tabRoutes = isMobile
-    ? ['/document-scanner', '/matrix']                     // mobile: 2 tabs
-    : ['/', '/document-scanner', '/matrix'];               // desktop: 3 tabs
+    ? ['/document-scanner', '/matrix', '/controls']                   // mobile: 3 tabs
+    : ['/', '/document-scanner', '/matrix', '/controls'];             // desktop: 4 tabs
 
   // Update active tab based on current route
   useEffect(() => {
@@ -42,6 +42,8 @@ export default function Layout({ children }: LayoutProps) {
       setActiveTab(isMobile ? 1 : 2);
     } else if (path === '/document-scanner' || path.startsWith('/document-scanner/')) {
       setActiveTab(isMobile ? 0 : 1);
+    } else if (path === '/controls') {
+      setActiveTab(isMobile ? 2 : 3);
     } else if (path === '/graph') {
       setActiveTab(-1); // Graph has no tab
     }

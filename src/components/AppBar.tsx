@@ -25,6 +25,7 @@ import {
   Dashboard as DashboardIcon,
   TableChart as TableChartIcon,
   DocumentScanner as ScannerIcon,
+  Shield as ShieldIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -138,6 +139,11 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               <Tab
                 label={isMobile ? undefined : "Matrix"}
                 icon={isMobile ? <TableChartIcon /> : undefined}
+                iconPosition="start"
+              />
+              <Tab
+                label={isMobile ? undefined : "Controls"}
+                icon={isMobile ? <ShieldIcon /> : undefined}
                 iconPosition="start"
               />
             </Tabs>

@@ -29,3 +29,8 @@ uploads/
 
 # TypeScript
 *.tsbuildinfo
+
+# Compiled JS and declaration files in src/ (tsc output)
+src/**/*.js
+src/**/*.d.ts
+!src/vite-env.d.ts
