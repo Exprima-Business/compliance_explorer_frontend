@@ -1,8 +1,12 @@
-import type { ScanProgress, DetectedClause } from '../services/scanApi';
+import type { DetectedClause } from '../services/scanApi';
 export type ScanState = 'idle' | 'uploading' | 'processing' | 'complete' | 'error';
+/** Progress payload — may be the frontend ScanProgress type OR the raw
+ *  backend SSE object (which has `progress` 0-100, `currentChunk`, etc.).
+ *  Components should read fields defensively. */
+export type ProgressPayload = Record<string, any> | null;
 export interface ScanUploadResult {
     state: ScanState;
-    progress: ScanProgress | null;
+    progress: ProgressPayload;
     results: DetectedClause[];
     scanId: string | null;
     fileName: string | null;

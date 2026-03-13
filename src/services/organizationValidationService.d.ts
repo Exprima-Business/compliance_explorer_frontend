@@ -30,8 +30,4 @@ export declare class OrganizationValidationService {
      * Validate and set specific organization context
      */
     static setOrganizationContext(organizationId: string): Promise<OrganizationValidationResponse>;
-    /**
-     * Check if user has valid organization context
-     */
-    static hasValidOrganizationContext(): Promise<boolean>;
 }

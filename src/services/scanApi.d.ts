@@ -53,8 +53,13 @@ export interface ScanProgress {
 export interface CreateProjectFromScanRequest {
     scanId: string;
     projectName: string;
-    selectedClauses: string[];
+    description?: string;
     organizationId: string;
+    options?: {
+        saveToExisting?: boolean;
+        existingProjectId?: string;
+        clauseFilter?: string[];
+    };
 }
 export declare const validateFile: (file: File) => boolean;
 export declare const scanApi: {
