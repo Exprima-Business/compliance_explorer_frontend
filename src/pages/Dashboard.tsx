@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Typography,
@@ -10,6 +10,7 @@ import {
   CircularProgress,
   Alert,
   LinearProgress,
+  Collapse,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -22,6 +23,8 @@ import {
   DocumentScanner as ScannerIcon,
   TableChart as MatrixIcon,
   ArrowForward as ArrowIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
@@ -60,6 +63,8 @@ const Dashboard: React.FC = () => {
   const { currentProject } = useProject();
   const { isAuthenticated, loading: authLoading } = useAuth();
 
+  const [expandedFamily, setExpandedFamily] = useState<string | null>(null);
+
   // ── Derived stats (memoized) ────────────────────────────────────
   const stats = useMemo(() => {
     const bookmarkedIds = new Set(bookmarks.map(b => b.clauseId));
@@ -92,6 +97,21 @@ const Dashboard: React.FC = () => {
       families,
       totalFamilies: allFamilies.size,
     };
+  }, [clauses, bookmarks]);
+
+  // ── Clauses grouped by family name (bookmarked only) ──────────
+  const clausesByFamily = useMemo(() => {
+    const bookmarkedIds = new Set(bookmarks.map(b => b.clauseId));
+    const map = new Map<string, Clause[]>();
+    clauses
+      .filter(c => bookmarkedIds.has(c.id))
+      .forEach(c => {
+        const name = c.family?.name || 'Uncategorized';
+        const arr = map.get(name) || [];
+        arr.push(c);
+        map.set(name, arr);
+      });
+    return map;
   }, [clauses, bookmarks]);
 
   // ── Loading / error states ──────────────────────────────────────
@@ -250,10 +270,32 @@ const Dashboard: React.FC = () => {
             </Typography>
             {stats.families.map(([name, count]) => {
               const pct = stats.projectClauses > 0 ? (count / stats.projectClauses) * 100 : 0;
+              const isExpanded = expandedFamily === name;
+              const familyClauses = clausesByFamily.get(name) || [];
               return (
                 <Box key={name} sx={{ mb: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{name}</Typography>
+                  <Box
+                    onClick={() => setExpandedFamily(isExpanded ? null : name)}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      mb: 0.25,
+                      cursor: 'pointer',
+                      borderRadius: 1,
+                      px: 0.5,
+                      py: 0.25,
+                      '&:hover': { bgcolor: 'action.hover' },
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {isExpanded ? (
+                        <ExpandLessIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                      ) : (
+                        <ExpandMoreIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                      )}
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>{name}</Typography>
+                    </Box>
                     <Typography variant="body2" color="text.secondary">{count}</Typography>
                   </Box>
                   <LinearProgress
@@ -269,6 +311,55 @@ const Dashboard: React.FC = () => {
                       },
                     }}
                   />
+                  <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                    <Box sx={{ mt: 1, mb: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {familyClauses.map(clause => {
+                        const risk = (clause.riskClassification?.toUpperCase() || 'LOW') as RiskClassification;
+                        return (
+                          <Card
+                            key={clause.id}
+                            variant="outlined"
+                            onClick={() => navigate(`/matrix?clause=${encodeURIComponent(clause.clauseCode)}`)}
+                            sx={{
+                              cursor: 'pointer',
+                              bgcolor: RISK_BG[risk],
+                              borderLeft: `3px solid ${RISK_COLORS[risk]}`,
+                              '&:hover': { boxShadow: 2 },
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                  {clause.clauseCode}
+                                </Typography>
+                                <Chip
+                                  label={risk}
+                                  size="small"
+                                  sx={{
+                                    height: 20,
+                                    fontSize: '0.65rem',
+                                    fontWeight: 700,
+                                    bgcolor: RISK_COLORS[risk],
+                                    color: '#fff',
+                                  }}
+                                />
+                              </Box>
+                              <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                                {clause.title}
+                              </Typography>
+                              {clause.description && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {clause.description.length > 100
+                                    ? `${clause.description.slice(0, 100)}...`
+                                    : clause.description}
+                                </Typography>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </Box>
+                  </Collapse>
                 </Box>
               );
             })}

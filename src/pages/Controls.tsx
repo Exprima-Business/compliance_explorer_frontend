@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import Breadcrumbs from '@mui/material/Breadcrumbs';
 import {
   Box,
   Typography,
@@ -17,8 +18,15 @@ import {
   Divider,
   TextField,
   IconButton,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   useMediaQuery,
   useTheme,
+  Collapse,
+  Badge,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -29,7 +37,11 @@ import {
   Link as LinkIcon,
   Search as SearchIcon,
   Save as SaveIcon,
+  KeyboardArrowRight as CollapseIcon,
+  UploadFile as UploadFileIcon,
+  Description as DocumentIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -37,12 +49,14 @@ import {
   fetchFrameworkWithStatus,
   fetchReciprocity,
   updateControlStatus,
+  parseSSPDocument,
   type ControlFramework,
   type FrameworkWithFamilies,
   type FamilyWithControls,
   type ControlWithStatus,
   type ControlStatus,
   type ReciprocityResult,
+  type SSPParseResult,
 } from '../services/controlService';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,6 +130,112 @@ const FamilyProgress: React.FC<{ family: FamilyWithControls }> = ({ family }) =>
   );
 };
 
+// ── Objectives parser ───────────────────────────────────────────────────────
+interface ParsedObjective {
+  id: string;
+  text: string;
+}
+
+function parseObjectives(controlIdentifier: string, discussionText: string | null | undefined): ParsedObjective[] {
+  if (!discussionText) return [];
+
+  // Match patterns like [a], [b], [c], [a.], [b.], etc.
+  const bracketPattern = /\[([a-z](?:\.\d+)?)\]/g;
+  const matches = [...discussionText.matchAll(bracketPattern)];
+
+  if (matches.length >= 2) {
+    const objectives: ParsedObjective[] = [];
+    for (let i = 0; i < matches.length; i++) {
+      const start = matches[i].index! + matches[i][0].length;
+      const end = i + 1 < matches.length ? matches[i + 1].index! : discussionText.length;
+      const text = discussionText.slice(start, end).trim().replace(/;$/, '').trim();
+      if (text) {
+        objectives.push({
+          id: `${controlIdentifier}[${matches[i][1]}]`,
+          text,
+        });
+      }
+    }
+    if (objectives.length > 0) return objectives;
+  }
+
+  // Fallback: split on sentence boundaries if text is long enough
+  if (discussionText.length > 120) {
+    const sentences = discussionText.split(/(?<=[.;])\s+/).filter(s => s.trim().length > 10);
+    if (sentences.length >= 2) {
+      return sentences.map((s, i) => ({
+        id: `${controlIdentifier}[${String.fromCharCode(97 + i)}]`,
+        text: s.trim(),
+      }));
+    }
+  }
+
+  // Single objective — full text
+  return [{
+    id: `${controlIdentifier}[a]`,
+    text: discussionText.trim(),
+  }];
+}
+
+const ObjectivesList: React.FC<{
+  objectives: ParsedObjective[];
+  isMobile: boolean;
+}> = ({ objectives, isMobile }) => (
+  <Box
+    sx={{
+      ml: isMobile ? 1 : 3,
+      mt: 1,
+      mb: 1,
+      pl: 2,
+      borderLeft: '3px solid',
+      borderColor: 'primary.light',
+      bgcolor: 'action.hover',
+      borderRadius: '0 8px 8px 0',
+    }}
+  >
+    <Typography
+      variant="caption"
+      sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', pt: 1, pb: 0.5 }}
+    >
+      Assessment Objectives ({objectives.length})
+    </Typography>
+    {objectives.map((obj, idx) => (
+      <Box
+        key={obj.id}
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 1,
+          py: 0.75,
+          borderBottom: idx < objectives.length - 1 ? '1px solid' : 'none',
+          borderColor: 'divider',
+        }}
+      >
+        <Chip
+          label={obj.id}
+          size="small"
+          variant="outlined"
+          sx={{
+            fontFamily: 'monospace',
+            fontSize: '0.65rem',
+            height: 22,
+            flexShrink: 0,
+            mt: 0.25,
+            borderColor: 'primary.light',
+            color: 'primary.main',
+          }}
+        />
+        <Typography
+          variant="caption"
+          sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '0.75rem' }}
+        >
+          {obj.text}
+        </Typography>
+      </Box>
+    ))}
+  </Box>
+);
+
 const ControlRow: React.FC<{
   control: ControlWithStatus;
   isMobile: boolean;
@@ -123,7 +243,13 @@ const ControlRow: React.FC<{
 }> = ({ control, isMobile, onStatusChange }) => {
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(control.evidence_notes || '');
+  const [objectivesOpen, setObjectivesOpen] = useState(false);
   const statusCfg = STATUS_CONFIG[control.status];
+
+  const objectives = useMemo(
+    () => parseObjectives(control.identifier, control.discussion_text),
+    [control.identifier, control.discussion_text]
+  );
 
   return (
     <Box
@@ -138,6 +264,32 @@ const ControlRow: React.FC<{
       {/* Header row */}
       <Box sx={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+          {/* Objectives expand button */}
+          {objectives.length > 0 && (
+            <IconButton
+              size="small"
+              onClick={() => setObjectivesOpen(prev => !prev)}
+              sx={{
+                p: 0.25,
+                transition: 'transform 0.2s',
+                transform: objectivesOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+              }}
+            >
+              <Badge
+                badgeContent={objectives.length}
+                color="primary"
+                sx={{
+                  '& .MuiBadge-badge': {
+                    fontSize: '0.6rem',
+                    height: 16,
+                    minWidth: 16,
+                  },
+                }}
+              >
+                <CollapseIcon fontSize="small" />
+              </Badge>
+            </IconButton>
+          )}
           <Chip
             label={control.identifier}
             size="small"
@@ -199,8 +351,8 @@ const ControlRow: React.FC<{
         {control.requirement_text}
       </Typography>
 
-      {/* Discussion (expandable) */}
-      {control.discussion_text && (
+      {/* Discussion text (shown when objectives are collapsed) */}
+      {control.discussion_text && !objectivesOpen && (
         <Typography
           variant="caption"
           sx={{
@@ -214,6 +366,11 @@ const ControlRow: React.FC<{
           {control.discussion_text}
         </Typography>
       )}
+
+      {/* Objectives drill-down */}
+      <Collapse in={objectivesOpen} timeout="auto" unmountOnExit>
+        <ObjectivesList objectives={objectives} isMobile={isMobile} />
+      </Collapse>
     </Box>
   );
 };
@@ -298,6 +455,7 @@ const ReciprocityCard: React.FC<{ result: ReciprocityResult }> = ({ result }) =>
 const Controls: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
   const { currentProject } = useProject();
   const { isAuthenticated, loading: authLoading } = useAuth();
 
@@ -309,6 +467,14 @@ const Controls: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
+
+  // SSP Parser state
+  const [sspDialogOpen, setSspDialogOpen] = useState(false);
+  const [sspFile, setSspFile] = useState<File | null>(null);
+  const [sspParsing, setSspParsing] = useState(false);
+  const [sspResult, setSspResult] = useState<SSPParseResult | null>(null);
+  const [sspError, setSspError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Load frameworks list ─────────────────────────────────────────
   useEffect(() => {
@@ -378,6 +544,35 @@ const Controls: React.FC = () => {
     }
   }, [activeFramework]);
 
+  // ── SSP Upload handler ──────────────────────────────────────────
+  const handleSSPUpload = useCallback(async () => {
+    if (!sspFile || !activeFramework) return;
+
+    setSspParsing(true);
+    setSspError(null);
+    setSspResult(null);
+
+    try {
+      const result = await parseSSPDocument(sspFile, true);
+      if (!result) {
+        setSspError('No results returned from SSP parser');
+        return;
+      }
+      setSspResult(result);
+
+      // Refresh the framework data to show updated statuses
+      const detail = await fetchFrameworkWithStatus(activeFramework.id);
+      if (detail) setActiveFramework(detail);
+
+      const recip = await fetchReciprocity(activeFramework.id);
+      setReciprocity(recip);
+    } catch (err: any) {
+      setSspError(err?.message || 'Failed to parse SSP document');
+    } finally {
+      setSspParsing(false);
+    }
+  }, [sspFile, activeFramework]);
+
   // ── Search filter ────────────────────────────────────────────────
   const filteredFamilies = useMemo(() => {
     if (!activeFramework) return [];
@@ -444,10 +639,18 @@ const Controls: React.FC = () => {
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
           <ShieldIcon sx={{ color: 'primary.main' }} />
-          <Typography variant={isMobile ? 'h6' : 'h5'} sx={{ fontWeight: 700 }}>
+          <Typography variant={isMobile ? 'h6' : 'h5'} sx={{ fontWeight: 700, flex: 1 }}>
             {activeFramework.name}
           </Typography>
           <Chip label={activeFramework.version} size="small" variant="outlined" />
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => navigate('/report')}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Executive Report
+          </Button>
         </Box>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {activeFramework.description}
@@ -489,6 +692,182 @@ const Controls: React.FC = () => {
           </CardContent>
         </Card>
       </Box>
+
+      {/* SSP Upload Button */}
+      <Card variant="outlined" sx={{ mb: 3, bgcolor: 'rgba(99,102,241,0.04)', borderColor: 'primary.light' }}>
+        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: isMobile ? 'stretch' : 'center', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+          <DocumentIcon sx={{ color: 'primary.main', fontSize: 32, display: isMobile ? 'none' : 'block' }} />
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              Upload System Security Plan (SSP)
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              Upload your SSP or POA&M document to auto-assess control implementation status
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<UploadFileIcon />}
+            onClick={() => setSspDialogOpen(true)}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Upload SSP
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* SSP Upload Dialog */}
+      <Dialog open={sspDialogOpen} onClose={() => { if (!sspParsing) { setSspDialogOpen(false); setSspFile(null); setSspResult(null); setSspError(null); } }} maxWidth="sm" fullWidth fullScreen={isMobile}>
+        <DialogTitle>Upload System Security Plan</DialogTitle>
+        <DialogContent>
+          {!sspResult ? (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Upload your SSP or POA&M document (PDF, DOCX, or TXT). The AI will analyze it and
+                map implementation statements to NIST 800-171 controls.
+              </Typography>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.doc,.txt"
+                style={{ display: 'none' }}
+                onChange={(e) => setSspFile(e.target.files?.[0] || null)}
+              />
+
+              <Box
+                onClick={() => fileInputRef.current?.click()}
+                sx={{
+                  border: '2px dashed',
+                  borderColor: sspFile ? 'primary.main' : 'divider',
+                  borderRadius: 2,
+                  p: 3,
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  bgcolor: sspFile ? 'rgba(99,102,241,0.04)' : 'transparent',
+                  '&:hover': { borderColor: 'primary.main', bgcolor: 'rgba(99,102,241,0.04)' },
+                }}
+              >
+                {sspFile ? (
+                  <>
+                    <DocumentIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{sspFile.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {(sspFile.size / 1024 / 1024).toFixed(2)} MB — Click to change
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <UploadFileIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      Click to select your SSP document
+                    </Typography>
+                  </>
+                )}
+              </Box>
+
+              {sspParsing && (
+                <Box sx={{ mt: 2, textAlign: 'center' }}>
+                  <CircularProgress size={24} sx={{ mb: 1 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Analyzing document... This may take 30-60 seconds.
+                  </Typography>
+                </Box>
+              )}
+
+              {sspError && (
+                <Alert severity="error" sx={{ mt: 2 }}>{sspError}</Alert>
+              )}
+            </>
+          ) : (
+            /* SSP Results View */
+            <Box>
+              <Alert severity="success" sx={{ mb: 2 }}>
+                Successfully analyzed "{sspResult.fileName}" — {sspResult.totalAssessments} controls assessed, {sspResult.appliedToProject} applied to project.
+              </Alert>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, mb: 2 }}>
+                <Card variant="outlined" sx={{ textAlign: 'center', p: 1 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#22c55e' }}>{sspResult.summary.implemented}</Typography>
+                  <Typography variant="caption">Implemented</Typography>
+                </Card>
+                <Card variant="outlined" sx={{ textAlign: 'center', p: 1 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#f59e0b' }}>{sspResult.summary.inProgress}</Typography>
+                  <Typography variant="caption">In Progress</Typography>
+                </Card>
+                <Card variant="outlined" sx={{ textAlign: 'center', p: 1 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#94a3b8' }}>{sspResult.summary.notStarted}</Typography>
+                  <Typography variant="caption">Not Started</Typography>
+                </Card>
+              </Box>
+
+              {sspResult.unmatchedControls > 0 && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  {sspResult.unmatchedControls} control(s) could not be matched to the database. These may reference controls from a different revision.
+                </Alert>
+              )}
+
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Assessment Details</Typography>
+              <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                {sspResult.assessments.map((a, i) => (
+                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Chip
+                      label={a.controlIdentifier}
+                      size="small"
+                      sx={{ fontFamily: 'monospace', fontSize: '0.7rem', minWidth: 60 }}
+                    />
+                    <Chip
+                      label={a.status.replace('_', ' ')}
+                      size="small"
+                      sx={{
+                        fontSize: '0.65rem',
+                        height: 20,
+                        bgcolor: a.status === 'IMPLEMENTED' ? '#22c55e' : a.status === 'IN_PROGRESS' ? '#f59e0b' : '#94a3b8',
+                        color: '#fff',
+                      }}
+                    />
+                    <Typography variant="caption" sx={{ flex: 1, color: 'text.secondary' }} noWrap>
+                      {a.evidenceNotes}
+                    </Typography>
+                    {!a.matched && (
+                      <Chip label="unmatched" size="small" color="warning" sx={{ fontSize: '0.6rem', height: 18 }} />
+                    )}
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!sspResult ? (
+            <>
+              <Button onClick={() => { setSspDialogOpen(false); setSspFile(null); setSspError(null); }} disabled={sspParsing}>
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSSPUpload}
+                disabled={!sspFile || sspParsing}
+                startIcon={sspParsing ? <CircularProgress size={18} /> : <UploadFileIcon />}
+              >
+                {sspParsing ? 'Analyzing...' : 'Analyze SSP'}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={() => {
+                setSspDialogOpen(false);
+                setSspFile(null);
+                setSspResult(null);
+                setSspError(null);
+              }}
+            >
+              Done
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
 
       {/* Overall progress bar */}
       <Card variant="outlined" sx={{ mb: 3 }}>
@@ -536,6 +915,28 @@ const Controls: React.FC = () => {
       )}
 
       <Divider sx={{ mb: 3 }} />
+
+      {/* Breadcrumb navigation — shows expanded families */}
+      {expandedFamilies.size > 0 && (
+        <Box sx={{ mb: 2 }}>
+          <Breadcrumbs separator=">" sx={{ fontSize: '0.8rem' }}>
+            <Typography
+              variant="caption"
+              sx={{ cursor: 'pointer', color: 'primary.main', fontWeight: 600 }}
+              onClick={() => setExpandedFamilies(new Set())}
+            >
+              {activeFramework.name}
+            </Typography>
+            {filteredFamilies
+              .filter(f => expandedFamilies.has(f.id))
+              .map(f => (
+                <Typography key={f.id} variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                  {f.identifier} {f.name}
+                </Typography>
+              ))}
+          </Breadcrumbs>
+        </Box>
+      )}
 
       {/* Search */}
       <Box sx={{ mb: 2 }}>

@@ -103,3 +103,43 @@ export async function fetchReciprocity(
   );
   return res.data ?? [];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SSP Parser
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SSPAssessmentResult {
+  controlIdentifier: string;
+  status: ControlStatus;
+  evidenceNotes: string;
+  confidence: number;
+  matched: boolean;
+}
+
+export interface SSPParseResult {
+  fileName: string;
+  totalAssessments: number;
+  matchedControls: number;
+  unmatchedControls: number;
+  appliedToProject: number;
+  assessments: SSPAssessmentResult[];
+  summary: {
+    implemented: number;
+    inProgress: number;
+    notStarted: number;
+  };
+}
+
+export async function parseSSPDocument(file: File, autoApply = true): Promise<SSPParseResult | null> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('autoApply', autoApply ? 'true' : 'false');
+
+  const res = await apiCall<SSPParseResult>('/api/controls/parse-ssp', {
+    method: 'POST',
+    body: formData,
+    requireAuth: true,
+  });
+
+  return res.data ?? null;
+}

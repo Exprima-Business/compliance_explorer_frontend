@@ -28,22 +28,21 @@ export default function Layout({ children }: LayoutProps) {
   // Graph is accessible via /graph but has no tab.
   // ─────────────────────────────────────────────────────────────────
 
-  const tabRoutes = isMobile
-    ? ['/document-scanner', '/matrix', '/controls']                   // mobile: 3 tabs
-    : ['/', '/document-scanner', '/matrix', '/controls'];             // desktop: 4 tabs
+  // Both mobile and desktop: Dashboard > Scanner > Matrix > Controls
+  const tabRoutes = ['/', '/document-scanner', '/matrix', '/controls'];
 
   // Update active tab based on current route
   useEffect(() => {
     const path = getCurrentPath();
 
     if (path === '/' || path === '/dashboard') {
-      setActiveTab(isMobile ? -1 : 0); // Dashboard not a tab on mobile
-    } else if (path === '/matrix' || path.startsWith('/matrix/')) {
-      setActiveTab(isMobile ? 1 : 2);
+      setActiveTab(0);
     } else if (path === '/document-scanner' || path.startsWith('/document-scanner/')) {
-      setActiveTab(isMobile ? 0 : 1);
+      setActiveTab(1);
+    } else if (path === '/matrix' || path.startsWith('/matrix/')) {
+      setActiveTab(2);
     } else if (path === '/controls') {
-      setActiveTab(isMobile ? 2 : 3);
+      setActiveTab(3);
     } else if (path === '/graph') {
       setActiveTab(-1); // Graph has no tab
     }

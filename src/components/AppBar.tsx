@@ -46,6 +46,7 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const { connectionStatus } = useBookmarks();
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -90,8 +91,18 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
           )}
           {/* Left: Logo and Tabs */}
           <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-            {/* Logo */}
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {/* Logo — clickable, navigates to Dashboard */}
+            <Box
+              onClick={() => navigate('/dashboard')}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                '&:hover': { opacity: 0.8 },
+              }}
+              role="link"
+              aria-label="Go to Dashboard"
+            >
               <Box component="img" src="/ClauseAtlasLogoSM.png" alt="ClauseAtlas Logo" sx={{
                 height: 'auto',
                 width: 'auto',
@@ -124,11 +135,12 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               indicatorColor="secondary"
               textColor="primary"
             >
-              {/* Desktop: Dashboard > Scanner > Matrix */}
-              {/* Mobile:  Scanner > Matrix           */}
-              {!isMobile && (
-                <Tab label="Dashboard" icon={<DashboardIcon />} iconPosition="start" />
-              )}
+              {/* Dashboard tab — icon-only on mobile, icon+label on desktop */}
+              <Tab
+                label={isMobile ? undefined : "Dashboard"}
+                icon={isMobile ? <DashboardIcon /> : <DashboardIcon />}
+                iconPosition="start"
+              />
               {enableScanner && (
                 <Tab
                   label={isMobile ? undefined : "Scanner"}
@@ -200,8 +212,7 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
           onClick={handleMenuClose}
         >
           <MenuItem disabled>{user?.email}</MenuItem>
-          <MenuItem>Profile</MenuItem>
-          <MenuItem>My Account</MenuItem>
+          <MenuItem onClick={() => setProfileOpen(true)}>My Profile</MenuItem>
           <MenuItem onClick={() => setLogoutOpen(true)}>Logout</MenuItem>
         </Menu>
         {/* Logout Dialog */}
@@ -218,6 +229,54 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
           </DialogActions>
         </Dialog>
       </MuiAppBar>
+      {/* Profile Dialog */}
+      <Dialog open={profileOpen} onClose={() => setProfileOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>My Profile</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, mt: 1 }}>
+            <Avatar sx={{ width: 56, height: 56, fontSize: 24 }}>
+              {user?.email?.[0]?.toUpperCase() || 'U'}
+            </Avatar>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {user?.email}
+              </Typography>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="body2" color="text.secondary">Account ID</Typography>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                {user?.id?.slice(0, 8)}...
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="body2" color="text.secondary">Provider</Typography>
+              <Typography variant="body2">
+                {user?.app_metadata?.provider || 'Email'}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="body2" color="text.secondary">Last Sign In</Typography>
+              <Typography variant="body2">
+                {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'N/A'}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>
+              <Typography variant="body2" color="text.secondary">Role</Typography>
+              <Typography variant="body2">
+                {user?.user_metadata?.custom_claims?.role || 'Member'}
+              </Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProfileOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }; 
