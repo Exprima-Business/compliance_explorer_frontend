@@ -141,7 +141,7 @@ function parseObjectives(controlIdentifier: string, discussionText: string | nul
 
   // Match patterns like [a], [b], [c], [a.], [b.], etc.
   const bracketPattern = /\[([a-z](?:\.\d+)?)\]/g;
-  const matches = [...discussionText.matchAll(bracketPattern)];
+  const matches = Array.from(discussionText.matchAll(bracketPattern));
 
   if (matches.length >= 2) {
     const objectives: ParsedObjective[] = [];
