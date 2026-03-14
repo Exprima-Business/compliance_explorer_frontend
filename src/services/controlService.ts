@@ -18,17 +18,28 @@ export interface ControlFramework {
   updated_at: string;
 }
 
+export interface ControlObjective {
+  id: string;
+  control_id: string;
+  identifier: string;
+  description: string;
+  sort_order: number;
+}
+
 export interface ControlWithStatus {
   id: string;
   framework_id: string;
   family_id: string;
   identifier: string;
-  requirement_text: string;
+  title: string | null;
+  requirement_text: string | null;
   discussion_text: string | null;
-  requirement_type: 'basic' | 'derived';
+  requirement_type: 'basic' | 'derived' | 'active' | 'withdrawn';
+  is_withdrawn: boolean;
   sort_order: number;
   status: ControlStatus;
   evidence_notes: string | null;
+  objectives?: ControlObjective[];
 }
 
 export interface FamilyWithControls {

@@ -246,10 +246,13 @@ const ControlRow: React.FC<{
   const [objectivesOpen, setObjectivesOpen] = useState(false);
   const statusCfg = STATUS_CONFIG[control.status];
 
-  const objectives = useMemo(
-    () => parseObjectives(control.identifier, control.discussion_text),
-    [control.identifier, control.discussion_text]
-  );
+  // Use real objectives from API if available, fall back to text parsing
+  const objectives = useMemo(() => {
+    if (control.objectives && control.objectives.length > 0) {
+      return control.objectives.map(o => ({ id: o.identifier, text: o.description }));
+    }
+    return parseObjectives(control.identifier, control.discussion_text);
+  }, [control.objectives, control.identifier, control.discussion_text]);
 
   return (
     <Box
@@ -295,23 +298,38 @@ const ControlRow: React.FC<{
             size="small"
             sx={{ fontWeight: 600, fontFamily: 'monospace', fontSize: '0.75rem' }}
           />
-          <Chip
-            label={control.requirement_type}
-            size="small"
-            variant="outlined"
-            sx={{
-              fontSize: '0.65rem',
-              height: 20,
-              color: control.requirement_type === 'basic' ? '#3b82f6' : '#8b5cf6',
-              borderColor: control.requirement_type === 'basic' ? '#3b82f6' : '#8b5cf6',
-            }}
-          />
+          {control.is_withdrawn ? (
+            <Chip
+              label="Withdrawn"
+              size="small"
+              variant="outlined"
+              sx={{ fontSize: '0.65rem', height: 20, color: '#94a3b8', borderColor: '#94a3b8', textDecoration: 'line-through' }}
+            />
+          ) : (
+            <Chip
+              label={control.requirement_type}
+              size="small"
+              variant="outlined"
+              sx={{
+                fontSize: '0.65rem',
+                height: 20,
+                color: control.requirement_type === 'basic' ? '#3b82f6' : '#8b5cf6',
+                borderColor: control.requirement_type === 'basic' ? '#3b82f6' : '#8b5cf6',
+              }}
+            />
+          )}
+          {control.title && (
+            <Typography variant="body2" sx={{ fontWeight: 500, color: control.is_withdrawn ? 'text.disabled' : 'text.primary' }}>
+              {control.title}
+            </Typography>
+          )}
         </Box>
 
         <ToggleButtonGroup
           value={control.status}
           exclusive
           size="small"
+          disabled={control.is_withdrawn}
           onChange={(_e, val) => {
             if (val) onStatusChange(control.id, val as ControlStatus);
           }}
@@ -344,12 +362,19 @@ const ControlRow: React.FC<{
       </Box>
 
       {/* Requirement text */}
-      <Typography
-        variant="body2"
-        sx={{ mt: 1, color: 'text.primary', lineHeight: 1.5 }}
-      >
-        {control.requirement_text}
-      </Typography>
+      {control.requirement_text && !control.is_withdrawn && (
+        <Typography
+          variant="body2"
+          sx={{ mt: 1, color: 'text.primary', lineHeight: 1.5 }}
+        >
+          {control.requirement_text}
+        </Typography>
+      )}
+      {control.is_withdrawn && (
+        <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: 'text.disabled', fontStyle: 'italic' }}>
+          This control has been withdrawn in NIST SP 800-171 Rev 3.
+        </Typography>
+      )}
 
       {/* Discussion text (shown when objectives are collapsed) */}
       {control.discussion_text && !objectivesOpen && (
