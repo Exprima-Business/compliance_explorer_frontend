@@ -609,7 +609,7 @@ const Controls: React.FC = () => {
         ...fam,
         controls: fam.controls.filter(c =>
           c.identifier.toLowerCase().includes(term) ||
-          c.requirement_text.toLowerCase().includes(term) ||
+          c.requirement_text?.toLowerCase().includes(term) ||
           c.discussion_text?.toLowerCase().includes(term)
         ),
       }))
