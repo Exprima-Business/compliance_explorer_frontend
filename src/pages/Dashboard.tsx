@@ -38,6 +38,7 @@ import { useBookmarks } from '../contexts/BookmarkContext';
 import { useProject } from '../contexts/ProjectContext';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { FloatingPanel } from '../components/FloatingPanel';
 import type { Clause, RiskClassification, ClauseFamilyGroup } from '../types/clause';
 
 // ---------------------------------------------------------------------------
@@ -71,6 +72,7 @@ const Dashboard: React.FC = () => {
   const { isAuthenticated, loading: authLoading } = useAuth();
 
   const [expandedFamily, setExpandedFamily] = useState<string | null>(null);
+  const [selectedClause, setSelectedClause] = useState<Clause | null>(null);
 
   // Valid families for the filter dropdown
   const validFamilies = useMemo(() =>
@@ -402,7 +404,7 @@ const Dashboard: React.FC = () => {
                           <Card
                             key={clause.id}
                             variant="outlined"
-                            onClick={() => navigate(`/matrix?clause=${encodeURIComponent(clause.clauseCode)}`)}
+                            onClick={() => setSelectedClause(clause)}
                             sx={{
                               cursor: 'pointer',
                               bgcolor: RISK_BG[risk],
@@ -481,7 +483,7 @@ const Dashboard: React.FC = () => {
                   <Grid item xs={12} sm={6} md={4} key={clause.id}>
                     <Card
                       variant="outlined"
-                      onClick={() => navigate(`/matrix?clause=${encodeURIComponent(clause.clauseCode)}`)}
+                      onClick={() => setSelectedClause(clause)}
                       sx={{
                         cursor: 'pointer',
                         height: '100%',
@@ -605,6 +607,12 @@ const Dashboard: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* ── Clause Detail Panel ───────────────────────────────────── */}
+      <FloatingPanel
+        clause={selectedClause}
+        onClose={() => setSelectedClause(null)}
+      />
     </Box>
   );
 };
