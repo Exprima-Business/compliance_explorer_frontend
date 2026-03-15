@@ -81,6 +81,22 @@ const Dashboard: React.FC = () => {
       : [],
   [families]);
 
+  // Whether a search or family filter is active
+  const isFiltered = Boolean(searchQuery.trim() || selectedFamily);
+
+  // Clauses matching the current search query (applied on top of family filter from context)
+  const filteredClauses = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) return clauses;
+    return clauses.filter(c =>
+      c.clauseCode?.toLowerCase().includes(term) ||
+      c.title?.toLowerCase().includes(term) ||
+      c.description?.toLowerCase().includes(term) ||
+      c.family?.name?.toLowerCase().includes(term) ||
+      c.riskClassification?.toLowerCase().includes(term)
+    );
+  }, [clauses, searchQuery]);
+
   // ── Derived stats (memoized) ────────────────────────────────────
   const stats = useMemo(() => {
     const bookmarkedIds = new Set(bookmarks.map(b => b.clauseId));
@@ -218,13 +234,15 @@ const Dashboard: React.FC = () => {
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: isMobile ? 1.5 : 2, '&:last-child': { pb: isMobile ? 1.5 : 2 } }}>
               <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                Database
+                {isFiltered ? 'Matching Clauses' : 'Database'}
               </Typography>
               <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700, color: 'secondary.main' }}>
-                {stats.totalClauses}
+                {isFiltered ? filteredClauses.length : stats.totalClauses}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                clauses across {stats.totalFamilies} families
+                {isFiltered
+                  ? `of ${stats.totalClauses} total clauses`
+                  : `clauses across ${stats.totalFamilies} families`}
               </Typography>
             </CardContent>
           </Card>
@@ -428,6 +446,92 @@ const Dashboard: React.FC = () => {
                 </Box>
               );
             })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Filtered Clause Cards ──────────────────────────────── */}
+      {isFiltered && filteredClauses.length > 0 && (
+        <Card sx={{ mb: { xs: 2, md: 3 } }}>
+          <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                {selectedFamily ? selectedFamily.name : 'Search Results'}
+                {' '}
+                <Chip
+                  label={`${filteredClauses.length} clause${filteredClauses.length !== 1 ? 's' : ''}`}
+                  size="small"
+                  sx={{ fontSize: '0.7rem', height: 22 }}
+                />
+              </Typography>
+              {(searchQuery || selectedFamily) && (
+                <Button
+                  size="small"
+                  onClick={() => { setSearchQuery(''); setSelectedFamily(null); }}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </Box>
+            <Grid container spacing={1.5}>
+              {filteredClauses.map(clause => {
+                const risk = (clause.riskClassification?.toUpperCase() || 'LOW') as RiskClassification;
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={clause.id}>
+                    <Card
+                      variant="outlined"
+                      onClick={() => navigate(`/matrix?clause=${encodeURIComponent(clause.clauseCode)}`)}
+                      sx={{
+                        cursor: 'pointer',
+                        height: '100%',
+                        bgcolor: RISK_BG[risk],
+                        borderLeft: `3px solid ${RISK_COLORS[risk]}`,
+                        '&:hover': { boxShadow: 2 },
+                        transition: 'box-shadow 0.2s',
+                      }}
+                    >
+                      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                            {clause.clauseCode}
+                          </Typography>
+                          <Chip
+                            label={risk}
+                            size="small"
+                            sx={{
+                              height: 20,
+                              fontSize: '0.6rem',
+                              fontWeight: 700,
+                              bgcolor: RISK_COLORS[risk],
+                              color: '#fff',
+                            }}
+                          />
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5, lineHeight: 1.3 }}>
+                          {clause.title}
+                        </Typography>
+                        {clause.family?.name && (
+                          <Chip
+                            label={clause.family.name}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: '0.6rem', height: 18, mt: 0.5 }}
+                          />
+                        )}
+                        {clause.description && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, lineHeight: 1.3 }}>
+                            {clause.description.length > 80
+                              ? `${clause.description.slice(0, 80)}...`
+                              : clause.description}
+                          </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
           </CardContent>
         </Card>
       )}
