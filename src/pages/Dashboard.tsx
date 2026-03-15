@@ -11,6 +11,12 @@ import {
   Alert,
   LinearProgress,
   Collapse,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  InputAdornment,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -25,13 +31,14 @@ import {
   ArrowForward as ArrowIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import { useProject } from '../contexts/ProjectContext';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import type { Clause, RiskClassification } from '../types/clause';
+import type { Clause, RiskClassification, ClauseFamilyGroup } from '../types/clause';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -58,12 +65,21 @@ const Dashboard: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
 
-  const { clauses, loading, error } = useClause();
+  const { clauses, loading, error, searchQuery, setSearchQuery, selectedFamily, setSelectedFamily, families } = useClause();
   const { bookmarks, loading: bookmarkLoading } = useBookmarks();
   const { currentProject } = useProject();
   const { isAuthenticated, loading: authLoading } = useAuth();
 
   const [expandedFamily, setExpandedFamily] = useState<string | null>(null);
+
+  // Valid families for the filter dropdown
+  const validFamilies = useMemo(() =>
+    Array.isArray(families)
+      ? families.filter((fg): fg is ClauseFamilyGroup =>
+          Boolean(fg && fg.family && fg.family.id && fg.family.name)
+        )
+      : [],
+  [families]);
 
   // ── Derived stats (memoized) ────────────────────────────────────
   const stats = useMemo(() => {
@@ -147,6 +163,55 @@ const Dashboard: React.FC = () => {
         )}
       </Box>
 
+      {/* ── Search & Filter Bar ─────────────────────────────────── */}
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 2,
+          mb: { xs: 2, md: 3 },
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
+        }}
+      >
+        <TextField
+          size="small"
+          placeholder="Search clauses..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ flex: 1, minWidth: 200 }}
+        />
+        <FormControl size="small" sx={{ minWidth: isMobile ? '100%' : 220 }}>
+          <InputLabel>Filter by Family</InputLabel>
+          <Select
+            value={selectedFamily?.id || ''}
+            label="Filter by Family"
+            onChange={(e) => {
+              const familyId = e.target.value;
+              if (!familyId) {
+                setSelectedFamily(null);
+                return;
+              }
+              const familyGroup = validFamilies.find(fg => fg.family.id === familyId);
+              setSelectedFamily(familyGroup?.family || null);
+            }}
+          >
+            <MenuItem value="">All Families</MenuItem>
+            {validFamilies.map((fg) => (
+              <MenuItem key={fg.family.id} value={fg.family.id}>
+                {fg.family.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+
       {/* ── Quick Stats Row ─────────────────────────────────────── */}
       <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: { xs: 2, md: 3 } }}>
         <Grid item xs={6} md={3}>
@@ -175,7 +240,7 @@ const Dashboard: React.FC = () => {
                 {stats.projectClauses}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                bookmarked in current project
+                in project scope
               </Typography>
             </CardContent>
           </Card>

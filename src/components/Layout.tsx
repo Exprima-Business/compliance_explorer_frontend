@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, CssBaseline, useMediaQuery, useTheme } from '@mui/material';
 import { AppBar } from './AppBar';
-import { Sidebar } from './Sidebar';
 import { Settings } from './Settings';
 import { URLDebugInfo } from './URLDebugInfo';
 import { ApiTestComponent } from './ApiTestComponent';
@@ -19,7 +18,6 @@ export default function Layout({ children }: LayoutProps) {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [activeTab, setActiveTab] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { navigateTo, getCurrentPath, isActiveTab } = useURLBasedNavigation();
 
   // ── Tab-to-route mapping ──────────────────────────────────────────
@@ -89,20 +87,14 @@ export default function Layout({ children }: LayoutProps) {
           onSettingsClick={handleSettingsClick}
           enableScanner={ENABLE_SCANNER}
           isMobile={isMobile}
-          onMenuClick={() => setSidebarOpen(true)}
+          onMenuClick={() => {}}
         />
       </Box>
-      <Sidebar
-        isMobile={isMobile}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onSettingsClick={handleSettingsClick}
-      />
       <Box
         component="main"
         sx={{
           position: 'absolute',
-          left: isMobile ? 0 : '320px',
+          left: 0,
           right: 0,
           top: { xs: '56px', sm: '72px' },
           bottom: 0,
