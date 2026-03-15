@@ -267,32 +267,6 @@ const ControlRow: React.FC<{
       {/* Header row */}
       <Box sx={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
-          {/* Objectives expand button */}
-          {objectives.length > 0 && (
-            <IconButton
-              size="small"
-              onClick={() => setObjectivesOpen(prev => !prev)}
-              sx={{
-                p: 0.25,
-                transition: 'transform 0.2s',
-                transform: objectivesOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-              }}
-            >
-              <Badge
-                badgeContent={objectives.length}
-                color="primary"
-                sx={{
-                  '& .MuiBadge-badge': {
-                    fontSize: '0.6rem',
-                    height: 16,
-                    minWidth: 16,
-                  },
-                }}
-              >
-                <CollapseIcon fontSize="small" />
-              </Badge>
-            </IconButton>
-          )}
           <Chip
             label={control.identifier}
             size="small"
@@ -307,15 +281,10 @@ const ControlRow: React.FC<{
             />
           ) : (
             <Chip
-              label={control.requirement_type}
+              label="active"
               size="small"
               variant="outlined"
-              sx={{
-                fontSize: '0.65rem',
-                height: 20,
-                color: control.requirement_type === 'basic' ? '#3b82f6' : '#8b5cf6',
-                borderColor: control.requirement_type === 'basic' ? '#3b82f6' : '#8b5cf6',
-              }}
+              sx={{ fontSize: '0.65rem', height: 20, color: '#22c55e', borderColor: '#22c55e' }}
             />
           )}
           {control.title && (
@@ -361,11 +330,12 @@ const ControlRow: React.FC<{
         </ToggleButtonGroup>
       </Box>
 
-      {/* Requirement text */}
+      {/* Requirement text — the lettered sub-sections (a., b., c., d.) */}
       {control.requirement_text && !control.is_withdrawn && (
         <Typography
           variant="body2"
-          sx={{ mt: 1, color: 'text.primary', lineHeight: 1.5 }}
+          component="div"
+          sx={{ mt: 1, color: 'text.primary', lineHeight: 1.6, whiteSpace: 'pre-line' }}
         >
           {control.requirement_text}
         </Typography>
@@ -376,20 +346,58 @@ const ControlRow: React.FC<{
         </Typography>
       )}
 
-      {/* Discussion text (shown when objectives are collapsed) */}
-      {control.discussion_text && !objectivesOpen && (
+      {/* Discussion text — always visible, italic */}
+      {control.discussion_text && !control.is_withdrawn && (
         <Typography
           variant="caption"
           sx={{
-            mt: 0.5,
+            mt: 1,
             display: 'block',
             color: 'text.secondary',
             fontStyle: 'italic',
-            lineHeight: 1.4,
+            lineHeight: 1.5,
+            whiteSpace: 'pre-line',
           }}
         >
           {control.discussion_text}
         </Typography>
+      )}
+
+      {/* Objectives expand button — prominent placement */}
+      {objectives.length > 0 && !control.is_withdrawn && (
+        <Box
+          onClick={() => setObjectivesOpen(prev => !prev)}
+          sx={{
+            mt: 1.5,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.75,
+            cursor: 'pointer',
+            px: 1.5,
+            py: 0.75,
+            borderRadius: 1,
+            border: '1px solid',
+            borderColor: objectivesOpen ? 'primary.main' : 'divider',
+            bgcolor: objectivesOpen ? 'primary.50' : 'transparent',
+            transition: 'all 0.2s',
+            '&:hover': {
+              borderColor: 'primary.main',
+              bgcolor: 'action.hover',
+            },
+          }}
+        >
+          <CollapseIcon
+            fontSize="small"
+            sx={{
+              transition: 'transform 0.2s',
+              transform: objectivesOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+              color: 'primary.main',
+            }}
+          />
+          <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+            {objectivesOpen ? 'Hide' : 'View'} Assessment Objectives ({objectives.length})
+          </Typography>
+        </Box>
       )}
 
       {/* Objectives drill-down */}
