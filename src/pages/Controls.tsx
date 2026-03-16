@@ -554,11 +554,11 @@ const Controls: React.FC = () => {
           controls: fam.controls.map(c =>
             c.id === controlId ? { ...c, status: newStatus } : c
           ),
-          implemented_count: fam.controls.reduce((n, c) =>
+          implemented_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) =>
             n + ((c.id === controlId ? newStatus : c.status) === 'IMPLEMENTED' ? 1 : 0), 0),
-          in_progress_count: fam.controls.reduce((n, c) =>
+          in_progress_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) =>
             n + ((c.id === controlId ? newStatus : c.status) === 'IN_PROGRESS' ? 1 : 0), 0),
-          not_started_count: fam.controls.reduce((n, c) =>
+          not_started_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) =>
             n + ((c.id === controlId ? newStatus : c.status) === 'NOT_STARTED' ? 1 : 0), 0),
         })),
       };
@@ -626,16 +626,19 @@ const Controls: React.FC = () => {
 
   // ── Summary stats ────────────────────────────────────────────────
   const summary = useMemo(() => {
-    if (!activeFramework) return { total: 0, implemented: 0, inProgress: 0, notStarted: 0, pct: 0 };
+    if (!activeFramework) return { total: 0, implemented: 0, inProgress: 0, notStarted: 0, withdrawn: 0, pct: 0 };
     const all = activeFramework.families.flatMap(f => f.controls);
-    const implemented = all.filter(c => c.status === 'IMPLEMENTED').length;
-    const inProgress = all.filter(c => c.status === 'IN_PROGRESS').length;
-    const total = all.length;
+    const active = all.filter(c => !c.is_withdrawn);
+    const withdrawn = all.filter(c => c.is_withdrawn).length;
+    const implemented = active.filter(c => c.status === 'IMPLEMENTED').length;
+    const inProgress = active.filter(c => c.status === 'IN_PROGRESS').length;
+    const total = active.length;
     return {
       total,
       implemented,
       inProgress,
       notStarted: total - implemented - inProgress,
+      withdrawn,
       pct: total > 0 ? Math.round((implemented / total) * 100) : 0,
     };
   }, [activeFramework]);
@@ -697,7 +700,12 @@ const Controls: React.FC = () => {
             <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
               {summary.total}
             </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Total Controls</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Active Controls</Typography>
+            {summary.withdrawn > 0 && (
+              <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', fontSize: '0.65rem' }}>
+                +{summary.withdrawn} withdrawn
+              </Typography>
+            )}
           </CardContent>
         </Card>
         <Card variant="outlined" sx={{ borderColor: '#22c55e' }}>
