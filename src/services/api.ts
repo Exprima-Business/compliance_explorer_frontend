@@ -134,10 +134,12 @@ async function getCommonHeaders(requireAuth: boolean = false): Promise<HeadersIn
 
 interface ApiOptions extends RequestInit {
   requireAuth?: boolean;
+  /** Override the default 30 s request timeout (in milliseconds). */
+  timeout?: number;
 }
 
 export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Promise<ApiResponse<T>> => {
-  const { requireAuth = false, ...fetchOptions } = options;
+  const { requireAuth = false, timeout = 30_000, ...fetchOptions } = options;
 
   try {
     // Retrieve current session token (if any)
@@ -200,7 +202,7 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     let response: Response;
     try {

@@ -150,6 +150,7 @@ export async function parseSSPDocument(file: File, autoApply = true): Promise<SS
     method: 'POST',
     body: formData,
     requireAuth: true,
+    timeout: 180_000, // 3 min — SSP parsing involves AI enrichment
   });
 
   return res.data ?? null;
