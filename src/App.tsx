@@ -88,7 +88,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router basename={import.meta.env.PROD ? '/app' : undefined}>
+      <Router>
         <Routes>
           <Route path="/login" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />

@@ -81,7 +81,7 @@ const AuthPage: React.FC = () => {
         email,
         password,
         options: {
-          emailRedirectTo: `${import.meta.env.PROD ? 'https://staging.clauseatlas.com' : window.location.origin}/auth/callback`,
+          emailRedirectTo: `${import.meta.env.PROD ? 'https://app.clauseatlas.com' : window.location.origin}/auth/callback`,
           data: {
             setup_required: true,
             registration_date: new Date().toISOString()

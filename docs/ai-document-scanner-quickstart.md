@@ -18,7 +18,7 @@ Before you begin, make sure you have:
 2. **Navigate to Document Scanner**
    - Go to your project dashboard
    - Click on the "Document Scanner" tab
-   - Or use the direct URL: `/app/{org-slug}/{project-slug}/document-scanner`
+   - Or use the direct URL: `/{org-slug}/{project-slug}/document-scanner`
 
 ## Step 2: Upload Your First Document
 

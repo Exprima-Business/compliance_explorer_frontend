@@ -45,7 +45,7 @@ The frontend is deployed on Vercel with automatic deployments from the main bran
 ## URL Structure
 
 When URL-based routing is enabled:
-- `/app/login` - Authentication page
-- `/app/org-slug/project-slug/` - Main application
-- `/app/org-slug/project-slug/matrix` - Matrix view
-- `/app/org-slug/project-slug/document-scanner` - Document scanner (if enabled)
+- `/login` - Authentication page (app.clauseatlas.com/login)
+- `/org-slug/project-slug/` - Main application
+- `/org-slug/project-slug/matrix` - Matrix view
+- `/org-slug/project-slug/document-scanner` - Document scanner (if enabled)

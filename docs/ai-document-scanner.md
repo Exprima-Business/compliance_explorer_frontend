@@ -21,7 +21,7 @@ The Document Scanner supports multiple file formats and uses OpenAI's advanced l
 ### Accessing the Document Scanner
 1. Navigate to your project dashboard
 2. Click on the "Document Scanner" tab in the navigation
-3. Or use the direct URL: `/app/{org-slug}/{project-slug}/document-scanner`
+3. Or use the direct URL: `/{org-slug}/{project-slug}/document-scanner`
 
 ## Using the Document Scanner
 

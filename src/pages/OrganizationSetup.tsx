@@ -151,11 +151,10 @@ const OrganizationSetup: React.FC = () => {
         // org claims and setup_required: false). This is a one-time setup flow
         // so the reload cost is negligible.
         //
-        // Build the correct absolute URL: in production the basename is '/app',
-        // so '/matrix' from the backend becomes '/app/matrix'.
+        // Build the correct absolute URL. With app.clauseatlas.com the app
+        // is served from root, so no path prefix is needed.
         const relativePath = data.redirectTo || '/';
-        const basename = import.meta.env.PROD ? '/app' : '';
-        window.location.href = basename + relativePath;
+        window.location.href = relativePath;
       } else {
         setError(data.error?.message || 'Setup failed');
         dlog('OrganizationSetup: Setup failed', { error: data.error });
