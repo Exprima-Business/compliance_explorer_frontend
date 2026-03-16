@@ -19,6 +19,8 @@ interface ProjectContextValue {
   setCurrentProject: (p: Project) => void;
   refreshProjects: () => Promise<void>;
   createProject: (name: string, description?: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+  updateProject: (id: string, name: string, description?: string) => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextValue | undefined>(undefined);
@@ -110,6 +112,37 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const deleteProject = async (id: string) => {
+    const resp = await apiCall(`/api/projects/${id}`, { method: 'DELETE' });
+    if (resp.error) {
+      throw new Error(extractErrorMessage(resp.error, 'Failed to delete project'));
+    }
+    setProjects(prev => prev.filter(p => p.id !== id));
+    if (currentProject?.id === id) {
+      const remaining = projects.filter(p => p.id !== id);
+      if (remaining.length > 0) {
+        setCurrentProject(remaining[0]);
+      } else {
+        setCurrentProjectState(null);
+        localStorage.removeItem(PROJECT_KEY);
+      }
+    }
+  };
+
+  const updateProject = async (id: string, name: string, description?: string) => {
+    const resp = await apiCall<Project>(`/api/projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, description }),
+    });
+    if (resp.error) {
+      throw new Error(extractErrorMessage(resp.error, 'Failed to update project'));
+    }
+    if (resp.data) {
+      setProjects(prev => prev.map(p => p.id === id ? resp.data! : p));
+      if (currentProject?.id === id) setCurrentProjectState(resp.data);
+    }
+  };
+
   const value: ProjectContextValue = {
     projects,
     currentProject,
@@ -117,6 +150,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCurrentProject,
     refreshProjects,
     createProject,
+    deleteProject,
+    updateProject,
   };
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;

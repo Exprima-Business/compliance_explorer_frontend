@@ -61,6 +61,8 @@ import {
   type ReciprocityResult,
   type SSPParseResult,
   type FrameworkRecommendation,
+  importAssessment,
+  type AssessmentImportResult,
 } from '../services/controlService';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -518,6 +520,14 @@ const Controls: React.FC = () => {
   const [sspError, setSspError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Assessment Import state
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<import('../services/controlService').AssessmentImportResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
   // ── Load frameworks — gate on activation ────────────────────────
   useEffect(() => {
     if (!isAuthenticated || authLoading) return;
@@ -940,6 +950,143 @@ const Controls: React.FC = () => {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Assessment Import Button */}
+      <Card variant="outlined" sx={{ mb: 3, bgcolor: 'rgba(34,197,94,0.04)', borderColor: 'success.light' }}>
+        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: isMobile ? 'stretch' : 'center', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+          <UploadFileIcon sx={{ color: 'success.main', fontSize: 32, display: isMobile ? 'none' : 'block' }} />
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              Import Assessment Tracker (xlsx)
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              Upload an objective-level assessment workbook to populate gap analysis for each control
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<UploadFileIcon />}
+            onClick={() => setImportDialogOpen(true)}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Import Assessment
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Assessment Import Dialog */}
+      <Dialog
+        open={importDialogOpen}
+        onClose={() => { if (!importing) { setImportDialogOpen(false); setImportFile(null); setImportResult(null); setImportError(null); } }}
+        maxWidth="sm"
+        fullWidth
+        fullScreen={isMobile}
+      >
+        <DialogTitle>Import Assessment Tracker</DialogTitle>
+        <DialogContent>
+          {!importResult ? (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Upload your assessment workbook (.xlsx) with per-objective statuses.
+                Each &quot;Results&quot; sheet should have columns: Assessment Objective, Status, Gap Type, Justification, Evidence, Remaining Gaps.
+              </Typography>
+
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                style={{ display: 'none' }}
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              />
+
+              <Box
+                onClick={() => importInputRef.current?.click()}
+                sx={{
+                  border: '2px dashed',
+                  borderColor: importFile ? 'success.main' : 'divider',
+                  borderRadius: 2,
+                  p: 3,
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  '&:hover': { borderColor: 'success.light', bgcolor: 'rgba(34,197,94,0.04)' },
+                }}
+              >
+                {importFile ? (
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{importFile.name}</Typography>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">Click to select .xlsx file</Typography>
+                )}
+              </Box>
+
+              {importError && <Alert severity="error" sx={{ mt: 2 }}>{importError}</Alert>}
+
+              {importing && (
+                <Box sx={{ mt: 2, textAlign: 'center' }}>
+                  <CircularProgress size={24} sx={{ mb: 1 }} />
+                  <Typography variant="body2" color="text.secondary">Importing objectives…</Typography>
+                </Box>
+              )}
+            </>
+          ) : (
+            <Box>
+              <Alert severity="success" sx={{ mb: 2 }}>
+                Imported {importResult.objectivesImported} objectives across {importResult.controlsUpdated} controls
+              </Alert>
+              <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+                <Chip label={`${importResult.summary.fullyMet} Fully Met`} color="success" variant="outlined" />
+                <Chip label={`${importResult.summary.partiallyMet} Partially Met`} sx={{ borderColor: '#f59e0b', color: '#f59e0b' }} variant="outlined" />
+                <Chip label={`${importResult.summary.notMet} Not Met`} color="error" variant="outlined" />
+              </Box>
+              {importResult.unmatchedObjectives.length > 0 && (
+                <Alert severity="warning" sx={{ mb: 1 }}>
+                  {importResult.unmatchedObjectives.length} objectives could not be matched to database records.
+                </Alert>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!importResult ? (
+            <>
+              <Button onClick={() => { setImportDialogOpen(false); setImportFile(null); setImportError(null); }}>Cancel</Button>
+              <Button
+                variant="contained"
+                color="success"
+                disabled={!importFile || importing}
+                onClick={async () => {
+                  if (!importFile) return;
+                  setImporting(true);
+                  setImportError(null);
+                  try {
+                    const result = await importAssessment(importFile);
+                    if (result) {
+                      setImportResult(result);
+                      // Reload framework data to reflect updated statuses
+                      if (activeFramework) {
+                        const updated = await fetchFrameworkWithStatus(activeFramework.id);
+                        if (updated) setActiveFramework(updated);
+                      }
+                    } else {
+                      setImportError('No results returned from import');
+                    }
+                  } catch (err: any) {
+                    setImportError(err.message || 'Import failed');
+                  } finally {
+                    setImporting(false);
+                  }
+                }}
+              >
+                Import
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => { setImportDialogOpen(false); setImportFile(null); setImportResult(null); }}>
+              Done
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
 
       {/* SSP Upload Dialog */}
       <Dialog open={sspDialogOpen} onClose={() => { if (!sspParsing) { setSspDialogOpen(false); setSspFile(null); setSspResult(null); setSspError(null); } }} maxWidth="sm" fullWidth fullScreen={isMobile}>

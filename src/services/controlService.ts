@@ -181,6 +181,36 @@ export interface SSPParseResult {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Assessment Importer (xlsx)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AssessmentImportResult {
+  objectivesImported: number;
+  controlsUpdated: number;
+  unmatchedObjectives: string[];
+  summary: {
+    fullyMet: number;
+    partiallyMet: number;
+    notMet: number;
+  };
+  familyBreakdown: Record<string, { total: number; met: number; partial: number; notMet: number }>;
+}
+
+export async function importAssessment(file: File): Promise<AssessmentImportResult | null> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await apiCall<AssessmentImportResult>('/api/controls/import-assessment', {
+    method: 'POST',
+    body: formData,
+    requireAuth: true,
+    timeout: 120_000, // 2 min for large xlsx
+  });
+
+  return res.data ?? null;
+}
+
 export async function parseSSPDocument(file: File, autoApply = true): Promise<SSPParseResult | null> {
   const formData = new FormData();
   formData.append('file', file);

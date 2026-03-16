@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -32,6 +32,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Search as SearchIcon,
+  Shield as ShieldIcon,
 } from '@mui/icons-material';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
@@ -40,6 +41,33 @@ import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { FloatingPanel } from '../components/FloatingPanel';
 import type { Clause, RiskClassification, ClauseFamilyGroup } from '../types/clause';
+import { apiCall } from '../services/api';
+
+// Compliance summary types
+interface FrameworkSummary {
+  id: string;
+  name: string;
+  version: string;
+  totalControls: number;
+  implemented: number;
+  inProgress: number;
+  notStarted: number;
+  completionPct: number;
+  objectives?: { fullyMet: number; partiallyMet: number; notMet: number; total: number };
+}
+
+interface ReciprocitySummary {
+  clauseCode: string;
+  clauseTitle: string;
+  implementedPct: number;
+  total: number;
+  implemented: number;
+}
+
+interface ComplianceSummary {
+  frameworks: FrameworkSummary[];
+  reciprocity: ReciprocitySummary[];
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -73,6 +101,21 @@ const Dashboard: React.FC = () => {
 
   const [expandedFamily, setExpandedFamily] = useState<string | null>(null);
   const [selectedClause, setSelectedClause] = useState<Clause | null>(null);
+  const [complianceSummary, setComplianceSummary] = useState<ComplianceSummary | null>(null);
+
+  // Fetch compliance progress summary for activated frameworks
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiCall<ComplianceSummary>('/api/controls/project-summary', { requireAuth: true });
+        if (!cancelled && res.data) setComplianceSummary(res.data);
+      } catch {
+        // Non-fatal — section just won't show
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentProject?.id]);
 
   // Valid families for the filter dropdown
   const validFamilies = useMemo(() =>
@@ -342,6 +385,177 @@ const Dashboard: React.FC = () => {
                 </Box>
               ))}
             </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Compliance Progress ─────────────────────────────────── */}
+      {complianceSummary && complianceSummary.frameworks.length > 0 && (
+        <Card sx={{ mb: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider' }}>
+          <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ShieldIcon color="primary" />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Compliance Progress
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                endIcon={<ArrowIcon />}
+                onClick={() => navigate('/controls')}
+                sx={{ textTransform: 'none' }}
+              >
+                View Details
+              </Button>
+            </Box>
+
+            {complianceSummary.frameworks.map(fw => {
+              const pct = fw.completionPct;
+              const barColor = pct >= 80 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+              return (
+                <Box key={fw.id} sx={{ mb: 2.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.5 }}>
+                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                      {fw.name}
+                    </Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: barColor }}>
+                      {Math.round(pct)}%
+                    </Typography>
+                  </Box>
+
+                  {/* Main progress bar */}
+                  <Box sx={{ display: 'flex', gap: 0.5, height: 24, borderRadius: 2, overflow: 'hidden', mb: 1 }}>
+                    {fw.implemented > 0 && (
+                      <Box sx={{
+                        width: `${(fw.implemented / fw.totalControls) * 100}%`,
+                        bgcolor: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontSize: '0.7rem', fontWeight: 600, borderRadius: 1, minWidth: 0,
+                      }}>
+                        {fw.implemented > 3 && fw.implemented}
+                      </Box>
+                    )}
+                    {fw.inProgress > 0 && (
+                      <Box sx={{
+                        width: `${(fw.inProgress / fw.totalControls) * 100}%`,
+                        bgcolor: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontSize: '0.7rem', fontWeight: 600, borderRadius: 1, minWidth: 0,
+                      }}>
+                        {fw.inProgress > 3 && fw.inProgress}
+                      </Box>
+                    )}
+                    {fw.notStarted > 0 && (
+                      <Box sx={{
+                        width: `${(fw.notStarted / fw.totalControls) * 100}%`,
+                        bgcolor: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#6b7280', fontSize: '0.7rem', fontWeight: 600, borderRadius: 1, minWidth: 0,
+                      }}>
+                        {fw.notStarted > 3 && fw.notStarted}
+                      </Box>
+                    )}
+                  </Box>
+
+                  {/* Legend */}
+                  <Grid container spacing={1}>
+                    <Grid item xs={4}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#22c55e' }} />
+                        <Typography variant="caption">{fw.implemented} Implemented</Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#f59e0b' }} />
+                        <Typography variant="caption">{fw.inProgress} In Progress</Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#e5e7eb' }} />
+                        <Typography variant="caption">{fw.notStarted} Not Started</Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+
+                  {/* Objective breakdown if available */}
+                  {fw.objectives && fw.objectives.total > 0 && (
+                    <Box sx={{ mt: 1.5, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, display: 'block' }}>
+                        Assessment Objectives ({fw.objectives.total})
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5, height: 16, borderRadius: 1, overflow: 'hidden' }}>
+                        {fw.objectives.fullyMet > 0 && (
+                          <Box sx={{ width: `${(fw.objectives.fullyMet / fw.objectives.total) * 100}%`, bgcolor: '#22c55e', borderRadius: 0.5 }} />
+                        )}
+                        {fw.objectives.partiallyMet > 0 && (
+                          <Box sx={{ width: `${(fw.objectives.partiallyMet / fw.objectives.total) * 100}%`, bgcolor: '#f59e0b', borderRadius: 0.5 }} />
+                        )}
+                        {fw.objectives.notMet > 0 && (
+                          <Box sx={{ width: `${(fw.objectives.notMet / fw.objectives.total) * 100}%`, bgcolor: '#ef4444', borderRadius: 0.5 }} />
+                        )}
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
+                        <Typography variant="caption" sx={{ color: '#22c55e' }}>
+                          {fw.objectives.fullyMet} Met
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#f59e0b' }}>
+                          {fw.objectives.partiallyMet} Partial
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#ef4444' }}>
+                          {fw.objectives.notMet} Not Met
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+
+            {/* Reciprocity badges */}
+            {complianceSummary.reciprocity.length > 0 && (
+              <Box sx={{ mt: 1, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+                  Clause Reciprocity
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {complianceSummary.reciprocity.map(r => (
+                    <Chip
+                      key={r.clauseCode}
+                      label={`${r.clauseCode}: ${Math.round(r.implementedPct)}%`}
+                      size="small"
+                      color={r.implementedPct >= 80 ? 'success' : r.implementedPct >= 40 ? 'warning' : 'default'}
+                      variant="outlined"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No frameworks hint */}
+      {complianceSummary && complianceSummary.frameworks.length === 0 && stats.projectClauses > 0 && (
+        <Card sx={{ mb: { xs: 2, md: 3 }, bgcolor: 'rgba(99,102,241,0.04)', border: '1px dashed rgba(99,102,241,0.2)' }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <ShieldIcon sx={{ color: 'text.secondary', fontSize: 32 }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                No compliance frameworks activated
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Activate a framework from the Matrix tab to begin tracking control compliance.
+              </Typography>
+            </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => navigate('/matrix')}
+              sx={{ textTransform: 'none' }}
+            >
+              Go to Matrix
+            </Button>
           </CardContent>
         </Card>
       )}
