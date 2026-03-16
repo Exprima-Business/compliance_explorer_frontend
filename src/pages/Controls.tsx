@@ -50,6 +50,9 @@ import {
   fetchReciprocity,
   updateControlStatus,
   parseSSPDocument,
+  fetchActivatedFrameworks,
+  fetchRecommendedFrameworks,
+  activateFramework as activateFrameworkAPI,
   type ControlFramework,
   type FrameworkWithFamilies,
   type FamilyWithControls,
@@ -57,6 +60,7 @@ import {
   type ControlStatus,
   type ReciprocityResult,
   type SSPParseResult,
+  type FrameworkRecommendation,
 } from '../services/controlService';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -501,6 +505,11 @@ const Controls: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
 
+  // Framework activation state
+  const [recommendations, setRecommendations] = useState<FrameworkRecommendation[]>([]);
+  const [activatedFrameworks, setActivatedFrameworks] = useState<ControlFramework[]>([]);
+  const [activating, setActivating] = useState(false);
+
   // SSP Parser state
   const [sspDialogOpen, setSspDialogOpen] = useState(false);
   const [sspFile, setSspFile] = useState<File | null>(null);
@@ -509,7 +518,7 @@ const Controls: React.FC = () => {
   const [sspError, setSspError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Load frameworks list ─────────────────────────────────────────
+  // ── Load frameworks — gate on activation ────────────────────────
   useEffect(() => {
     if (!isAuthenticated || authLoading) return;
 
@@ -517,19 +526,34 @@ const Controls: React.FC = () => {
     (async () => {
       try {
         setLoading(true);
-        const fws = await fetchFrameworks();
-        if (cancelled) return;
-        setFrameworks(fws);
+        setActiveFramework(null);
 
-        // Auto-select first framework
-        if (fws.length > 0) {
-          const detail = await fetchFrameworkWithStatus(fws[0].id);
+        // 1. Check which frameworks are activated for this project
+        const activated = await fetchActivatedFrameworks();
+        if (cancelled) return;
+        setActivatedFrameworks(activated);
+
+        if (activated.length > 0) {
+          // 2a. Project has activated frameworks — load the first one
+          const detail = await fetchFrameworkWithStatus(activated[0].id);
           if (cancelled) return;
           setActiveFramework(detail);
 
-          const recip = await fetchReciprocity(fws[0].id);
+          const recip = await fetchReciprocity(activated[0].id);
           if (cancelled) return;
           setReciprocity(recip);
+        } else {
+          // 2b. No activated frameworks — load recommendations
+          const recs = await fetchRecommendedFrameworks();
+          if (cancelled) return;
+          setRecommendations(recs);
+
+          // Also load all frameworks as fallback for manual activation
+          if (recs.length === 0) {
+            const allFws = await fetchFrameworks();
+            if (cancelled) return;
+            setFrameworks(allFws);
+          }
         }
       } catch (err: any) {
         if (!cancelled) setError(err?.message || 'Failed to load control frameworks');
@@ -539,6 +563,29 @@ const Controls: React.FC = () => {
     })();
     return () => { cancelled = true; };
   }, [isAuthenticated, authLoading, currentProject]);
+
+  // ── Activate a framework ──────────────────────────────────────────
+  const handleActivateFramework = useCallback(async (frameworkId: string) => {
+    setActivating(true);
+    try {
+      await activateFrameworkAPI(frameworkId);
+
+      // Reload — activated frameworks will now include this one
+      const activated = await fetchActivatedFrameworks();
+      setActivatedFrameworks(activated);
+
+      if (activated.length > 0) {
+        const detail = await fetchFrameworkWithStatus(activated[0].id);
+        setActiveFramework(detail);
+        const recip = await fetchReciprocity(activated[0].id);
+        setReciprocity(recip);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to activate framework');
+    } finally {
+      setActivating(false);
+    }
+  }, []);
 
   // ── Status change handler ────────────────────────────────────────
   const handleStatusChange = useCallback(async (controlId: string, newStatus: ControlStatus) => {
@@ -661,9 +708,146 @@ const Controls: React.FC = () => {
   }
 
   if (!activeFramework) {
+    // ── Framework Activation UI ────────────────────────────────────
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="info">No control frameworks available. Run the NIST 800-171 seed script to get started.</Alert>
+      <Box sx={{ p: isMobile ? 1.5 : 3, maxWidth: 900, mx: 'auto' }}>
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ShieldIcon sx={{ color: 'primary.main' }} />
+          <Typography variant={isMobile ? 'h6' : 'h5'} sx={{ fontWeight: 700 }}>
+            Control Frameworks
+          </Typography>
+        </Box>
+
+        <Card variant="outlined" sx={{ mb: 3, bgcolor: 'rgba(99,102,241,0.04)', borderColor: 'primary.light' }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+              No control frameworks activated for this project
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Activate a compliance framework to begin tracking your implementation status against its controls.
+            </Typography>
+          </CardContent>
+        </Card>
+
+        {/* Recommended frameworks based on project clauses */}
+        {recommendations.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+              Recommended based on your project&apos;s clauses
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+              Your project&apos;s scanned clauses map to the following compliance frameworks
+            </Typography>
+
+            {recommendations.map(rec => (
+              <Card
+                key={rec.framework.id}
+                variant="outlined"
+                sx={{
+                  mb: 2,
+                  borderColor: rec.activated ? '#22c55e' : 'primary.main',
+                  borderWidth: 2,
+                }}
+              >
+                <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <ShieldIcon sx={{ color: 'primary.main' }} />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                          {rec.framework.name}
+                        </Typography>
+                        <Chip label={rec.framework.version} size="small" variant="outlined" />
+                      </Box>
+                      {rec.framework.description && (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>
+                          {rec.framework.description}
+                        </Typography>
+                      )}
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
+                        {rec.framework.total_controls} controls
+                      </Typography>
+
+                      {/* Triggering clauses */}
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', mr: 0.5, lineHeight: 2.2 }}>
+                          Required by:
+                        </Typography>
+                        {rec.triggeringClauses.map(c => (
+                          <Chip
+                            key={c.clauseId}
+                            label={c.clauseCode}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: '0.7rem', height: 22, fontFamily: 'monospace' }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+
+                    <Button
+                      variant="contained"
+                      size="large"
+                      disabled={rec.activated || activating}
+                      onClick={() => handleActivateFramework(rec.framework.id)}
+                      startIcon={activating ? <CircularProgress size={18} /> : <ShieldIcon />}
+                      sx={{ whiteSpace: 'nowrap', minWidth: 180, alignSelf: isMobile ? 'stretch' : 'center' }}
+                    >
+                      {rec.activated ? 'Already Active' : activating ? 'Activating...' : 'Activate Framework'}
+                    </Button>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        )}
+
+        {/* Fallback: all available frameworks (no recommendations) */}
+        {recommendations.length === 0 && frameworks.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+              Available Frameworks
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+              No clause-to-framework mappings found for this project. You can activate any available framework manually.
+            </Typography>
+
+            {frameworks.map(fw => (
+              <Card key={fw.id} variant="outlined" sx={{ mb: 2, borderColor: 'divider' }}>
+                <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                        <ShieldIcon sx={{ color: 'text.secondary' }} />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{fw.name}</Typography>
+                        <Chip label={fw.version} size="small" variant="outlined" />
+                      </Box>
+                      {fw.description && (
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>{fw.description}</Typography>
+                      )}
+                    </Box>
+                    <Button
+                      variant="outlined"
+                      disabled={activating}
+                      onClick={() => handleActivateFramework(fw.id)}
+                      startIcon={activating ? <CircularProgress size={18} /> : <ShieldIcon />}
+                      sx={{ whiteSpace: 'nowrap', alignSelf: isMobile ? 'stretch' : 'center' }}
+                    >
+                      {activating ? 'Activating...' : 'Activate'}
+                    </Button>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        )}
+
+        {/* No frameworks exist at all */}
+        {recommendations.length === 0 && frameworks.length === 0 && (
+          <Alert severity="info">
+            No control frameworks available. Contact your administrator to set up compliance frameworks.
+          </Alert>
+        )}
       </Box>
     );
   }

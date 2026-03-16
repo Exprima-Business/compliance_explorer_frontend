@@ -116,6 +116,46 @@ export async function fetchReciprocity(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Framework Activation
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface FrameworkRecommendation {
+  framework: ControlFramework;
+  triggeringClauses: { clauseId: string; clauseCode: string; clauseTitle: string }[];
+  activated: boolean;
+}
+
+export async function fetchRecommendedFrameworks(): Promise<FrameworkRecommendation[]> {
+  const res = await apiCall<FrameworkRecommendation[]>(
+    '/api/controls/recommended-frameworks',
+    { requireAuth: true }
+  );
+  return res.data ?? [];
+}
+
+export async function fetchActivatedFrameworks(): Promise<ControlFramework[]> {
+  const res = await apiCall<ControlFramework[]>(
+    '/api/controls/activated-frameworks',
+    { requireAuth: true }
+  );
+  return res.data ?? [];
+}
+
+export async function activateFramework(frameworkId: string): Promise<void> {
+  await apiCall(`/api/controls/frameworks/${frameworkId}/activate`, {
+    method: 'POST',
+    requireAuth: true,
+  });
+}
+
+export async function deactivateFramework(frameworkId: string): Promise<void> {
+  await apiCall(`/api/controls/frameworks/${frameworkId}/activate`, {
+    method: 'DELETE',
+    requireAuth: true,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SSP Parser
 // ─────────────────────────────────────────────────────────────────────────────
 
