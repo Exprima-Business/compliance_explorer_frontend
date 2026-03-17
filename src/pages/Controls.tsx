@@ -53,6 +53,8 @@ import {
   fetchActivatedFrameworks,
   fetchRecommendedFrameworks,
   activateFramework as activateFrameworkAPI,
+  fetchObjectiveStatuses,
+  updateObjectiveStatus,
   type ControlFramework,
   type FrameworkWithFamilies,
   type FamilyWithControls,
@@ -61,6 +63,8 @@ import {
   type ReciprocityResult,
   type SSPParseResult,
   type FrameworkRecommendation,
+  type ObjectiveStatusEntry,
+  type ObjectiveStatusMap,
   importAssessment,
   type AssessmentImportResult,
 } from '../services/controlService';
@@ -183,73 +187,288 @@ function parseObjectives(controlIdentifier: string, discussionText: string | nul
   }];
 }
 
+/** Detail dialog for a single objective — shows gap info + manual status toggle */
+const ObjectiveDetailDialog: React.FC<{
+  open: boolean;
+  objective: ParsedObjective | null;
+  statusEntry: ObjectiveStatusEntry | null;
+  onClose: () => void;
+  onStatusChange: (objectiveId: string, newStatus: ControlStatus, fields?: Record<string, string | null>) => void;
+}> = ({ open, objective, statusEntry, onClose, onStatusChange }) => {
+  const [localStatus, setLocalStatus] = useState<ControlStatus>(statusEntry?.status || 'NOT_STARTED');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLocalStatus(statusEntry?.status || 'NOT_STARTED');
+  }, [statusEntry]);
+
+  if (!objective) return null;
+
+  const handleSave = async () => {
+    if (!statusEntry?.objective_id) return;
+    setSaving(true);
+    try {
+      await onStatusChange(statusEntry.objective_id, localStatus);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const statusChanged = localStatus !== (statusEntry?.status || 'NOT_STARTED');
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
+        <Chip
+          label={objective.id}
+          size="small"
+          sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.75rem' }}
+        />
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
+          Objective Detail
+        </Typography>
+      </DialogTitle>
+      <DialogContent dividers>
+        {/* Status toggle */}
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+            Status
+          </Typography>
+          <ToggleButtonGroup
+            value={localStatus}
+            exclusive
+            size="small"
+            onChange={(_e, val) => { if (val) setLocalStatus(val as ControlStatus); }}
+            sx={{ width: '100%' }}
+          >
+            {(Object.keys(STATUS_CONFIG) as ControlStatus[]).map(st => {
+              const cfg = STATUS_CONFIG[st];
+              const isActive = localStatus === st;
+              return (
+                <ToggleButton
+                  key={st}
+                  value={st}
+                  sx={{
+                    flex: 1,
+                    py: 0.75,
+                    fontSize: '0.75rem',
+                    textTransform: 'none',
+                    gap: 0.5,
+                    color: isActive ? cfg.color : 'text.disabled',
+                    bgcolor: isActive ? cfg.bg : 'transparent',
+                    borderColor: isActive ? cfg.color : undefined,
+                    '&.Mui-selected': { color: cfg.color, bgcolor: cfg.bg, borderColor: cfg.color },
+                    '&.Mui-selected:hover': { bgcolor: cfg.bg },
+                  }}
+                >
+                  {cfg.icon} {cfg.label}
+                </ToggleButton>
+              );
+            })}
+          </ToggleButtonGroup>
+        </Box>
+
+        {/* Description */}
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+            Description
+          </Typography>
+          <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+            {objective.text}
+          </Typography>
+        </Box>
+
+        {/* Gap details (from xlsx import) */}
+        {statusEntry?.gap_type && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+              Gap Type
+            </Typography>
+            <Chip
+              label={statusEntry.gap_type}
+              size="small"
+              variant="outlined"
+              sx={{ fontSize: '0.75rem' }}
+            />
+          </Box>
+        )}
+
+        {statusEntry?.justification && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+              Justification / Required Fix
+            </Typography>
+            <Box sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="body2" sx={{ lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                {statusEntry.justification}
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
+        {statusEntry?.remaining_gaps && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+              Remaining Gaps
+            </Typography>
+            <Box sx={{ bgcolor: 'rgba(239,68,68,0.04)', p: 1.5, borderRadius: 1, border: '1px solid', borderColor: 'error.light' }}>
+              <Typography variant="body2" sx={{ lineHeight: 1.6, whiteSpace: 'pre-line', color: 'error.dark' }}>
+                {statusEntry.remaining_gaps}
+              </Typography>
+            </Box>
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+        {statusChanged && (
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
+          >
+            {saving ? 'Saving...' : 'Save Status'}
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 const ObjectivesList: React.FC<{
   objectives: ParsedObjective[];
+  objectiveStatuses: ObjectiveStatusEntry[];
   isMobile: boolean;
-}> = ({ objectives, isMobile }) => (
-  <Box
-    sx={{
-      ml: isMobile ? 1 : 3,
-      mt: 1,
-      mb: 1,
-      pl: 2,
-      borderLeft: '3px solid',
-      borderColor: 'primary.light',
-      bgcolor: 'action.hover',
-      borderRadius: '0 8px 8px 0',
-    }}
-  >
-    <Typography
-      variant="caption"
-      sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', pt: 1, pb: 0.5 }}
+  onObjectiveClick: (obj: ParsedObjective, statusEntry: ObjectiveStatusEntry | null) => void;
+}> = ({ objectives, objectiveStatuses, isMobile, onObjectiveClick }) => {
+  // Build a lookup: identifier → status entry
+  const statusMap = useMemo(() => {
+    const m = new Map<string, ObjectiveStatusEntry>();
+    for (const s of objectiveStatuses) {
+      m.set(s.identifier, s);
+    }
+    return m;
+  }, [objectiveStatuses]);
+
+  // Summary counts
+  const counts = useMemo(() => {
+    let impl = 0, prog = 0, notSt = 0;
+    for (const obj of objectives) {
+      const st = statusMap.get(obj.id)?.status || 'NOT_STARTED';
+      if (st === 'IMPLEMENTED') impl++;
+      else if (st === 'IN_PROGRESS') prog++;
+      else notSt++;
+    }
+    return { impl, prog, notSt };
+  }, [objectives, statusMap]);
+
+  return (
+    <Box
+      sx={{
+        ml: isMobile ? 1 : 3,
+        mt: 1,
+        mb: 1,
+        pl: 2,
+        borderLeft: '3px solid',
+        borderColor: 'primary.light',
+        bgcolor: 'action.hover',
+        borderRadius: '0 8px 8px 0',
+      }}
     >
-      Assessment Objectives ({objectives.length})
-    </Typography>
-    {objectives.map((obj, idx) => (
-      <Box
-        key={obj.id}
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 1,
-          py: 0.75,
-          borderBottom: idx < objectives.length - 1 ? '1px solid' : 'none',
-          borderColor: 'divider',
-        }}
-      >
-        <Chip
-          label={obj.id}
-          size="small"
-          variant="outlined"
-          sx={{
-            fontFamily: 'monospace',
-            fontSize: '0.65rem',
-            height: 22,
-            flexShrink: 0,
-            mt: 0.25,
-            borderColor: 'primary.light',
-            color: 'primary.main',
-          }}
-        />
-        <Typography
-          variant="caption"
-          sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '0.75rem' }}
-        >
-          {obj.text}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt: 1, pb: 0.5 }}>
+        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+          Assessment Objectives ({objectives.length})
         </Typography>
+        {counts.impl > 0 && (
+          <Chip icon={<CheckCircleIcon sx={{ fontSize: 12, color: '#22c55e !important' }} />} label={counts.impl} size="small" sx={{ height: 20, fontSize: '0.65rem' }} />
+        )}
+        {counts.prog > 0 && (
+          <Chip icon={<InProgressIcon sx={{ fontSize: 12, color: '#f59e0b !important' }} />} label={counts.prog} size="small" sx={{ height: 20, fontSize: '0.65rem' }} />
+        )}
+        {counts.notSt > 0 && (
+          <Chip icon={<NotStartedIcon sx={{ fontSize: 12, color: '#94a3b8 !important' }} />} label={counts.notSt} size="small" sx={{ height: 20, fontSize: '0.65rem' }} />
+        )}
       </Box>
-    ))}
-  </Box>
-);
+      {objectives.map((obj, idx) => {
+        const statusEntry = statusMap.get(obj.id) || null;
+        const status = statusEntry?.status || 'NOT_STARTED';
+        const cfg = STATUS_CONFIG[status];
+
+        return (
+          <Box
+            key={obj.id}
+            onClick={() => onObjectiveClick(obj, statusEntry)}
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 1,
+              py: 0.75,
+              px: 0.5,
+              borderBottom: idx < objectives.length - 1 ? '1px solid' : 'none',
+              borderColor: 'divider',
+              cursor: 'pointer',
+              borderRadius: 0.5,
+              '&:hover': { bgcolor: 'rgba(99,102,241,0.06)' },
+            }}
+          >
+            {/* Status icon */}
+            <Box sx={{ mt: 0.25, flexShrink: 0 }}>
+              {cfg.icon}
+            </Box>
+            <Chip
+              label={obj.id}
+              size="small"
+              variant="outlined"
+              sx={{
+                fontFamily: 'monospace',
+                fontSize: '0.65rem',
+                height: 22,
+                flexShrink: 0,
+                mt: 0.25,
+                borderColor: cfg.color,
+                color: cfg.color,
+              }}
+            />
+            <Typography
+              variant="caption"
+              sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '0.75rem', flex: 1 }}
+            >
+              {obj.text}
+            </Typography>
+            {/* Status label chip */}
+            <Chip
+              label={cfg.label}
+              size="small"
+              sx={{
+                fontSize: '0.6rem',
+                height: 18,
+                bgcolor: cfg.bg,
+                color: cfg.color,
+                fontWeight: 600,
+                flexShrink: 0,
+                mt: 0.25,
+              }}
+            />
+          </Box>
+        );
+      })}
+    </Box>
+  );
+};
 
 const ControlRow: React.FC<{
   control: ControlWithStatus;
   isMobile: boolean;
+  objectiveStatuses: ObjectiveStatusEntry[];
   onStatusChange: (controlId: string, status: ControlStatus) => void;
-}> = ({ control, isMobile, onStatusChange }) => {
+  onObjectiveStatusChange: (objectiveId: string, newStatus: ControlStatus) => void;
+}> = ({ control, isMobile, objectiveStatuses, onStatusChange, onObjectiveStatusChange }) => {
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(control.evidence_notes || '');
   const [objectivesOpen, setObjectivesOpen] = useState(false);
+  const [detailObj, setDetailObj] = useState<ParsedObjective | null>(null);
+  const [detailStatus, setDetailStatus] = useState<ObjectiveStatusEntry | null>(null);
   const statusCfg = STATUS_CONFIG[control.status];
 
   // Use real objectives from API if available, fall back to text parsing
@@ -259,6 +478,15 @@ const ControlRow: React.FC<{
     }
     return parseObjectives(control.identifier, control.discussion_text);
   }, [control.objectives, control.identifier, control.discussion_text]);
+
+  // Count objective statuses for the badge
+  const objStatusSummary = useMemo(() => {
+    if (objectiveStatuses.length === 0) return null;
+    const impl = objectiveStatuses.filter(s => s.status === 'IMPLEMENTED').length;
+    const prog = objectiveStatuses.filter(s => s.status === 'IN_PROGRESS').length;
+    const total = objectiveStatuses.length;
+    return { impl, prog, total };
+  }, [objectiveStatuses]);
 
   return (
     <Box
@@ -403,13 +631,39 @@ const ControlRow: React.FC<{
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
             {objectivesOpen ? 'Hide' : 'View'} Assessment Objectives ({objectives.length})
           </Typography>
+          {!objectivesOpen && objStatusSummary && objStatusSummary.impl > 0 && (
+            <Chip
+              icon={<CheckCircleIcon sx={{ fontSize: 12, color: '#22c55e !important' }} />}
+              label={`${objStatusSummary.impl}/${objStatusSummary.total}`}
+              size="small"
+              sx={{ height: 20, fontSize: '0.65rem', ml: 0.5 }}
+            />
+          )}
         </Box>
       )}
 
       {/* Objectives drill-down */}
       <Collapse in={objectivesOpen} timeout="auto" unmountOnExit>
-        <ObjectivesList objectives={objectives} isMobile={isMobile} />
+        <ObjectivesList
+          objectives={objectives}
+          objectiveStatuses={objectiveStatuses}
+          isMobile={isMobile}
+          onObjectiveClick={(obj, st) => { setDetailObj(obj); setDetailStatus(st); }}
+        />
       </Collapse>
+
+      {/* Objective detail dialog */}
+      <ObjectiveDetailDialog
+        open={!!detailObj}
+        objective={detailObj}
+        statusEntry={detailStatus}
+        onClose={() => { setDetailObj(null); setDetailStatus(null); }}
+        onStatusChange={(objId, newStatus) => {
+          onObjectiveStatusChange(objId, newStatus);
+          setDetailObj(null);
+          setDetailStatus(null);
+        }}
+      />
     </Box>
   );
 };
@@ -528,6 +782,9 @@ const Controls: React.FC = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
+  // Objective-level status state
+  const [objectiveStatuses, setObjectiveStatuses] = useState<ObjectiveStatusMap>({});
+
   // ── Load frameworks — gate on activation ────────────────────────
   useEffect(() => {
     if (!isAuthenticated || authLoading) return;
@@ -548,6 +805,19 @@ const Controls: React.FC = () => {
           const detail = await fetchFrameworkWithStatus(activated[0].id);
           if (cancelled) return;
           setActiveFramework(detail);
+
+          // 2a-ii. Load objective-level statuses for all controls
+          if (detail) {
+            const allControlIds = detail.families.flatMap(f => f.controls.filter(c => !c.is_withdrawn).map(c => c.id));
+            if (allControlIds.length > 0) {
+              try {
+                const objStatuses = await fetchObjectiveStatuses(allControlIds);
+                if (!cancelled) setObjectiveStatuses(objStatuses);
+              } catch (err) {
+                // Non-fatal — objectives just won't have status
+              }
+            }
+          }
 
           const recip = await fetchReciprocity(activated[0].id);
           if (cancelled) return;
@@ -589,6 +859,17 @@ const Controls: React.FC = () => {
         setActiveFramework(detail);
         const recip = await fetchReciprocity(activated[0].id);
         setReciprocity(recip);
+
+        // Load objective statuses
+        if (detail) {
+          const allControlIds = detail.families.flatMap(f => f.controls.filter(c => !c.is_withdrawn).map(c => c.id));
+          if (allControlIds.length > 0) {
+            try {
+              const objStatuses = await fetchObjectiveStatuses(allControlIds);
+              setObjectiveStatuses(objStatuses);
+            } catch {}
+          }
+        }
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to activate framework');
@@ -631,6 +912,34 @@ const Controls: React.FC = () => {
     } catch (err: any) {
       // Revert on failure
       setError('Failed to save status change. Please try again.');
+    }
+  }, [activeFramework]);
+
+  // ── Objective status change handler ────────────────────────────
+  const handleObjectiveStatusChange = useCallback(async (objectiveId: string, newStatus: ControlStatus) => {
+    try {
+      await updateObjectiveStatus(objectiveId, newStatus);
+
+      // Optimistic update in local state
+      setObjectiveStatuses(prev => {
+        const next = { ...prev };
+        for (const controlId of Object.keys(next)) {
+          next[controlId] = next[controlId].map(o =>
+            o.objective_id === objectiveId ? { ...o, status: newStatus } : o
+          );
+        }
+        return next;
+      });
+
+      // Refresh framework data (control-level rollup happens server-side)
+      if (activeFramework) {
+        const detail = await fetchFrameworkWithStatus(activeFramework.id);
+        if (detail) setActiveFramework(detail);
+        const recip = await fetchReciprocity(activeFramework.id);
+        setReciprocity(recip);
+      }
+    } catch (err: any) {
+      setError('Failed to save objective status. Please try again.');
     }
   }, [activeFramework]);
 
@@ -1062,10 +1371,19 @@ const Controls: React.FC = () => {
                     const result = await importAssessment(importFile);
                     if (result) {
                       setImportResult(result);
-                      // Reload framework data to reflect updated statuses
+                      // Reload framework data + objective statuses to reflect updated statuses
                       if (activeFramework) {
                         const updated = await fetchFrameworkWithStatus(activeFramework.id);
-                        if (updated) setActiveFramework(updated);
+                        if (updated) {
+                          setActiveFramework(updated);
+                          const allControlIds = updated.families.flatMap(f => f.controls.filter(c => !c.is_withdrawn).map(c => c.id));
+                          if (allControlIds.length > 0) {
+                            try {
+                              const objStatuses = await fetchObjectiveStatuses(allControlIds);
+                              setObjectiveStatuses(objStatuses);
+                            } catch {}
+                          }
+                        }
                       }
                     } else {
                       setImportError('No results returned from import');
@@ -1389,7 +1707,9 @@ const Controls: React.FC = () => {
                   key={control.id}
                   control={control}
                   isMobile={isMobile}
+                  objectiveStatuses={objectiveStatuses[control.id] || []}
                   onStatusChange={handleStatusChange}
+                  onObjectiveStatusChange={handleObjectiveStatusChange}
                 />
               ))}
               {family.controls.length === 0 && (

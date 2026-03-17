@@ -211,6 +211,48 @@ export async function importAssessment(file: File): Promise<AssessmentImportResu
   return res.data ?? null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Objective-Level Status
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ObjectiveStatusEntry {
+  objective_id: string;
+  identifier: string;
+  status: ControlStatus;
+  gap_type: string | null;
+  justification: string | null;
+  remaining_gaps: string | null;
+}
+
+/** Keyed by control_id → array of objective statuses */
+export type ObjectiveStatusMap = Record<string, ObjectiveStatusEntry[]>;
+
+export async function fetchObjectiveStatuses(controlIds: string[]): Promise<ObjectiveStatusMap> {
+  if (controlIds.length === 0) return {};
+  const res = await apiCall<ObjectiveStatusMap>(
+    `/api/controls/objective-statuses?controlIds=${controlIds.join(',')}`,
+    { requireAuth: true }
+  );
+  return res.data ?? {};
+}
+
+export async function updateObjectiveStatus(
+  objectiveId: string,
+  status: ControlStatus,
+  fields?: {
+    gap_type?: string | null;
+    justification?: string | null;
+    evidence_notes?: string | null;
+    remaining_gaps?: string | null;
+  }
+): Promise<void> {
+  await apiCall(`/api/controls/objectives/${objectiveId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status, ...fields }),
+    requireAuth: true,
+  });
+}
+
 export async function parseSSPDocument(file: File, autoApply = true): Promise<SSPParseResult | null> {
   const formData = new FormData();
   formData.append('file', file);
