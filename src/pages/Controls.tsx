@@ -1442,52 +1442,28 @@ const Controls: React.FC = () => {
       {/* SPRS Score */}
       {sprsScore && <SPRSScoreCard sprs={sprsScore} />}
 
-      {/* SSP Upload Button */}
-      <Card variant="outlined" sx={{ mb: 3, bgcolor: 'rgba(99,102,241,0.04)', borderColor: 'primary.light' }}>
-        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: isMobile ? 'stretch' : 'center', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
-          <DocumentIcon sx={{ color: 'primary.main', fontSize: 32, display: isMobile ? 'none' : 'block' }} />
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              Upload System Security Plan (SSP)
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              Upload your SSP or POA&M document to auto-assess control implementation status
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<UploadFileIcon />}
-            onClick={() => setSspDialogOpen(true)}
-            sx={{ whiteSpace: 'nowrap' }}
-          >
-            Upload SSP
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Assessment Import Button */}
-      <Card variant="outlined" sx={{ mb: 3, bgcolor: 'rgba(34,197,94,0.04)', borderColor: 'success.light' }}>
-        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: isMobile ? 'stretch' : 'center', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
-          <UploadFileIcon sx={{ color: 'success.main', fontSize: 32, display: isMobile ? 'none' : 'block' }} />
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              Import Assessment Tracker (xlsx)
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              Upload an objective-level assessment workbook to populate gap analysis for each control
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<UploadFileIcon />}
-            onClick={() => setImportDialogOpen(true)}
-            sx={{ whiteSpace: 'nowrap' }}
-          >
-            Import Assessment
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Compact action buttons */}
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<DocumentIcon />}
+          onClick={() => setSspDialogOpen(true)}
+          sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+        >
+          Upload SSP
+        </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          color="success"
+          startIcon={<UploadFileIcon />}
+          onClick={() => setImportDialogOpen(true)}
+          sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+        >
+          Import Assessment
+        </Button>
+      </Box>
 
       {/* Assessment Import Dialog */}
       <Dialog
@@ -1588,6 +1564,17 @@ const Controls: React.FC = () => {
                               setObjectiveStatuses(objStatuses);
                             } catch {}
                           }
+                          // Refresh SPRS + FAR + reciprocity after import
+                          try {
+                            const [recip, sprs, far] = await Promise.all([
+                              fetchReciprocity(updated.id),
+                              fetchSPRSScore(),
+                              fetchFARDetail(),
+                            ]);
+                            setReciprocity(recip);
+                            setSprsScore(sprs);
+                            setFarDetail(far);
+                          } catch {}
                         }
                       }
                     } else {
@@ -1792,20 +1779,22 @@ const Controls: React.FC = () => {
       </Card>
 
       {/* Reciprocity section */}
-      {reciprocity.length > 0 && (
+      {(reciprocity.length > 0 || farDetail) && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
             <LinkIcon fontSize="small" />
             Clause Reciprocity
           </Typography>
           <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 2 }}>
-            Implementing NIST 800-171 controls automatically satisfies these regulatory clauses
+            Implementing NIST 800-171 controls automatically satisfies these regulatory clauses — assess once, comply many
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 2 }}>
             {farDetail && <FARDetailCard farDetail={farDetail} />}
-            {reciprocity.map(r => (
-              <ReciprocityCard key={r.clause_id + r.mapping_type} result={r} />
-            ))}
+            {reciprocity
+              .filter(r => !/52[\.\s-]*204[\.\s-]*21/i.test(r.clause_code))
+              .map(r => (
+                <ReciprocityCard key={r.clause_id + r.mapping_type} result={r} />
+              ))}
           </Box>
         </Box>
       )}
