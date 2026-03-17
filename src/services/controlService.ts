@@ -253,6 +253,50 @@ export async function updateObjectiveStatus(
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRS Score & FAR 52.204-21
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SPRSScore {
+  score: number;
+  maxScore: number;
+  implemented: number;
+  notMet: number;
+  weight5Met: number;
+  weight5Total: number;
+  weight3Met: number;
+  weight3Total: number;
+  weight1Met: number;
+  weight1Total: number;
+  conditionalCertEligible: boolean;
+  details: Array<{ identifier: string; weight: number; met: boolean }>;
+}
+
+export interface FARRequirement {
+  farSubsection: string;
+  farRequirement: string;
+  controlIdentifier: string;
+  controlTitle: string | null;
+  controlId: string | null;
+  status: string;
+  sprsWeight: number;
+}
+
+export interface FARDetail {
+  requirements: FARRequirement[];
+  summary: { total: number; met: number; notMet: number };
+}
+
+export async function fetchSPRSScore(): Promise<SPRSScore | null> {
+  const res = await apiCall<SPRSScore>('/api/controls/sprs-score', { requireAuth: true });
+  return res.data ?? null;
+}
+
+export async function fetchFARDetail(): Promise<FARDetail | null> {
+  const res = await apiCall<FARDetail>('/api/controls/far-52-204-21', { requireAuth: true });
+  return res.data ?? null;
+}
+
 export async function parseSSPDocument(file: File, autoApply = true): Promise<SSPParseResult | null> {
   const formData = new FormData();
   formData.append('file', file);

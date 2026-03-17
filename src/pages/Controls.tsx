@@ -67,6 +67,11 @@ import {
   type ObjectiveStatusMap,
   importAssessment,
   type AssessmentImportResult,
+  fetchSPRSScore,
+  fetchFARDetail,
+  type SPRSScore,
+  type FARDetail,
+  type FARRequirement,
 } from '../services/controlService';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -668,6 +673,172 @@ const ControlRow: React.FC<{
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRS Score Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SPRSScoreCard: React.FC<{ sprs: SPRSScore }> = ({ sprs }) => {
+  const scoreColor = sprs.score >= 88 ? '#22c55e' : sprs.score >= 50 ? '#f59e0b' : '#ef4444';
+  const scorePct = Math.max(0, Math.round(((sprs.score + 203) / 313) * 100)); // -203 to 110 range
+
+  return (
+    <Card variant="outlined" sx={{ borderColor: scoreColor, borderWidth: 2, mb: 3 }}>
+      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Box sx={{ textAlign: 'center', minWidth: 80 }}>
+            <Typography variant="h3" sx={{ fontWeight: 800, color: scoreColor, lineHeight: 1 }}>
+              {sprs.score}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
+              of {sprs.maxScore}
+            </Typography>
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              SPRS Score
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
+              Supplier Performance Risk System — DoD Assessment Methodology
+            </Typography>
+            {sprs.conditionalCertEligible ? (
+              <Chip label="CMMC Conditional Certification Eligible" size="small" sx={{ bgcolor: '#22c55e', color: '#fff', fontWeight: 600, fontSize: '0.7rem' }} />
+            ) : (
+              <Chip label="Not eligible for conditional certification" size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+            )}
+          </Box>
+        </Box>
+
+        {/* Score bar */}
+        <Box sx={{ mb: 2 }}>
+          <LinearProgress
+            variant="determinate"
+            value={scorePct}
+            sx={{
+              height: 10, borderRadius: 5, bgcolor: 'rgba(148,163,184,0.15)',
+              '& .MuiLinearProgress-bar': { borderRadius: 5, bgcolor: scoreColor },
+            }}
+          />
+        </Box>
+
+        {/* Weight tier breakdown */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5 }}>
+          <Box sx={{ textAlign: 'center', p: 1, borderRadius: 1, bgcolor: 'rgba(239,68,68,0.06)' }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#ef4444' }}>
+              {sprs.weight5Met}/{sprs.weight5Total}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
+              Weight 5 (Critical)
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center', p: 1, borderRadius: 1, bgcolor: 'rgba(245,158,11,0.06)' }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f59e0b' }}>
+              {sprs.weight3Met}/{sprs.weight3Total}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
+              Weight 3 (Important)
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center', p: 1, borderRadius: 1, bgcolor: 'rgba(148,163,184,0.06)' }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#64748b' }}>
+              {sprs.weight1Met}/{sprs.weight1Total}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
+              Weight 1 (Baseline)
+            </Typography>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FAR 52.204-21 Detail Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FARDetailCard: React.FC<{ farDetail: FARDetail }> = ({ farDetail }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  const pct = farDetail.summary.total > 0
+    ? Math.round((farDetail.summary.met / farDetail.summary.total) * 100)
+    : 0;
+  const pctColor = pct >= 80 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+
+  return (
+    <Card variant="outlined" sx={{ borderColor: pctColor, borderWidth: 2 }}>
+      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <ShieldIcon fontSize="small" sx={{ color: pctColor }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
+            FAR 52.204-21
+          </Typography>
+          <Chip label="15 Basic" size="small" sx={{ ml: 'auto', fontSize: '0.65rem', height: 20 }} />
+        </Box>
+        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
+          Basic Safeguarding of Covered Contractor Information Systems
+        </Typography>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+          <Box sx={{ flex: 1, height: 10, borderRadius: 5, bgcolor: 'rgba(148,163,184,0.15)', position: 'relative' }}>
+            <Box sx={{
+              position: 'absolute', left: 0, top: 0, height: '100%',
+              width: `${pct}%`, bgcolor: pctColor, borderRadius: 5, transition: 'width 0.5s ease',
+            }} />
+          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: pctColor, minWidth: 48, textAlign: 'right' }}>
+            {pct}%
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+          <Typography variant="caption" sx={{ color: '#22c55e' }}>{farDetail.summary.met} met</Typography>
+          <Typography variant="caption" sx={{ color: '#ef4444' }}>{farDetail.summary.notMet} not met</Typography>
+        </Box>
+
+        <Button
+          size="small"
+          onClick={() => setExpanded(!expanded)}
+          sx={{ fontSize: '0.7rem', p: 0, minWidth: 0 }}
+        >
+          {expanded ? 'Hide' : 'Show'} {farDetail.summary.total} requirements
+        </Button>
+
+        <Collapse in={expanded}>
+          <Box sx={{ mt: 1.5, maxHeight: 300, overflow: 'auto' }}>
+            {farDetail.requirements.map((req, i) => (
+              <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, py: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Chip
+                  label={req.farSubsection}
+                  size="small"
+                  sx={{ fontFamily: 'monospace', fontSize: '0.65rem', minWidth: 36, mt: 0.25 }}
+                />
+                <Chip
+                  label={req.controlIdentifier}
+                  size="small"
+                  sx={{ fontFamily: 'monospace', fontSize: '0.65rem', minWidth: 60, mt: 0.25 }}
+                />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }} noWrap>
+                    {req.farRequirement}
+                  </Typography>
+                </Box>
+                <Chip
+                  label={req.status === 'IMPLEMENTED' ? 'Met' : 'Not Met'}
+                  size="small"
+                  sx={{
+                    fontSize: '0.6rem', height: 20, mt: 0.25,
+                    bgcolor: req.status === 'IMPLEMENTED' ? '#22c55e' : '#ef4444',
+                    color: '#fff',
+                  }}
+                />
+              </Box>
+            ))}
+          </Box>
+        </Collapse>
+      </CardContent>
+    </Card>
+  );
+};
+
 const ReciprocityCard: React.FC<{ result: ReciprocityResult }> = ({ result }) => {
   const pct = result.compliance_pct;
   const pctColor = pct >= 80 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
@@ -785,6 +956,10 @@ const Controls: React.FC = () => {
   // Objective-level status state
   const [objectiveStatuses, setObjectiveStatuses] = useState<ObjectiveStatusMap>({});
 
+  // SPRS & FAR state
+  const [sprsScore, setSprsScore] = useState<SPRSScore | null>(null);
+  const [farDetail, setFarDetail] = useState<FARDetail | null>(null);
+
   // ── Load frameworks — gate on activation ────────────────────────
   useEffect(() => {
     if (!isAuthenticated || authLoading) return;
@@ -822,6 +997,15 @@ const Controls: React.FC = () => {
           const recip = await fetchReciprocity(activated[0].id);
           if (cancelled) return;
           setReciprocity(recip);
+
+          // Load SPRS score and FAR detail
+          try {
+            const [sprs, far] = await Promise.all([fetchSPRSScore(), fetchFARDetail()]);
+            if (!cancelled) {
+              setSprsScore(sprs);
+              setFarDetail(far);
+            }
+          } catch {}
         } else {
           // 2b. No activated frameworks — load recommendations
           const recs = await fetchRecommendedFrameworks();
@@ -860,7 +1044,13 @@ const Controls: React.FC = () => {
         const recip = await fetchReciprocity(activated[0].id);
         setReciprocity(recip);
 
-        // Load objective statuses
+        // Load SPRS + FAR + objective statuses
+        try {
+          const [sprs, far] = await Promise.all([fetchSPRSScore(), fetchFARDetail()]);
+          setSprsScore(sprs);
+          setFarDetail(far);
+        } catch {}
+
         if (detail) {
           const allControlIds = detail.families.flatMap(f => f.controls.filter(c => !c.is_withdrawn).map(c => c.id));
           if (allControlIds.length > 0) {
@@ -904,10 +1094,16 @@ const Controls: React.FC = () => {
 
     try {
       await updateControlStatus(controlId, newStatus);
-      // Refresh reciprocity after status change
+      // Refresh reciprocity + SPRS after status change
       if (activeFramework) {
-        const recip = await fetchReciprocity(activeFramework.id);
+        const [recip, sprs, far] = await Promise.all([
+          fetchReciprocity(activeFramework.id),
+          fetchSPRSScore(),
+          fetchFARDetail(),
+        ]);
         setReciprocity(recip);
+        setSprsScore(sprs);
+        setFarDetail(far);
       }
     } catch (err: any) {
       // Revert on failure
@@ -933,10 +1129,16 @@ const Controls: React.FC = () => {
 
       // Refresh framework data (control-level rollup happens server-side)
       if (activeFramework) {
-        const detail = await fetchFrameworkWithStatus(activeFramework.id);
+        const [detail, recip, sprs, far] = await Promise.all([
+          fetchFrameworkWithStatus(activeFramework.id),
+          fetchReciprocity(activeFramework.id),
+          fetchSPRSScore(),
+          fetchFARDetail(),
+        ]);
         if (detail) setActiveFramework(detail);
-        const recip = await fetchReciprocity(activeFramework.id);
         setReciprocity(recip);
+        setSprsScore(sprs);
+        setFarDetail(far);
       }
     } catch (err: any) {
       setError('Failed to save objective status. Please try again.');
@@ -1236,6 +1438,9 @@ const Controls: React.FC = () => {
           </CardContent>
         </Card>
       </Box>
+
+      {/* SPRS Score */}
+      {sprsScore && <SPRSScoreCard sprs={sprsScore} />}
 
       {/* SSP Upload Button */}
       <Card variant="outlined" sx={{ mb: 3, bgcolor: 'rgba(99,102,241,0.04)', borderColor: 'primary.light' }}>
@@ -1597,6 +1802,7 @@ const Controls: React.FC = () => {
             Implementing NIST 800-171 controls automatically satisfies these regulatory clauses
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 2 }}>
+            {farDetail && <FARDetailCard farDetail={farDetail} />}
             {reciprocity.map(r => (
               <ReciprocityCard key={r.clause_id + r.mapping_type} result={r} />
             ))}
