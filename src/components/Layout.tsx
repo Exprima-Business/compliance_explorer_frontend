@@ -1,10 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { Box, CssBaseline, useMediaQuery, useTheme } from '@mui/material';
+import {
+  Box,
+  CssBaseline,
+  useMediaQuery,
+  useTheme,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Typography,
+  Avatar,
+} from '@mui/material';
+import {
+  Settings as SettingsIcon,
+  Logout as LogoutIcon,
+  Person as PersonIcon,
+} from '@mui/icons-material';
 import { AppBar } from './AppBar';
 import { Settings } from './Settings';
 import { URLDebugInfo } from './URLDebugInfo';
 import { ApiTestComponent } from './ApiTestComponent';
 import { useURLBasedNavigation } from '../hooks/useURLBasedNavigation';
+import { useAuth } from '../contexts/AuthContext';
+import ProjectSelector from './ProjectSelector';
+import ConnectionStatus from './ConnectionStatus';
+import { useBookmarks } from '../contexts/BookmarkContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,7 +41,10 @@ export default function Layout({ children }: LayoutProps) {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [activeTab, setActiveTab] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const { navigateTo, getCurrentPath, isActiveTab } = useURLBasedNavigation();
+  const { user, signOut } = useAuth();
+  const { connectionStatus } = useBookmarks();
 
   // ── Tab-to-route mapping ──────────────────────────────────────────
   // Desktop tabs: 0=Dashboard  1=Scanner  2=Matrix  3=Controls
@@ -87,9 +113,66 @@ export default function Layout({ children }: LayoutProps) {
           onSettingsClick={handleSettingsClick}
           enableScanner={ENABLE_SCANNER}
           isMobile={isMobile}
-          onMenuClick={() => {}}
+          onMenuClick={() => setDrawerOpen(true)}
         />
       </Box>
+
+      {/* Mobile drawer */}
+      <Drawer
+        anchor="left"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        PaperProps={{ sx: { width: 280, pt: 1 } }}
+      >
+        {/* User info */}
+        {user && (
+          <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Avatar sx={{ width: 36, height: 36, fontSize: 16 }}>
+              {user.email?.[0]?.toUpperCase() || 'U'}
+            </Avatar>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }} noWrap>
+                {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap>
+                {user.email}
+              </Typography>
+            </Box>
+          </Box>
+        )}
+        <Divider sx={{ mb: 1 }} />
+
+        {/* Project selector */}
+        <Box sx={{ px: 2, py: 1 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 0.5 }}>
+            Active Project
+          </Typography>
+          <ProjectSelector />
+        </Box>
+        <Divider sx={{ my: 1 }} />
+
+        {/* Connection status */}
+        <Box sx={{ px: 2, py: 1 }}>
+          <ConnectionStatus status={connectionStatus} showLabel={true} size="small" />
+        </Box>
+        <Divider sx={{ my: 1 }} />
+
+        <List disablePadding>
+          <ListItem disablePadding>
+            <ListItemButton onClick={() => { setDrawerOpen(false); setSettingsOpen(true); }}>
+              <ListItemIcon><SettingsIcon /></ListItemIcon>
+              <ListItemText primary="Settings" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton onClick={async () => { setDrawerOpen(false); await signOut(); navigateTo('/login'); }}>
+              <ListItemIcon><LogoutIcon /></ListItemIcon>
+              <ListItemText primary="Logout" />
+            </ListItemButton>
+          </ListItem>
+        </List>
+      </Drawer>
+
       <Box
         component="main"
         sx={{
