@@ -752,72 +752,109 @@ const Dashboard: React.FC = () => {
         </Card>
       )}
 
-      {/* ── Quick Actions ───────────────────────────────────────── */}
-      <Card>
-        <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
-            Quick Actions
-          </Typography>
-          <Box sx={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            gap: 1.5,
-          }}>
+      {/* ── Demo Flow Hero Cards ────────────────────────────────── */}
+      {/* State-aware CTAs that guide the demo narrative */}
+      {stats.projectClauses === 0 && !complianceSummary?.frameworks?.length ? (
+        /* Step 1: No clauses scanned yet — big CTA to scan */
+        <Card sx={{
+          mb: { xs: 2, md: 3 },
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(14,165,233,0.08) 100%)',
+          border: '2px solid rgba(99,102,241,0.2)',
+        }}>
+          <CardContent sx={{ textAlign: 'center', py: { xs: 3, md: 4 } }}>
+            <ScannerIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1.5 }} />
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+              Start Your Compliance Journey
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, maxWidth: 420, mx: 'auto' }}>
+              Upload a contract, RFP, or policy document and ClauseAtlas will automatically identify every compliance clause.
+            </Typography>
             <Button
               variant="contained"
+              size="large"
               startIcon={<ScannerIcon />}
               endIcon={<ArrowIcon />}
               onClick={() => navigate('/document-scanner')}
-              fullWidth={isMobile}
-              sx={{ textTransform: 'none', fontWeight: 600 }}
+              sx={{ textTransform: 'none', fontWeight: 700, px: 4, py: 1.2 }}
             >
-              Scan a Document
+              Scan Your First Document
             </Button>
-            <Button
-              variant="outlined"
-              startIcon={<MatrixIcon />}
-              endIcon={<ArrowIcon />}
-              onClick={() => navigate('/matrix')}
-              fullWidth={isMobile}
-              sx={{ textTransform: 'none', fontWeight: 600 }}
-            >
-              View Compliance Matrix
-            </Button>
-            {!isMobile && (
+          </CardContent>
+        </Card>
+      ) : stats.projectClauses > 0 && (!complianceSummary?.frameworks?.length) ? (
+        /* Step 2: Clauses scanned but no framework activated */
+        <Card sx={{
+          mb: { xs: 2, md: 3 },
+          background: 'linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(99,102,241,0.06) 100%)',
+          border: '2px solid rgba(34,197,94,0.2)',
+        }}>
+          <CardContent sx={{ py: { xs: 2.5, md: 3 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: isMobile ? 'column' : 'row', textAlign: isMobile ? 'center' : 'left' }}>
+              <ShieldIcon sx={{ fontSize: 40, color: '#22c55e' }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.25 }}>
+                  {stats.projectClauses} Clauses Identified — Activate a Framework
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Your clauses map to NIST 800-171. Activate the framework to begin tracking control compliance.
+                </Typography>
+              </Box>
               <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<GraphIcon />}
+                variant="contained"
+                color="success"
+                startIcon={<ShieldIcon />}
                 endIcon={<ArrowIcon />}
-                onClick={() => navigate('/graph')}
+                onClick={() => navigate('/controls')}
+                sx={{ textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap', alignSelf: isMobile ? 'stretch' : 'center' }}
+              >
+                Activate Framework
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Step 3: Framework active — quick actions row */
+        <Card sx={{ mb: { xs: 2, md: 3 } }}>
+          <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+              Quick Actions
+            </Typography>
+            <Box sx={{
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: 1.5,
+            }}>
+              <Button
+                variant="contained"
+                startIcon={<ScannerIcon />}
+                endIcon={<ArrowIcon />}
+                onClick={() => navigate('/document-scanner')}
+                fullWidth={isMobile}
                 sx={{ textTransform: 'none', fontWeight: 600 }}
               >
-                Explore Relationships
+                Scan a Document
               </Button>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
-
-      {/* ── Empty state hint ────────────────────────────────────── */}
-      {stats.projectClauses === 0 && (
-        <Card sx={{ mt: { xs: 2, md: 3 }, bgcolor: 'rgba(99,102,241,0.04)', border: '1px dashed rgba(99,102,241,0.2)' }}>
-          <CardContent sx={{ textAlign: 'center', py: { xs: 3, md: 4 } }}>
-            <FolderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              No clauses in this project yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Use the Document Scanner to upload an RFP or contract and automatically identify compliance clauses.
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<ScannerIcon />}
-              onClick={() => navigate('/document-scanner')}
-              sx={{ textTransform: 'none', fontWeight: 600 }}
-            >
-              Get Started with Document Scanner
-            </Button>
+              <Button
+                variant="outlined"
+                startIcon={<ShieldIcon />}
+                endIcon={<ArrowIcon />}
+                onClick={() => navigate('/controls')}
+                fullWidth={isMobile}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
+              >
+                View Controls
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<MatrixIcon />}
+                endIcon={<ArrowIcon />}
+                onClick={() => navigate('/matrix')}
+                fullWidth={isMobile}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
+              >
+                Compliance Matrix
+              </Button>
+            </Box>
           </CardContent>
         </Card>
       )}

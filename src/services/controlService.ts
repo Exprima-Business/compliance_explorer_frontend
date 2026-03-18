@@ -297,6 +297,30 @@ export async function fetchFARDetail(): Promise<FARDetail | null> {
   return res.data ?? null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Demo Reset
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function resetDemo(): Promise<{ success: boolean; message: string }> {
+  const res = await apiCall<{ success: boolean; message: string }>('/api/demo/reset', {
+    method: 'POST',
+    requireAuth: true,
+  });
+  return res.data ?? { success: false, message: 'No response' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Warm-up Ping (fires against public health endpoint to wake Railway)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function warmUpBackend(): Promise<void> {
+  try {
+    await apiCall('/api/health', { timeout: 15_000 });
+  } catch {
+    // Silent — best-effort warm-up
+  }
+}
+
 export async function parseSSPDocument(file: File, autoApply = true): Promise<SSPParseResult | null> {
   const formData = new FormData();
   formData.append('file', file);

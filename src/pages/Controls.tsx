@@ -27,6 +27,7 @@ import {
   useTheme,
   Collapse,
   Badge,
+  Snackbar,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -551,9 +552,10 @@ const ControlRow: React.FC<{
                 key={st}
                 value={st}
                 sx={{
-                  px: isMobile ? 0.8 : 1.2,
-                  py: 0.3,
-                  fontSize: '0.7rem',
+                  px: isMobile ? 1.2 : 1.5,
+                  py: isMobile ? 0.75 : 0.5,
+                  fontSize: isMobile ? '0.75rem' : '0.7rem',
+                  minHeight: 40,
                   textTransform: 'none',
                   color: isActive ? cfg.color : 'text.disabled',
                   bgcolor: isActive ? cfg.bg : 'transparent',
@@ -562,7 +564,7 @@ const ControlRow: React.FC<{
                   '&.Mui-selected:hover': { bgcolor: cfg.bg },
                 }}
               >
-                {isMobile ? cfg.label.charAt(0) : cfg.label}
+                {isMobile ? cfg.label.slice(0, 3) : cfg.label}
               </ToggleButton>
             );
           })}
@@ -960,6 +962,11 @@ const Controls: React.FC = () => {
   const [sprsScore, setSprsScore] = useState<SPRSScore | null>(null);
   const [farDetail, setFarDetail] = useState<FARDetail | null>(null);
 
+  // Feedback snackbar
+  const [feedbackSnack, setFeedbackSnack] = useState<{ open: boolean; message: string; severity: 'success' | 'info' | 'error' }>({
+    open: false, message: '', severity: 'success',
+  });
+
   // ── Load frameworks — gate on activation ────────────────────────
   useEffect(() => {
     if (!isAuthenticated || authLoading) return;
@@ -1060,6 +1067,13 @@ const Controls: React.FC = () => {
             } catch {}
           }
         }
+
+        // Post-activation feedback
+        setFeedbackSnack({
+          open: true,
+          message: `${activated[0].name} activated — ${detail?.families.flatMap(f => f.controls).filter(c => !c.is_withdrawn).length || 0} controls ready for assessment`,
+          severity: 'info',
+        });
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to activate framework');
@@ -1094,6 +1108,7 @@ const Controls: React.FC = () => {
 
     try {
       await updateControlStatus(controlId, newStatus);
+      setFeedbackSnack({ open: true, message: `✓ ${STATUS_CONFIG[newStatus].label}`, severity: 'success' });
       // Refresh reciprocity + SPRS after status change
       if (activeFramework) {
         const [recip, sprs, far] = await Promise.all([
@@ -1107,7 +1122,7 @@ const Controls: React.FC = () => {
       }
     } catch (err: any) {
       // Revert on failure
-      setError('Failed to save status change. Please try again.');
+      setFeedbackSnack({ open: true, message: 'Failed to save — please retry', severity: 'error' });
     }
   }, [activeFramework]);
 
@@ -1552,6 +1567,12 @@ const Controls: React.FC = () => {
                     const result = await importAssessment(importFile);
                     if (result) {
                       setImportResult(result);
+                      // Show import summary toast
+                      setFeedbackSnack({
+                        open: true,
+                        message: `Imported ${result.objectivesImported} objectives — ${result.summary.fullyMet} met, ${result.summary.partiallyMet} partial, ${result.summary.notMet} not met`,
+                        severity: 'success',
+                      });
                       // Reload framework data + objective statuses to reflect updated statuses
                       if (activeFramework) {
                         const updated = await fetchFrameworkWithStatus(activeFramework.id);
@@ -1919,9 +1940,26 @@ const Controls: React.FC = () => {
 
       {filteredFamilies.length === 0 && (
         <Alert severity="info" sx={{ mt: 2 }}>
-          No control families match your search for "{searchTerm}"
+          No control families match your search for &quot;{searchTerm}&quot;
         </Alert>
       )}
+
+      {/* Feedback snackbar */}
+      <Snackbar
+        open={feedbackSnack.open}
+        autoHideDuration={2500}
+        onClose={() => setFeedbackSnack(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setFeedbackSnack(s => ({ ...s, open: false }))}
+          severity={feedbackSnack.severity}
+          variant="filled"
+          sx={{ width: '100%', fontWeight: 600 }}
+        >
+          {feedbackSnack.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   CssBaseline,
@@ -13,11 +13,19 @@ import {
   Divider,
   Typography,
   Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  CircularProgress,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
   Logout as LogoutIcon,
-  Person as PersonIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { AppBar } from './AppBar';
 import { Settings } from './Settings';
@@ -28,6 +36,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ProjectSelector from './ProjectSelector';
 import ConnectionStatus from './ConnectionStatus';
 import { useBookmarks } from '../contexts/BookmarkContext';
+import { warmUpBackend, resetDemo } from '../services/controlService';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -45,6 +54,39 @@ export default function Layout({ children }: LayoutProps) {
   const { navigateTo, getCurrentPath, isActiveTab } = useURLBasedNavigation();
   const { user, signOut } = useAuth();
   const { connectionStatus } = useBookmarks();
+
+  // Demo reset state
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false, message: '', severity: 'success',
+  });
+
+  // ── Warm-up ping — wake Railway on first mount ────────────────────
+  const warmedUp = useRef(false);
+  useEffect(() => {
+    if (!warmedUp.current) {
+      warmedUp.current = true;
+      warmUpBackend();
+    }
+  }, []);
+
+  // ── Demo reset handler ────────────────────────────────────────────
+  const handleDemoReset = async () => {
+    setResetting(true);
+    try {
+      const result = await resetDemo();
+      setResetConfirmOpen(false);
+      setDrawerOpen(false);
+      setSnackbar({ open: true, message: result.message || 'Demo reset complete — ready for next visitor', severity: 'success' });
+      // Force page reload to clear all cached state
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err?.message || 'Reset failed', severity: 'error' });
+    } finally {
+      setResetting(false);
+    }
+  };
 
   // ── Tab-to-route mapping ──────────────────────────────────────────
   // Desktop tabs: 0=Dashboard  1=Scanner  2=Matrix  3=Controls
@@ -165,6 +207,16 @@ export default function Layout({ children }: LayoutProps) {
             </ListItemButton>
           </ListItem>
           <ListItem disablePadding>
+            <ListItemButton
+              onClick={() => setResetConfirmOpen(true)}
+              sx={{ color: 'warning.main' }}
+            >
+              <ListItemIcon><ResetIcon sx={{ color: 'warning.main' }} /></ListItemIcon>
+              <ListItemText primary="Reset Demo" primaryTypographyProps={{ fontWeight: 600 }} />
+            </ListItemButton>
+          </ListItem>
+          <Divider />
+          <ListItem disablePadding>
             <ListItemButton onClick={async () => { setDrawerOpen(false); await signOut(); navigateTo('/login'); }}>
               <ListItemIcon><LogoutIcon /></ListItemIcon>
               <ListItemText primary="Logout" />
@@ -172,6 +224,36 @@ export default function Layout({ children }: LayoutProps) {
           </ListItem>
         </List>
       </Drawer>
+
+      {/* Demo Reset Confirmation Dialog */}
+      <Dialog open={resetConfirmOpen} onClose={() => !resetting && setResetConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Reset Demo?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            This will clear all progress for the current project:
+          </Typography>
+          <Box component="ul" sx={{ pl: 2, '& li': { mb: 0.5 } }}>
+            <li><Typography variant="body2">All control statuses → Not Started</Typography></li>
+            <li><Typography variant="body2">All objective assessments removed</Typography></li>
+            <li><Typography variant="body2">Framework deactivated (ready for re-activation)</Typography></li>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Scanned documents and project clauses are preserved.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResetConfirmOpen(false)} disabled={resetting}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleDemoReset}
+            disabled={resetting}
+            startIcon={resetting ? <CircularProgress size={16} /> : <ResetIcon />}
+          >
+            {resetting ? 'Resetting...' : 'Reset Demo'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Box
         component="main"
@@ -190,10 +272,26 @@ export default function Layout({ children }: LayoutProps) {
         {ENABLE_URL_BASED_ROUTING && <ApiTestComponent />}
         {children}
       </Box>
-      <Settings 
+      <Settings
         open={settingsOpen}
         onClose={handleSettingsClose}
       />
+
+      {/* Global snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 } 
