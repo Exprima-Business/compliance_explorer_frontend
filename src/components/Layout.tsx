@@ -21,11 +21,14 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
   Logout as LogoutIcon,
   RestartAlt as ResetIcon,
+  Speed as DemoIcon,
 } from '@mui/icons-material';
 import { AppBar } from './AppBar';
 import { Settings } from './Settings';
@@ -54,6 +57,16 @@ export default function Layout({ children }: LayoutProps) {
   const { navigateTo, getCurrentPath, isActiveTab } = useURLBasedNavigation();
   const { user, signOut } = useAuth();
   const { connectionStatus } = useBookmarks();
+
+  // Demo mode toggle (persisted in localStorage)
+  const [demoMode, setDemoMode] = useState(() =>
+    typeof window !== 'undefined' && localStorage.getItem('clauseatlas_demo_mode') === 'true'
+  );
+  const handleDemoToggle = () => {
+    const next = !demoMode;
+    setDemoMode(next);
+    localStorage.setItem('clauseatlas_demo_mode', next ? 'true' : 'false');
+  };
 
   // Demo reset state
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -196,6 +209,34 @@ export default function Layout({ children }: LayoutProps) {
         {/* Connection status */}
         <Box sx={{ px: 2, py: 1 }}>
           <ConnectionStatus status={connectionStatus} showLabel={true} size="small" />
+        </Box>
+        <Divider sx={{ my: 1 }} />
+
+        {/* Demo mode toggle */}
+        <Box sx={{ px: 2, py: 0.5 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={demoMode}
+                onChange={handleDemoToggle}
+                size="small"
+                color="warning"
+              />
+            }
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <DemoIcon sx={{ fontSize: 18, color: demoMode ? 'warning.main' : 'text.disabled' }} />
+                <Typography variant="body2" sx={{ fontWeight: demoMode ? 600 : 400, color: demoMode ? 'warning.main' : 'text.secondary' }}>
+                  Demo Mode
+                </Typography>
+              </Box>
+            }
+          />
+          {demoMode && (
+            <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', pl: 4.5, mt: -0.5 }}>
+              Scanner uses cached results (instant)
+            </Typography>
+          )}
         </Box>
         <Divider sx={{ my: 1 }} />
 

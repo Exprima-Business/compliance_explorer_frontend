@@ -3,6 +3,7 @@ import { scanApi, validateFile } from '../services/scanApi';
 import type { ScanProgress, ScanSession, DetectedClause } from '../services/scanApi';
 import { getAuthToken } from '../services/api';
 import environment from '../config/environment';
+import { DEMO_DETECTED_CLAUSES, DEMO_FILE_NAME, DEMO_METADATA } from '../data/demoScanResults';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -217,6 +218,11 @@ export function useScanUpload(initialScanId?: string): ScanUploadResult {
 
   // -- public actions --------------------------------------------------------
 
+  /** Demo mode: env var OR localStorage toggle (settable from drawer) */
+  const isDemoMode =
+    import.meta.env.VITE_DEMO_MODE === 'true' ||
+    (typeof window !== 'undefined' && localStorage.getItem('clauseatlas_demo_mode') === 'true');
+
   const upload = useCallback(
     async (file: File) => {
       cleanup();
@@ -224,6 +230,48 @@ export function useScanUpload(initialScanId?: string): ScanUploadResult {
       setResults([]);
       setProgress(null);
       setFileName(file.name);
+
+      // ── Demo mode: skip real upload, simulate fast scan ──────────
+      if (isDemoMode) {
+        setState('uploading');
+        const demoId = `demo-${Date.now()}`;
+        setScanId(demoId);
+
+        // Simulate upload → processing → complete in ~2.5s
+        await new Promise(r => setTimeout(r, 400));
+        if (!isMountedRef.current) return;
+        setState('processing');
+
+        const steps = [
+          { current: 3, total: 12, message: 'Extracting text from 47 pages…' },
+          { current: 6, total: 12, message: 'Analyzing compliance clauses…' },
+          { current: 9, total: 12, message: 'Validating against clause database…' },
+          { current: 12, total: 12, message: 'Complete' },
+        ];
+
+        for (const step of steps) {
+          await new Promise(r => setTimeout(r, 500));
+          if (!isMountedRef.current) return;
+          setProgress({
+            scanId: demoId,
+            current: step.current,
+            total: step.total,
+            status: step.current === 12 ? 'complete' : 'processing',
+            message: step.message,
+            estimatedTimeRemaining: Math.max(0, (12 - step.current) * 500),
+            pagesProcessed: Math.round((step.current / 12) * 47),
+            totalPages: 47,
+          } as ScanProgress);
+        }
+
+        if (!isMountedRef.current) return;
+        setFileName(DEMO_FILE_NAME);
+        setResults(DEMO_DETECTED_CLAUSES);
+        setState('complete');
+        return;
+      }
+
+      // ── Normal mode ─────────────────────────────────────────────
 
       // Validate file first
       try {
