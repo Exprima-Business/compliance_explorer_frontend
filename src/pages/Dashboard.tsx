@@ -820,39 +820,52 @@ const Dashboard: React.FC = () => {
               Quick Actions
             </Typography>
             <Box sx={{
-              display: 'flex',
-              flexDirection: isMobile ? 'column' : 'row',
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
               gap: 1.5,
             }}>
               <Button
                 variant="contained"
                 startIcon={<ScannerIcon />}
-                endIcon={<ArrowIcon />}
                 onClick={() => navigate('/document-scanner')}
-                fullWidth={isMobile}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
+                fullWidth
+                sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
               >
-                Scan a Document
+                Scan Document
               </Button>
               <Button
                 variant="outlined"
                 startIcon={<ShieldIcon />}
-                endIcon={<ArrowIcon />}
                 onClick={() => navigate('/controls')}
-                fullWidth={isMobile}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
+                fullWidth
+                sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
               >
                 View Controls
               </Button>
               <Button
                 variant="outlined"
                 startIcon={<MatrixIcon />}
-                endIcon={<ArrowIcon />}
                 onClick={() => navigate('/matrix')}
-                fullWidth={isMobile}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
+                fullWidth
+                sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
               >
-                Compliance Matrix
+                Matrix
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<GraphIcon />}
+                onClick={() => navigate('/graph')}
+                fullWidth
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  py: 1.2,
+                  borderColor: '#8b5cf6',
+                  color: '#8b5cf6',
+                  '&:hover': { borderColor: '#7c3aed', bgcolor: 'rgba(139,92,246,0.04)' },
+                }}
+              >
+                Node Map
               </Button>
             </Box>
           </CardContent>

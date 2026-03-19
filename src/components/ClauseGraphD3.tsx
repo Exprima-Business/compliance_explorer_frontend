@@ -177,12 +177,13 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
       .attr('stroke', 'rgba(255,255,255,0.1)').attr('stroke-width', 0.5)
 
     // Gradients for all known families (created once — never recreated)
+    // Consistent style: white core → soft transition → family color edge
     Object.entries(familyColors).forEach(([family, color]) => {
       const grad = defs.append('radialGradient')
         .attr('id', `gradient-${family}`)
-        .attr('cx', '50%').attr('cy', '50%').attr('r', '50%')
-      grad.append('stop').attr('offset', '0%').attr('stop-color', '#fff').attr('stop-opacity', 1)
-      grad.append('stop').attr('offset', '33%').attr('stop-color', '#fff').attr('stop-opacity', 1)
+        .attr('cx', '35%').attr('cy', '35%').attr('r', '65%')
+      grad.append('stop').attr('offset', '0%').attr('stop-color', '#fff').attr('stop-opacity', 0.95)
+      grad.append('stop').attr('offset', '40%').attr('stop-color', color).attr('stop-opacity', 0.4)
       grad.append('stop').attr('offset', '100%').attr('stop-color', color).attr('stop-opacity', 1)
     })
 
@@ -222,11 +223,10 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
       if (!knownIds.has(gradId)) {
         const color = hashColor(familyName)
         const grad = defs.append('radialGradient')
-          .attr('id', gradId).attr('cx', '30%').attr('cy', '30%').attr('r', '70%')
-        grad.append('stop').attr('offset', '0%').attr('stop-color', color).attr('stop-opacity', 1)
-        grad.append('stop').attr('offset', '100%')
-          .attr('stop-color', d3Color(color)?.darker(0.3).toString() ?? color)
-          .attr('stop-opacity', 0.8)
+          .attr('id', gradId).attr('cx', '35%').attr('cy', '35%').attr('r', '65%')
+        grad.append('stop').attr('offset', '0%').attr('stop-color', '#fff').attr('stop-opacity', 0.95)
+        grad.append('stop').attr('offset', '40%').attr('stop-color', color).attr('stop-opacity', 0.4)
+        grad.append('stop').attr('offset', '100%').attr('stop-color', color).attr('stop-opacity', 1)
         knownIds.add(gradId)
       }
     })
@@ -308,10 +308,16 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     nodeEnter.append('circle')
       .attr('r', NODE_RADIUS)
       .attr('fill', (d: D3Node) => `url(#gradient-${d.family?.name ?? 'Default'})`)
-      .attr('stroke', (d: D3Node) => isClauseBookmarked(d.id) ? '#FFD700' : 'none')
-      .attr('stroke-width', (d: D3Node) => isClauseBookmarked(d.id) ? 3 : 0)
+      .attr('stroke', (d: D3Node) => {
+        if (isClauseBookmarked(d.id)) return '#FFD700'
+        // All nodes get a subtle colored border matching their family
+        const familyName = d.family?.name ?? 'Default'
+        return familyColors[familyName] || hashColor(familyName)
+      })
+      .attr('stroke-width', (d: D3Node) => isClauseBookmarked(d.id) ? 3 : 2)
+      .attr('stroke-opacity', (d: D3Node) => isClauseBookmarked(d.id) ? 1 : 0.6)
       .style('cursor', 'pointer')
-      .style('filter', 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))')
+      .style('filter', 'drop-shadow(0 4px 8px rgba(0,0,0,0.25))')
       .style('transition', 'all 0.3s ease')
 
     nodeEnter.append('text')
@@ -480,8 +486,13 @@ export const ClauseGraphD3: React.FC<ClauseGraphD3Props> = ({ graphData, onNodeC
     if (!svgRef.current) return
     select(svgRef.current)
       .selectAll<SVGCircleElement, D3Node>('.node circle')
-      .attr('stroke', d => isClauseBookmarked(d.id) ? '#FFD700' : 'none')
-      .attr('stroke-width', d => isClauseBookmarked(d.id) ? 3 : 0)
+      .attr('stroke', d => {
+        if (isClauseBookmarked(d.id)) return '#FFD700'
+        const familyName = d.family?.name ?? 'Default'
+        return familyColors[familyName] || hashColor(familyName)
+      })
+      .attr('stroke-width', d => isClauseBookmarked(d.id) ? 3 : 2)
+      .attr('stroke-opacity', d => isClauseBookmarked(d.id) ? 1 : 0.6)
   }, [isClauseBookmarked])
 
   // ─────────────────────────────────────────────────────────────
