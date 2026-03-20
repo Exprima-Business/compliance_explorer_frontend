@@ -967,6 +967,56 @@ const Controls: React.FC = () => {
     open: false, message: '', severity: 'success',
   });
 
+  // Track which framework is selected (by ID) so we can switch
+  const [selectedFrameworkId, setSelectedFrameworkId] = useState<string | null>(null);
+
+  // ── Load a specific framework's details ────────────────────────
+  const loadFrameworkById = useCallback(async (frameworkId: string) => {
+    setLoading(true);
+    setActiveFramework(null);
+    setObjectiveStatuses({});
+    setReciprocity([]);
+    setSprsScore(null);
+    setFarDetail(null);
+    setExpandedFamilies(new Set());
+    setSearchTerm('');
+
+    try {
+      const detail = await fetchFrameworkWithStatus(frameworkId);
+      setActiveFramework(detail);
+
+      if (detail) {
+        const allControlIds = detail.families.flatMap(f => f.controls.filter(c => !c.is_withdrawn).map(c => c.id));
+        if (allControlIds.length > 0) {
+          try {
+            const objStatuses = await fetchObjectiveStatuses(allControlIds);
+            setObjectiveStatuses(objStatuses);
+          } catch { /* Non-fatal */ }
+        }
+      }
+
+      const recip = await fetchReciprocity(frameworkId);
+      setReciprocity(recip);
+
+      try {
+        const [sprs, far] = await Promise.all([fetchSPRSScore(), fetchFARDetail()]);
+        setSprsScore(sprs);
+        setFarDetail(far);
+      } catch {}
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load framework');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ── Switch framework handler ───────────────────────────────────
+  const handleSwitchFramework = useCallback((frameworkId: string) => {
+    if (frameworkId === selectedFrameworkId) return;
+    setSelectedFrameworkId(frameworkId);
+    loadFrameworkById(frameworkId);
+  }, [selectedFrameworkId, loadFrameworkById]);
+
   // ── Load frameworks — gate on activation ────────────────────────
   useEffect(() => {
     if (!isAuthenticated || authLoading) return;
@@ -984,6 +1034,7 @@ const Controls: React.FC = () => {
 
         if (activated.length > 0) {
           // 2a. Project has activated frameworks — load the first one
+          setSelectedFrameworkId(activated[0].id);
           const detail = await fetchFrameworkWithStatus(activated[0].id);
           if (cancelled) return;
           setActiveFramework(detail);
@@ -1046,9 +1097,13 @@ const Controls: React.FC = () => {
       setActivatedFrameworks(activated);
 
       if (activated.length > 0) {
-        const detail = await fetchFrameworkWithStatus(activated[0].id);
+        // Switch to the NEWLY activated framework (not always [0])
+        const targetFw = activated.find(a => a.id === frameworkId) || activated[0];
+        setSelectedFrameworkId(targetFw.id);
+
+        const detail = await fetchFrameworkWithStatus(targetFw.id);
         setActiveFramework(detail);
-        const recip = await fetchReciprocity(activated[0].id);
+        const recip = await fetchReciprocity(targetFw.id);
         setReciprocity(recip);
 
         // Load SPRS + FAR + objective statuses
@@ -1071,7 +1126,7 @@ const Controls: React.FC = () => {
         // Post-activation feedback
         setFeedbackSnack({
           open: true,
-          message: `${activated[0].name} activated — ${detail?.families.flatMap(f => f.controls).filter(c => !c.is_withdrawn).length || 0} controls ready for assessment`,
+          message: `${targetFw.name} activated — ${detail?.families.flatMap(f => f.controls).filter(c => !c.is_withdrawn).length || 0} controls ready for assessment`,
           severity: 'info',
         });
       }
@@ -1391,6 +1446,42 @@ const Controls: React.FC = () => {
   // ── Render ───────────────────────────────────────────────────────
   return (
     <Box sx={{ p: isMobile ? 1.5 : 3, maxWidth: 1200, mx: 'auto' }}>
+      {/* Framework switcher — shown when multiple frameworks are activated */}
+      {activatedFrameworks.length > 1 && (
+        <Box sx={{
+          display: 'flex',
+          gap: 1,
+          mb: 2,
+          overflowX: 'auto',
+          pb: 0.5,
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}>
+          {activatedFrameworks.map(fw => {
+            const isSelected = fw.id === selectedFrameworkId;
+            return (
+              <Chip
+                key={fw.id}
+                label={`${fw.name} ${fw.version}`}
+                onClick={() => handleSwitchFramework(fw.id)}
+                icon={<ShieldIcon sx={{ fontSize: 16 }} />}
+                variant={isSelected ? 'filled' : 'outlined'}
+                color={isSelected ? 'primary' : 'default'}
+                sx={{
+                  fontWeight: isSelected ? 700 : 500,
+                  fontSize: '0.8rem',
+                  height: 36,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  ...(isSelected && {
+                    boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
+                  }),
+                }}
+              />
+            );
+          })}
+        </Box>
+      )}
+
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
