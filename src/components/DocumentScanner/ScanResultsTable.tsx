@@ -81,10 +81,14 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
   });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // Keep parent in sync
+  // Keep parent in sync — translate clauseId (codes) → matchedClauseId (DB UUIDs)
+  // so the backend receives valid UUIDs for bookmark creation.
   const updateSelection = (next: Set<string>) => {
     setSelected(next);
-    onSelectionChange(Array.from(next));
+    const uuids = results
+      .filter(r => next.has(r.clauseId) && r.matchedClauseId)
+      .map(r => r.matchedClauseId!);
+    onSelectionChange(uuids);
   };
 
   // Select / deselect all
@@ -125,9 +129,11 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
   const selectedCount = useMemo(() => selected.size, [selected]);
   const matchedCount = useMemo(() => results.filter(r => r.matchType !== 'none').length, [results]);
 
-  // Notify parent of initial selection on first render
+  // Notify parent of initial selection on first render — send DB UUIDs, not clause codes
   React.useEffect(() => {
-    const initialSelection = results.filter(r => r.matchType !== 'none').map(r => r.clauseId);
+    const initialSelection = results
+      .filter(r => r.matchType !== 'none' && r.matchedClauseId)
+      .map(r => r.matchedClauseId!);
     onSelectionChange(initialSelection);
     // Only on mount / when results change
     // eslint-disable-next-line react-hooks/exhaustive-deps

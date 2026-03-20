@@ -7,6 +7,7 @@ import {
   CircularProgress,
   Alert,
   Button,
+  IconButton,
   Divider,
   LinearProgress,
   Chip,
@@ -20,6 +21,7 @@ import {
   Warning as WarningIcon,
   TrendingUp as TrendingIcon,
   ArrowBack as BackIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
@@ -129,6 +131,26 @@ const ExecutiveReport: React.FC = () => {
 
   return (
     <Box sx={{ p: isMobile ? 1.5 : 3, maxWidth: 900, mx: 'auto' }}>
+      {/* Floating close button — mobile-friendly, hidden when printing */}
+      <IconButton
+        onClick={() => navigate(-1 as any)}
+        sx={{
+          position: 'fixed',
+          top: isMobile ? 62 : 72,
+          right: 12,
+          zIndex: 10,
+          bgcolor: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(8px)',
+          boxShadow: 2,
+          '&:hover': { bgcolor: 'rgba(255,255,255,1)' },
+          width: 40,
+          height: 40,
+          '@media print': { display: 'none' },
+        }}
+      >
+        <CloseIcon />
+      </IconButton>
+
       {/* Action buttons — hidden when printing */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, '@media print': { display: 'none' } }}>
         <Button
