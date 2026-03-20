@@ -1,5 +1,7 @@
 import React from 'react';
-import { Box, Typography, CircularProgress, Alert, Snackbar, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, Snackbar, IconButton, useMediaQuery, useTheme } from '@mui/material';
+import { Close as CloseIcon } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { ClauseGraphD3 as ClauseGraph } from '../components/ClauseGraphD3';
 import { FloatingPanel } from '../components/FloatingPanel';
 import { useClause } from '../contexts/ClauseContext';
@@ -12,6 +14,7 @@ import { dlog } from '../utils/debugLog';
 const Home: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
   const appBarHeight = isMobile ? 56 : 64;
 
   const { clauses, searchQuery, loading, error } = useClause();
@@ -369,6 +372,25 @@ const Home: React.FC = () => {
 
   return (
     <Box sx={{ height: `calc(100vh - ${appBarHeight}px)`, position: 'relative' }}>
+      {/* Floating close button */}
+      <IconButton
+        onClick={() => navigate('/')}
+        sx={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          zIndex: 10,
+          bgcolor: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(8px)',
+          boxShadow: 2,
+          '&:hover': { bgcolor: 'rgba(255,255,255,1)' },
+          width: 40,
+          height: 40,
+        }}
+      >
+        <CloseIcon />
+      </IconButton>
+
       <ClauseGraph
         graphData={graphData}
         onNodeClick={handleNodeClick}

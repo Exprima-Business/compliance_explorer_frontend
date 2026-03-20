@@ -752,9 +752,67 @@ const Dashboard: React.FC = () => {
         </Card>
       )}
 
+      {/* ── Quick Actions — always visible ───────────────────────── */}
+      <Card sx={{ mb: { xs: 2, md: 3 } }}>
+        <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+            Quick Actions
+          </Typography>
+          <Box sx={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+            gap: 1.5,
+          }}>
+            <Button
+              variant="contained"
+              startIcon={<ScannerIcon />}
+              onClick={() => navigate('/document-scanner')}
+              fullWidth
+              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
+            >
+              Scan Document
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ShieldIcon />}
+              onClick={() => navigate('/controls')}
+              fullWidth
+              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
+            >
+              View Controls
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<MatrixIcon />}
+              onClick={() => navigate('/matrix')}
+              fullWidth
+              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
+            >
+              Matrix
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<GraphIcon />}
+              onClick={() => navigate('/graph')}
+              fullWidth
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                py: 1.2,
+                borderColor: '#8b5cf6',
+                color: '#8b5cf6',
+                '&:hover': { borderColor: '#7c3aed', bgcolor: 'rgba(139,92,246,0.04)' },
+              }}
+            >
+              Node Map
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
       {/* ── Demo Flow Hero Cards ────────────────────────────────── */}
       {/* State-aware CTAs that guide the demo narrative */}
-      {stats.projectClauses === 0 && !complianceSummary?.frameworks?.length ? (
+      {stats.projectClauses === 0 && !complianceSummary?.frameworks?.length && (
         /* Step 1: No clauses scanned yet — big CTA to scan */
         <Card sx={{
           mb: { xs: 2, md: 3 },
@@ -781,7 +839,8 @@ const Dashboard: React.FC = () => {
             </Button>
           </CardContent>
         </Card>
-      ) : stats.projectClauses > 0 && (!complianceSummary?.frameworks?.length) ? (
+      )}
+      {stats.projectClauses > 0 && (!complianceSummary?.frameworks?.length) && (
         /* Step 2: Clauses scanned but no framework activated */
         <Card sx={{
           mb: { xs: 2, md: 3 },
@@ -808,64 +867,6 @@ const Dashboard: React.FC = () => {
                 sx={{ textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap', alignSelf: isMobile ? 'stretch' : 'center' }}
               >
                 Activate Framework
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-      ) : (
-        /* Step 3: Framework active — quick actions row */
-        <Card sx={{ mb: { xs: 2, md: 3 } }}>
-          <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
-              Quick Actions
-            </Typography>
-            <Box sx={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
-              gap: 1.5,
-            }}>
-              <Button
-                variant="contained"
-                startIcon={<ScannerIcon />}
-                onClick={() => navigate('/document-scanner')}
-                fullWidth
-                sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
-              >
-                Scan Document
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<ShieldIcon />}
-                onClick={() => navigate('/controls')}
-                fullWidth
-                sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
-              >
-                View Controls
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<MatrixIcon />}
-                onClick={() => navigate('/matrix')}
-                fullWidth
-                sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
-              >
-                Matrix
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<GraphIcon />}
-                onClick={() => navigate('/graph')}
-                fullWidth
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  py: 1.2,
-                  borderColor: '#8b5cf6',
-                  color: '#8b5cf6',
-                  '&:hover': { borderColor: '#7c3aed', bgcolor: 'rgba(139,92,246,0.04)' },
-                }}
-              >
-                Node Map
               </Button>
             </Box>
           </CardContent>

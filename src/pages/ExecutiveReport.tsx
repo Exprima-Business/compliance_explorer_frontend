@@ -19,7 +19,9 @@ import {
   CheckCircle as CheckIcon,
   Warning as WarningIcon,
   TrendingUp as TrendingIcon,
+  ArrowBack as BackIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
 import { useAuth } from '../hooks/useAuth';
 import { useBookmarks } from '../contexts/BookmarkContext';
@@ -39,6 +41,7 @@ import {
 const ExecutiveReport: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
   const { currentProject } = useProject();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { bookmarks } = useBookmarks();
@@ -126,8 +129,16 @@ const ExecutiveReport: React.FC = () => {
 
   return (
     <Box sx={{ p: isMobile ? 1.5 : 3, maxWidth: 900, mx: 'auto' }}>
-      {/* Print button — hidden when printing */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, '@media print': { display: 'none' } }}>
+      {/* Action buttons — hidden when printing */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, '@media print': { display: 'none' } }}>
+        <Button
+          variant="outlined"
+          startIcon={<BackIcon />}
+          onClick={() => navigate('/controls')}
+          sx={{ textTransform: 'none' }}
+        >
+          Back to Controls
+        </Button>
         <Button
           variant="contained"
           startIcon={<PrintIcon />}
