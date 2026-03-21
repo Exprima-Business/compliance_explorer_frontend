@@ -112,7 +112,7 @@ export const DocumentScanner: React.FC = () => {
               variant="outlined"
               size={isMobile ? 'small' : 'medium'}
               startIcon={<RefreshIcon />}
-              onClick={scan.reset}
+              onClick={() => { scan.reset(); setSelectedClauses([]); }}
               fullWidth={isMobile}
             >
               Scan Another Document

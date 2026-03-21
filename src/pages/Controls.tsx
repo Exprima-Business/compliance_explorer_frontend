@@ -583,7 +583,7 @@ const ControlRow: React.FC<{
       )}
       {control.is_withdrawn && (
         <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: 'text.disabled', fontStyle: 'italic' }}>
-          This control has been withdrawn in NIST SP 800-171 Rev 3.
+          This control has been withdrawn in the current revision.
         </Typography>
       )}
 
@@ -1757,7 +1757,7 @@ const Controls: React.FC = () => {
             <>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Upload your SSP or POA&M document (PDF, DOCX, or TXT). The AI will analyze it and
-                map implementation statements to NIST 800-171 controls.
+                map implementation statements to controls.
               </Typography>
 
               <input
@@ -1937,7 +1937,7 @@ const Controls: React.FC = () => {
             Clause Reciprocity
           </Typography>
           <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 2 }}>
-            Implementing NIST 800-171 controls automatically satisfies these regulatory clauses — assess once, comply many
+            Implementing these controls automatically satisfies related regulatory clauses — assess once, comply many
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 2 }}>
             {farDetail && <FARDetailCard farDetail={farDetail} />}

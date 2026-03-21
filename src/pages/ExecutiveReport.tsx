@@ -29,6 +29,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import { useClause } from '../contexts/ClauseContext';
 import {
+  fetchActivatedFrameworks,
   fetchFrameworks,
   fetchFrameworkWithStatus,
   fetchReciprocity,
@@ -59,14 +60,23 @@ const ExecutiveReport: React.FC = () => {
     (async () => {
       try {
         setLoading(true);
-        const fws = await fetchFrameworks();
-        if (cancelled || fws.length === 0) return;
 
-        const detail = await fetchFrameworkWithStatus(fws[0].id);
+        // Prefer activated frameworks (project-specific); fall back to all.
+        let targetId: string | null = null;
+        const activated = await fetchActivatedFrameworks();
+        if (activated.length > 0) {
+          targetId = activated[0].id;
+        } else {
+          const fws = await fetchFrameworks();
+          if (fws.length > 0) targetId = fws[0].id;
+        }
+        if (cancelled || !targetId) return;
+
+        const detail = await fetchFrameworkWithStatus(targetId);
         if (cancelled) return;
         setFramework(detail);
 
-        const recip = await fetchReciprocity(fws[0].id);
+        const recip = await fetchReciprocity(targetId);
         if (!cancelled) setReciprocity(recip);
       } finally {
         if (!cancelled) setLoading(false);
@@ -287,7 +297,7 @@ const ExecutiveReport: React.FC = () => {
               </Typography>
             </Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-              NIST 800-171 compliance automatically satisfies requirements in these regulations
+              Control implementation automatically satisfies requirements in these regulations
             </Typography>
 
             {reciprocity.map(r => (

@@ -855,7 +855,7 @@ const Dashboard: React.FC = () => {
                   {stats.projectClauses} Clauses Identified — Activate a Framework
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Your clauses map to NIST 800-171. Activate the framework to begin tracking control compliance.
+                  Your clauses map to compliance frameworks. Activate one from the Controls tab to begin tracking.
                 </Typography>
               </Box>
               <Button

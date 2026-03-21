@@ -129,13 +129,19 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
   const selectedCount = useMemo(() => selected.size, [selected]);
   const matchedCount = useMemo(() => results.filter(r => r.matchType !== 'none').length, [results]);
 
-  // Notify parent of initial selection on first render — send DB UUIDs, not clause codes
+  // Reset selection & expanded state when results change (e.g. second scan).
+  // Also notifies parent with the correct initial UUIDs for the new results.
   React.useEffect(() => {
-    const initialSelection = results
+    const defaultSelected = new Set(
+      results.filter(r => r.matchType !== 'none').map(r => r.clauseId),
+    );
+    setSelected(defaultSelected);
+    setExpandedRows(new Set());
+
+    const initialUUIDs = results
       .filter(r => r.matchType !== 'none' && r.matchedClauseId)
       .map(r => r.matchedClauseId!);
-    onSelectionChange(initialSelection);
-    // Only on mount / when results change
+    onSelectionChange(initialUUIDs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results]);
 
