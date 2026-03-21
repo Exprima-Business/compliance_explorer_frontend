@@ -1581,7 +1581,7 @@ const Controls: React.FC = () => {
         </Card>
         <Card
           variant="outlined"
-          onClick={() => setImportDialogOpen(true)}
+          onClick={() => { setImportDialogOpen(true); setImportFile(null); setImportResult(null); setImportError(null); }}
           sx={{
             cursor: 'pointer',
             borderColor: '#22c55e',
