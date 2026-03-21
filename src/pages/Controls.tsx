@@ -70,6 +70,7 @@ import {
   type AssessmentImportResult,
   fetchSPRSScore,
   fetchFARDetail,
+  deactivateFramework as deactivateFrameworkAPI,
   type SPRSScore,
   type FARDetail,
   type FARRequirement,
@@ -1506,6 +1507,33 @@ const Controls: React.FC = () => {
             sx={{ whiteSpace: 'nowrap' }}
           >
             Executive Report
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            color="error"
+            onClick={async () => {
+              if (!activeFramework) return;
+              if (!window.confirm(`Deactivate ${activeFramework.name}? Control statuses will be preserved.`)) return;
+              try {
+                await deactivateFrameworkAPI(activeFramework.id);
+                const activated = await fetchActivatedFrameworks();
+                setActivatedFrameworks(activated);
+                if (activated.length > 0) {
+                  setSelectedFrameworkId(activated[0].id);
+                  const detail = await fetchFrameworkWithStatus(activated[0].id);
+                  if (detail) setActiveFramework(detail);
+                } else {
+                  setActiveFramework(null);
+                  setSelectedFrameworkId(null);
+                }
+              } catch {
+                setError('Failed to deactivate framework.');
+              }
+            }}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Deactivate
           </Button>
         </Box>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>

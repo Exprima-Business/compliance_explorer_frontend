@@ -14,6 +14,7 @@ import {
   Collapse,
   IconButton,
   Tooltip,
+  Slider,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -80,6 +81,7 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
     return new Set(results.filter(r => r.matchType !== 'none').map(r => r.clauseId));
   });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0);
 
   // Keep parent in sync — translate clauseId (codes) → matchedClauseId (DB UUIDs)
   // so the backend receives valid UUIDs for bookmark creation.
@@ -129,6 +131,19 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
   const selectedCount = useMemo(() => selected.size, [selected]);
   const matchedCount = useMemo(() => results.filter(r => r.matchType !== 'none').length, [results]);
 
+  // Apply confidence threshold — auto-select clauses above threshold, deselect below
+  const applyThreshold = (threshold: number) => {
+    setConfidenceThreshold(threshold);
+    if (threshold === 0) return; // 0 means no filter active
+    const thresholdDecimal = threshold / 100;
+    const next = new Set<string>(
+      results
+        .filter(r => r.matchType !== 'none' && r.confidence >= thresholdDecimal)
+        .map(r => r.clauseId),
+    );
+    updateSelection(next);
+  };
+
   // Reset selection & expanded state when results change (e.g. second scan).
   // Also notifies parent with the correct initial UUIDs for the new results.
   React.useEffect(() => {
@@ -137,6 +152,7 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
     );
     setSelected(defaultSelected);
     setExpandedRows(new Set());
+    setConfidenceThreshold(0);
 
     const initialUUIDs = results
       .filter(r => r.matchType !== 'none' && r.matchedClauseId)
@@ -187,6 +203,36 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
             {selectedCount} selected
           </Typography>
         </Box>
+      </Box>
+
+      {/* Confidence threshold slider */}
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 2, mb: 1.5, px: 1,
+        flexDirection: isMobile ? 'column' : 'row',
+      }}>
+        <Typography variant="body2" sx={{ fontWeight: 500, whiteSpace: 'nowrap', minWidth: 140 }}>
+          Confidence Threshold: {confidenceThreshold > 0 ? `${confidenceThreshold}%` : 'Off'}
+        </Typography>
+        <Slider
+          value={confidenceThreshold}
+          onChange={(_, v) => applyThreshold(v as number)}
+          min={0}
+          max={100}
+          step={5}
+          marks={[
+            { value: 0, label: 'Off' },
+            { value: 50, label: '50%' },
+            { value: 80, label: '80%' },
+            { value: 100, label: '100%' },
+          ]}
+          valueLabelDisplay="auto"
+          valueLabelFormat={(v) => v === 0 ? 'Off' : `${v}%`}
+          sx={{
+            flex: 1,
+            '& .MuiSlider-markLabel': { fontSize: '0.65rem' },
+            '& .MuiSlider-thumb': { width: 16, height: 16 },
+          }}
+        />
       </Box>
 
       <TableContainer component={Paper} variant="outlined">

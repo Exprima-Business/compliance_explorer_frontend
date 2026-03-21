@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Box, Typography, CircularProgress, Alert, Card, CardContent,
-  useMediaQuery, useTheme, Button, Chip, Snackbar
+  useMediaQuery, useTheme, Button, Chip, Snackbar, Tooltip
 } from '@mui/material';
 import SecurityIcon from '@mui/icons-material/Security';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -16,6 +16,41 @@ import {
   fetchRecommendedFrameworks, fetchActivatedFrameworks,
   activateFramework, type FrameworkRecommendation, type ControlFramework
 } from '../services/controlService';
+import { apiCall } from '../services/api';
+
+// Heatmap types
+interface FamilyHeatmapData {
+  identifier: string;
+  name: string;
+  total: number;
+  implemented: number;
+  inProgress: number;
+  notStarted: number;
+  completionPct: number;
+}
+interface FrameworkHeatmapData {
+  id: string;
+  name: string;
+  families: FamilyHeatmapData[];
+  completionPct: number;
+}
+
+function heatColor(pct: number): string {
+  if (pct >= 80) return '#22c55e';
+  if (pct >= 60) return '#4ade80';
+  if (pct >= 40) return '#fbbf24';
+  if (pct >= 20) return '#fb923c';
+  if (pct > 0) return '#f87171';
+  return '#e2e8f0';
+}
+function heatBg(pct: number): string {
+  if (pct >= 80) return 'rgba(34,197,94,0.18)';
+  if (pct >= 60) return 'rgba(74,222,128,0.15)';
+  if (pct >= 40) return 'rgba(251,191,36,0.15)';
+  if (pct >= 20) return 'rgba(251,146,60,0.15)';
+  if (pct > 0) return 'rgba(248,113,113,0.15)';
+  return 'rgba(226,232,240,0.3)';
+}
 
 const Matrix: React.FC = () => {
   const theme = useTheme();
@@ -32,6 +67,7 @@ const Matrix: React.FC = () => {
   const [activatedFrameworks, setActivatedFrameworks] = useState<ControlFramework[]>([]);
   const [activating, setActivating] = useState<string | null>(null);
   const [snackMsg, setSnackMsg] = useState<string | null>(null);
+  const [heatmapData, setHeatmapData] = useState<FrameworkHeatmapData[]>([]);
 
   // If the URL contains a projectId, persist it to localStorage so that
   // ProjectContext picks it up on its next refresh cycle. This allows
@@ -57,6 +93,18 @@ const Matrix: React.FC = () => {
         }
       } catch {
         // Non-fatal — banner just won't show
+      }
+
+      // Fetch heatmap data from project-summary
+      try {
+        const res = await apiCall<{
+          frameworks: FrameworkHeatmapData[];
+        }>('/api/controls/project-summary', { requireAuth: true });
+        if (!cancelled && res.data?.frameworks) {
+          setHeatmapData(res.data.frameworks);
+        }
+      } catch {
+        // Non-fatal
       }
     })();
     return () => { cancelled = true; };
@@ -254,6 +302,85 @@ const Matrix: React.FC = () => {
           </CardContent>
         </Card>
       ))}
+
+      {/* ── Crosswalk Heatmap ─────────────────────────────────── */}
+      {heatmapData.length > 0 && (
+        <Card sx={{ mb: { xs: 1.5, md: 3 } }}>
+          <CardContent sx={{ p: { xs: 1, md: 2 } }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+              Control Family Compliance Heatmap
+            </Typography>
+            {heatmapData.map(fw => (
+              <Box key={fw.id} sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                  {fw.name} — {fw.completionPct}% overall
+                </Typography>
+                <Box sx={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile
+                    ? 'repeat(auto-fill, minmax(80px, 1fr))'
+                    : 'repeat(auto-fill, minmax(110px, 1fr))',
+                  gap: 0.75,
+                }}>
+                  {fw.families.map(fam => (
+                    <Tooltip
+                      key={fam.identifier}
+                      title={
+                        `${fam.name}\n${fam.implemented}/${fam.total} implemented` +
+                        (fam.inProgress > 0 ? `, ${fam.inProgress} in progress` : '') +
+                        (fam.notStarted > 0 ? `, ${fam.notStarted} not started` : '')
+                      }
+                      arrow
+                    >
+                      <Box sx={{
+                        p: 1,
+                        borderRadius: 1,
+                        bgcolor: heatBg(fam.completionPct),
+                        border: '1px solid',
+                        borderColor: heatColor(fam.completionPct),
+                        textAlign: 'center',
+                        cursor: 'default',
+                        transition: 'transform 0.15s',
+                        '&:hover': { transform: 'scale(1.04)', boxShadow: 2 },
+                      }}>
+                        <Typography variant="caption" sx={{
+                          fontWeight: 700, display: 'block', lineHeight: 1.2,
+                          color: fam.completionPct > 0 ? heatColor(fam.completionPct) : '#94a3b8',
+                        }}>
+                          {fam.identifier}
+                        </Typography>
+                        <Typography sx={{
+                          fontSize: '1.1rem', fontWeight: 800, lineHeight: 1.3,
+                          color: fam.completionPct > 0 ? heatColor(fam.completionPct) : '#cbd5e1',
+                        }}>
+                          {fam.completionPct}%
+                        </Typography>
+                        <Typography variant="caption" sx={{
+                          display: 'block', fontSize: '0.6rem', color: 'text.secondary',
+                          lineHeight: 1.1, mt: 0.25,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {fam.name}
+                        </Typography>
+                      </Box>
+                    </Tooltip>
+                  ))}
+                </Box>
+                {/* Color scale legend */}
+                <Box sx={{ display: 'flex', gap: 1, mt: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>Coverage:</Typography>
+                  {[0, 20, 40, 60, 80, 100].map(v => (
+                    <Box key={v} sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                      <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: heatColor(v), border: '1px solid', borderColor: 'divider' }} />
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>{v}%</Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Single Compliance Matrix */}
       <Card>

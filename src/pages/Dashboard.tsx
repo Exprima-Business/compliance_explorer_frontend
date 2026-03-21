@@ -42,6 +42,9 @@ import { useNavigate } from 'react-router-dom';
 import { FloatingPanel } from '../components/FloatingPanel';
 import type { Clause, RiskClassification, ClauseFamilyGroup } from '../types/clause';
 import { apiCall } from '../services/api';
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend,
+} from 'recharts';
 
 // Compliance summary types
 interface FrameworkSummary {
@@ -412,74 +415,106 @@ const Dashboard: React.FC = () => {
 
             {complianceSummary.frameworks.map(fw => {
               const pct = fw.completionPct;
-              const barColor = pct >= 80 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+              const gaugeColor = pct >= 80 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+              const donutData = [
+                { name: 'Implemented', value: fw.implemented, color: '#22c55e' },
+                { name: 'In Progress', value: fw.inProgress, color: '#f59e0b' },
+                { name: 'Not Started', value: fw.notStarted, color: '#e5e7eb' },
+              ].filter(d => d.value > 0);
+
               return (
                 <Box key={fw.id} sx={{ mb: 2.5 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.5 }}>
-                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                      {fw.name}
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: barColor }}>
-                      {Math.round(pct)}%
-                    </Typography>
-                  </Box>
+                  <Typography variant="body1" sx={{ fontWeight: 600, mb: 1 }}>
+                    {fw.name}
+                  </Typography>
 
-                  {/* Main progress bar */}
-                  <Box sx={{ display: 'flex', gap: 0.5, height: 24, borderRadius: 2, overflow: 'hidden', mb: 1 }}>
-                    {fw.implemented > 0 && (
-                      <Box sx={{
-                        width: `${(fw.implemented / fw.totalControls) * 100}%`,
-                        bgcolor: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontSize: '0.7rem', fontWeight: 600, borderRadius: 1, minWidth: 0,
-                      }}>
-                        {fw.implemented > 3 && fw.implemented}
-                      </Box>
-                    )}
-                    {fw.inProgress > 0 && (
-                      <Box sx={{
-                        width: `${(fw.inProgress / fw.totalControls) * 100}%`,
-                        bgcolor: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontSize: '0.7rem', fontWeight: 600, borderRadius: 1, minWidth: 0,
-                      }}>
-                        {fw.inProgress > 3 && fw.inProgress}
-                      </Box>
-                    )}
-                    {fw.notStarted > 0 && (
-                      <Box sx={{
-                        width: `${(fw.notStarted / fw.totalControls) * 100}%`,
-                        bgcolor: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#6b7280', fontSize: '0.7rem', fontWeight: 600, borderRadius: 1, minWidth: 0,
-                      }}>
-                        {fw.notStarted > 3 && fw.notStarted}
-                      </Box>
-                    )}
-                  </Box>
-
-                  {/* Legend */}
-                  <Grid container spacing={1}>
-                    <Grid item xs={4}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#22c55e' }} />
-                        <Typography variant="caption">{fw.implemented} Implemented</Typography>
+                  {/* Gauge + Donut side by side */}
+                  <Grid container spacing={2} sx={{ mb: 1.5 }}>
+                    {/* Compliance Gauge */}
+                    <Grid item xs={12} sm={5} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <Box sx={{ position: 'relative', width: 180, height: 120 }}>
+                        <ResponsiveContainer width="100%" height={120}>
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { value: pct },
+                                { value: 100 - pct },
+                              ]}
+                              cx="50%"
+                              cy="95%"
+                              startAngle={180}
+                              endAngle={0}
+                              innerRadius={55}
+                              outerRadius={75}
+                              dataKey="value"
+                              stroke="none"
+                            >
+                              <Cell fill={gaugeColor} />
+                              <Cell fill="#f1f5f9" />
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <Box sx={{
+                          position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+                          textAlign: 'center',
+                        }}>
+                          <Typography variant="h4" sx={{ fontWeight: 800, color: gaugeColor, lineHeight: 1 }}>
+                            {Math.round(pct)}%
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                            Overall Compliance
+                          </Typography>
+                        </Box>
                       </Box>
                     </Grid>
-                    <Grid item xs={4}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#f59e0b' }} />
-                        <Typography variant="caption">{fw.inProgress} In Progress</Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#e5e7eb' }} />
-                        <Typography variant="caption">{fw.notStarted} Not Started</Typography>
-                      </Box>
+
+                    {/* Control Status Donut */}
+                    <Grid item xs={12} sm={7}>
+                      <ResponsiveContainer width="100%" height={160}>
+                        <PieChart>
+                          <Pie
+                            data={donutData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={60}
+                            dataKey="value"
+                            paddingAngle={2}
+                            stroke="none"
+                          >
+                            {donutData.map((entry, idx) => (
+                              <Cell key={idx} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip
+                            formatter={(value: number, name: string) => [
+                              `${value} controls (${Math.round((value / fw.totalControls) * 100)}%)`,
+                              name,
+                            ]}
+                          />
+                          <Legend
+                            verticalAlign="middle"
+                            align="right"
+                            layout="vertical"
+                            iconType="circle"
+                            iconSize={8}
+                            formatter={(value: string) => {
+                              const d = donutData.find(dd => dd.name === value);
+                              return (
+                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                  {value}: {d?.value ?? 0}
+                                </span>
+                              );
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </Grid>
                   </Grid>
 
                   {/* Objective breakdown if available */}
                   {fw.objectives && fw.objectives.total > 0 && (
-                    <Box sx={{ mt: 1.5, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                    <Box sx={{ mt: 1, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
                       <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, display: 'block' }}>
                         Assessment Objectives ({fw.objectives.total})
                       </Typography>
