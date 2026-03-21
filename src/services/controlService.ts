@@ -4,7 +4,7 @@ import { apiCall } from './api';
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ControlStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'IMPLEMENTED';
+export type ControlStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'IMPLEMENTED' | 'WITHDRAWN';
 
 export interface ControlFramework {
   id: string;
@@ -197,9 +197,10 @@ export interface AssessmentImportResult {
   familyBreakdown: Record<string, { total: number; met: number; partial: number; notMet: number }>;
 }
 
-export async function importAssessment(file: File): Promise<AssessmentImportResult | null> {
+export async function importAssessment(file: File, frameworkId: string): Promise<AssessmentImportResult | null> {
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('frameworkId', frameworkId);
 
   const res = await apiCall<AssessmentImportResult>('/api/controls/import-assessment', {
     method: 'POST',

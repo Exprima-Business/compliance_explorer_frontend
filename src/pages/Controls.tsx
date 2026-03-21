@@ -98,6 +98,12 @@ const STATUS_CONFIG: Record<ControlStatus, { label: string; color: string; bg: s
     bg: 'rgba(148,163,184,0.08)',
     icon: <NotStartedIcon fontSize="small" sx={{ color: '#94a3b8' }} />,
   },
+  WITHDRAWN: {
+    label: 'Withdrawn',
+    color: '#64748b',
+    bg: 'rgba(100,116,139,0.06)',
+    icon: <NotStartedIcon fontSize="small" sx={{ color: '#64748b', textDecoration: 'line-through' }} />,
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -247,7 +253,7 @@ const ObjectiveDetailDialog: React.FC<{
             onChange={(_e, val) => { if (val) setLocalStatus(val as ControlStatus); }}
             sx={{ width: '100%' }}
           >
-            {(Object.keys(STATUS_CONFIG) as ControlStatus[]).map(st => {
+            {(Object.keys(STATUS_CONFIG) as ControlStatus[]).filter(st => st !== 'WITHDRAWN').map(st => {
               const cfg = STATUS_CONFIG[st];
               const isActive = localStatus === st;
               return (
@@ -544,7 +550,7 @@ const ControlRow: React.FC<{
           }}
           sx={{ flexShrink: 0 }}
         >
-          {(Object.keys(STATUS_CONFIG) as ControlStatus[]).map(st => {
+          {(Object.keys(STATUS_CONFIG) as ControlStatus[]).filter(st => st !== 'WITHDRAWN').map(st => {
             const cfg = STATUS_CONFIG[st];
             const isActive = control.status === st;
             return (
@@ -1697,7 +1703,7 @@ const Controls: React.FC = () => {
                   setImporting(true);
                   setImportError(null);
                   try {
-                    const result = await importAssessment(importFile);
+                    const result = await importAssessment(importFile, activeFramework!.id);
                     if (result) {
                       setImportResult(result);
                       // Show import summary toast
