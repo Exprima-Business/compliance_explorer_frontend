@@ -487,9 +487,9 @@ const Dashboard: React.FC = () => {
                             ))}
                           </Pie>
                           <RechartsTooltip
-                            formatter={(value: number, name: string) => [
-                              `${value} controls (${Math.round((value / fw.totalControls) * 100)}%)`,
-                              name,
+                            formatter={(value: any, name: any) => [
+                              `${Number(value)} controls (${Math.round((Number(value) / fw.totalControls) * 100)}%)`,
+                              String(name),
                             ]}
                           />
                           <Legend
