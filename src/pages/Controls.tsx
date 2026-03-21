@@ -980,6 +980,9 @@ const Controls: React.FC = () => {
     setFarDetail(null);
     setExpandedFamilies(new Set());
     setSearchTerm('');
+    // Close & reset any open dialogs so stale data doesn't linger across frameworks
+    setSspDialogOpen(false); setSspFile(null); setSspResult(null); setSspError(null);
+    setImportDialogOpen(false); setImportFile(null); setImportResult(null); setImportError(null);
 
     try {
       const detail = await fetchFrameworkWithStatus(frameworkId);
