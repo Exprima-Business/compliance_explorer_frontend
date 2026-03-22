@@ -36,7 +36,8 @@ const AppContent: React.FC = () => {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        height: '100vh'
+        height: '100vh',
+        width: '100vw',
       }}>
         <div>Loading...</div>
       </div>
