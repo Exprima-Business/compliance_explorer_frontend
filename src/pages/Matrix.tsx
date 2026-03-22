@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Box, Typography, CircularProgress, Alert, Card, CardContent,
-  useMediaQuery, useTheme, Button, Chip, Snackbar, Tooltip
+  useMediaQuery, useTheme, Button, Chip, Snackbar, Tooltip,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow
 } from '@mui/material';
 import SecurityIcon from '@mui/icons-material/Security';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { ComplianceMatrix } from '../components/ComplianceMatrix';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
@@ -68,6 +70,14 @@ const Matrix: React.FC = () => {
   const [activating, setActivating] = useState<string | null>(null);
   const [snackMsg, setSnackMsg] = useState<string | null>(null);
   const [heatmapData, setHeatmapData] = useState<FrameworkHeatmapData[]>([]);
+  const [scanDetectedClauses, setScanDetectedClauses] = useState<Array<{
+    id: string;
+    clauseCode: string;
+    title: string;
+    description: string;
+    confidence: number;
+    status: string;
+  }>>([]);
 
   // If the URL contains a projectId, persist it to localStorage so that
   // ProjectContext picks it up on its next refresh cycle. This allows
@@ -102,6 +112,45 @@ const Matrix: React.FC = () => {
         }>('/api/controls/project-summary', { requireAuth: true });
         if (!cancelled && res.data?.frameworks) {
           setHeatmapData(res.data.frameworks);
+        }
+      } catch {
+        // Non-fatal
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentProject?.id]);
+
+  // Fetch scan-detected clauses from project_matrix_data
+  useEffect(() => {
+    if (!currentProject?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiCall<{
+          clauses: Array<{
+            id: string;
+            clauseId: string;
+            clauseCode?: string;
+            sourceType?: string;
+            title: string;
+            description: string;
+            confidence: number;
+            status: string;
+          }>;
+        }>(`/api/projects/${currentProject.id}/matrix-data?limit=500`, { requireAuth: true });
+
+        if (!cancelled && res.data?.clauses) {
+          const detected = res.data.clauses
+            .filter(c => c.sourceType === 'scan-detected')
+            .map(c => ({
+              id: c.id,
+              clauseCode: c.clauseCode || c.clauseId || 'Unknown',
+              title: c.title,
+              description: c.description || '',
+              confidence: c.confidence,
+              status: c.status,
+            }));
+          setScanDetectedClauses(detected);
         }
       } catch {
         // Non-fatal
@@ -406,6 +455,70 @@ const Matrix: React.FC = () => {
           )}
         </Box>
       </Card>
+
+      {/* Scan-Detected Clauses (not in reference database) */}
+      {scanDetectedClauses.length > 0 && (
+        <Card sx={{ mt: { xs: 1.5, md: 3 }, border: '1px solid', borderColor: 'warning.light' }}>
+          <CardContent sx={{ p: { xs: 1, md: 2 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <WarningAmberIcon sx={{ color: '#b45309' }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#b45309' }}>
+                Scan-Detected Clauses ({scanDetectedClauses.length})
+              </Typography>
+              <Chip
+                label="Not in Reference Database"
+                size="small"
+                sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 600, fontSize: '0.7rem' }}
+              />
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              These clauses were identified by the document scanner but do not match any entries in the curated reference database. They may require manual review or addition to the database.
+            </Typography>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>Clause Code</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Confidence</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {scanDetectedClauses.map(clause => (
+                    <TableRow key={clause.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {clause.clauseCode}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{clause.title}</Typography>
+                        {clause.description && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {clause.description}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={`${Math.round(clause.confidence * 100)}%`}
+                          size="small"
+                          variant="outlined"
+                          color={clause.confidence >= 0.8 ? 'success' : clause.confidence >= 0.5 ? 'warning' : 'error'}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={clause.status} size="small" color="warning" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      )}
 
       <Snackbar
         open={!!snackMsg}

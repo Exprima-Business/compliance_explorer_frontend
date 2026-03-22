@@ -440,6 +440,19 @@ export const VirtualMatrixTable: React.FC<VirtualMatrixTableProps> = ({
                     </Box>
                     
                     <Box display="flex" gap={1} alignItems="center">
+                      {clause.sourceType === 'scan-detected' && (
+                        <Chip
+                          label="Not in DB"
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            color: '#b45309',
+                            borderColor: '#b45309',
+                            bgcolor: '#fef3c7',
+                            fontSize: '0.7rem'
+                          }}
+                        />
+                      )}
                       <Chip
                         label={clause.status}
                         color={getStatusColor(clause.status) as any}
