@@ -35,11 +35,22 @@ import type { Clause, MatrixRow, ClauseFamily } from '../types/clause';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 
+interface ScanDetectedClause {
+  id: string;
+  clauseCode: string;
+  title: string;
+  description: string;
+  confidence: number;
+  status: string;
+}
+
 interface ComplianceMatrixProps {
   rows: MatrixRow[];
+  scanDetectedClauses?: ScanDetectedClause[];
 }
 
 type ExportFormat = 'PDF' | 'XLSX' | 'CSV';
+type ExportScope = 'all' | 'confirmed' | 'scan-detected';
 
 // Helper function to ensure safe string values
 const ensureString = (value: any): string => {
@@ -62,12 +73,13 @@ const ensureString = (value: any): string => {
   return String(value);
 };
 
-export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
+export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows, scanDetectedClauses = [] }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('PDF');
+  const [exportScope, setExportScope] = useState<ExportScope>('all');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(false);
 
@@ -177,6 +189,34 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
     return String(value);
   };
 
+  // Build scan-detected rows in the same column shape as confirmed rows
+  const scanDetectedAsMatrixRows = scanDetectedClauses.map(sc => ({
+    clauseId: sc.clauseCode,
+    title: sc.title,
+    description: sc.description,
+    intent: '',
+    status: sc.status,
+    category: 'Scan-Detected',
+    family: '',
+    conditions: '',
+    implementationGuidance: '',
+    assessmentMethod: '',
+    riskClassification: '',
+    referenceUrl: '',
+  }));
+
+  const getExportRows = (): Record<string, any>[] => {
+    switch (exportScope) {
+      case 'confirmed':
+        return rows;
+      case 'scan-detected':
+        return scanDetectedAsMatrixRows;
+      case 'all':
+      default:
+        return [...rows, ...scanDetectedAsMatrixRows];
+    }
+  };
+
   const handleExport = () => {
     setExportDialogOpen(true);
   };
@@ -197,9 +237,10 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
   };
 
   const exportToPDF = () => {
-    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape orientation
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const exportRows = getExportRows();
     const tableColumn = columns.map(col => col.headerName);
-    const tableRows = rows.map(row => 
+    const tableRows = exportRows.map(row =>
       columns.map(col => ensureString(row[col.field as keyof MatrixRow]))
     );
 
@@ -226,14 +267,15 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
     try {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Compliance Matrix');
+      const exportRows = getExportRows();
 
       // Add headers
       const headers = columns.map(col => col.headerName);
       worksheet.addRow(headers);
 
       // Add data with proper type handling
-      rows.forEach(row => {
-        const rowData = columns.map(col => 
+      exportRows.forEach(row => {
+        const rowData = columns.map(col =>
           ensureString(row[col.field as keyof MatrixRow])
         );
         worksheet.addRow(rowData);
@@ -265,10 +307,11 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
   };
 
   const exportToCSV = () => {
+    const exportRows = getExportRows();
     const csvContent = [
       columns.map(col => col.headerName).join(','),
-      ...rows.map(row => 
-        columns.map(col => 
+      ...exportRows.map(row =>
+        columns.map(col =>
           `"${ensureString(row[col.field as keyof MatrixRow]).replace(/"/g, '""')}"`
         ).join(',')
       )
@@ -608,39 +651,58 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows }) => {
         </TableContainer>
       </Box>
 
-      <Dialog 
-        open={exportDialogOpen} 
+      <Dialog
+        open={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
         maxWidth="xs"
         fullWidth
       >
         <DialogTitle>Export Compliance Matrix</DialogTitle>
         <DialogContent>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+            Format
+          </Typography>
           <RadioGroup
             value={selectedFormat}
             onChange={(e) => setSelectedFormat(e.target.value as ExportFormat)}
           >
-            <FormControlLabel 
-              value="PDF" 
-              control={<Radio />} 
-              label="PDF Document" 
-            />
-            <FormControlLabel 
-              value="XLSX" 
-              control={<Radio />} 
-              label="Excel Spreadsheet" 
-            />
-            <FormControlLabel 
-              value="CSV" 
-              control={<Radio />} 
-              label="CSV File" 
-            />
+            <FormControlLabel value="PDF" control={<Radio />} label="PDF Document" />
+            <FormControlLabel value="XLSX" control={<Radio />} label="Excel Spreadsheet" />
+            <FormControlLabel value="CSV" control={<Radio />} label="CSV File" />
           </RadioGroup>
+
+          {scanDetectedClauses.length > 0 && (
+            <>
+              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600 }}>
+                Scope
+              </Typography>
+              <RadioGroup
+                value={exportScope}
+                onChange={(e) => setExportScope(e.target.value as ExportScope)}
+              >
+                <FormControlLabel
+                  value="all"
+                  control={<Radio />}
+                  label={`All clauses (${rows.length} confirmed + ${scanDetectedClauses.length} scan-detected)`}
+                />
+                <FormControlLabel
+                  value="confirmed"
+                  control={<Radio />}
+                  label={`Confirmed only (${rows.length})`}
+                />
+                <FormControlLabel
+                  value="scan-detected"
+                  control={<Radio />}
+                  label={`Scan-detected only (${scanDetectedClauses.length})`}
+                />
+              </RadioGroup>
+            </>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setExportDialogOpen(false)}>Cancel</Button>
-          <Button 
-            onClick={handleExportConfirm} 
+          <Button
+            onClick={handleExportConfirm}
             variant="contained"
             sx={{
               textTransform: 'none',

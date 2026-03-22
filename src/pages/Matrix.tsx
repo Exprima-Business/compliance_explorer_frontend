@@ -451,7 +451,7 @@ const Matrix: React.FC = () => {
               </Typography>
             </Box>
           ) : (
-            <ComplianceMatrix rows={matrixData} />
+            <ComplianceMatrix rows={matrixData} scanDetectedClauses={scanDetectedClauses} />
           )}
         </Box>
       </Card>
