@@ -487,10 +487,19 @@ const Dashboard: React.FC = () => {
                             ))}
                           </Pie>
                           <RechartsTooltip
-                            formatter={(value: any, name: any) => [
-                              `${Number(value)} controls (${Math.round((Number(value) / fw.totalControls) * 100)}%)`,
-                              String(name),
-                            ]}
+                            content={({ payload }) => {
+                              if (!payload || payload.length === 0) return null;
+                              const { name, value } = payload[0];
+                              const v = Number(value);
+                              return (
+                                <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', p: 1, borderRadius: 1, boxShadow: 1 }}>
+                                  <Typography variant="caption" sx={{ fontWeight: 600 }}>{String(name)}</Typography>
+                                  <Typography variant="caption" display="block" color="text.secondary">
+                                    {v} controls ({Math.round((v / fw.totalControls) * 100)}%)
+                                  </Typography>
+                                </Box>
+                              );
+                            }}
                           />
                           <Legend
                             verticalAlign="middle"
