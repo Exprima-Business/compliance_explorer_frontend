@@ -83,14 +83,15 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0);
 
-  // Keep parent in sync — translate clauseId (codes) → matchedClauseId (DB UUIDs)
-  // so the backend receives valid UUIDs for bookmark creation.
+  // Keep parent in sync — send matchedClauseId (DB UUID) for matched clauses,
+  // or the AI clauseId string for unmatched clauses so they are included in the
+  // clauseFilter and the backend can create new clause records for them.
   const updateSelection = (next: Set<string>) => {
     setSelected(next);
-    const uuids = results
-      .filter(r => next.has(r.clauseId) && r.matchedClauseId)
-      .map(r => r.matchedClauseId!);
-    onSelectionChange(uuids);
+    const ids = results
+      .filter(r => next.has(r.clauseId))
+      .map(r => r.matchedClauseId || r.clauseId);
+    onSelectionChange(ids);
   };
 
   // Select / deselect all
@@ -154,10 +155,10 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
     setExpandedRows(new Set());
     setConfidenceThreshold(0);
 
-    const initialUUIDs = results
-      .filter(r => r.matchType !== 'none' && r.matchedClauseId)
-      .map(r => r.matchedClauseId!);
-    onSelectionChange(initialUUIDs);
+    const initialIds = results
+      .filter(r => r.matchType !== 'none')
+      .map(r => r.matchedClauseId || r.clauseId);
+    onSelectionChange(initialIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results]);
 
