@@ -1582,8 +1582,8 @@ const Controls: React.FC = () => {
         </Card>
       </Box>
 
-      {/* SPRS Score */}
-      {sprsScore && <SPRSScoreCard sprs={sprsScore} />}
+      {/* SPRS Score — only applicable to NIST 800-171 */}
+      {sprsScore && activeFramework?.name?.includes('800-171') && <SPRSScoreCard sprs={sprsScore} />}
 
       {/* Action buttons — sized to match summary grid cards above */}
       <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 2, mb: 3 }}>
@@ -1967,7 +1967,7 @@ const Controls: React.FC = () => {
       </Card>
 
       {/* Reciprocity section */}
-      {(reciprocity.length > 0 || farDetail) && (
+      {(reciprocity.length > 0 || (farDetail && activeFramework?.name?.includes('800-171'))) && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
             <LinkIcon fontSize="small" />
@@ -1977,7 +1977,7 @@ const Controls: React.FC = () => {
             Implementing these controls automatically satisfies related regulatory clauses — assess once, comply many
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 2 }}>
-            {farDetail && <FARDetailCard farDetail={farDetail} />}
+            {farDetail && activeFramework?.name?.includes('800-171') && <FARDetailCard farDetail={farDetail} />}
             {reciprocity
               .filter(r => !/52[\.\s-]*204[\.\s-]*21/i.test(r.clause_code))
               .map(r => (
