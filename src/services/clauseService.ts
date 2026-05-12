@@ -1,4 +1,4 @@
-import type { Clause, ClauseFamily, ClauseFamilyGroup, GraphData } from '../types/clause';
+import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiResponse } from '../types/api';
 import { apiCall } from './api';
 import { dlog } from '../utils/debugLog';
@@ -23,46 +23,6 @@ export const clauseService = {
       return {
         data: [],
         error: error instanceof Error ? error.message : 'Failed to fetch clauses'
-      };
-    }
-  },
-
-  getGraphData: async (): Promise<ApiResponse<GraphData>> => {
-    try {
-      const requestId = Math.random().toString(36).substr(2, 9);
-      const startTime = Date.now();
-      
-      dlog('[API] getGraphData called', {
-        timestamp: startTime,
-        requestId,
-        stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
-      });
-      
-      const response = await apiCall<GraphData>('/api/clauses/graph');
-      
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-      
-      dlog('[API] getGraphData response', {
-        requestId,
-        duration,
-        hasError: !!response.error,
-        hasData: !!response.data,
-        nodesLength: response.data?.nodes?.length || 0,
-        linksLength: response.data?.links?.length || 0,
-        timestamp: endTime,
-        responseType: typeof response,
-        dataType: typeof response.data,
-        linksType: typeof response.data?.links,
-        sampleLinks: response.data?.links?.slice(0, 3) || []
-      });
-      
-      return response;
-    } catch (error) {
-      console.error('Error fetching graph data:', error);
-      return {
-        data: { nodes: [], links: [] },
-        error: error instanceof Error ? error.message : 'Failed to fetch graph data'
       };
     }
   },

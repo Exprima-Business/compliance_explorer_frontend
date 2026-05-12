@@ -104,7 +104,6 @@ export default function Layout({ children }: LayoutProps) {
   // ── Tab-to-route mapping ──────────────────────────────────────────
   // Desktop tabs: 0=Dashboard  1=Scanner  2=Matrix  3=Controls
   // Mobile  tabs: 0=Scanner    1=Matrix   2=Controls
-  // Graph is accessible via /graph but has no tab.
   // ─────────────────────────────────────────────────────────────────
 
   // Both mobile and desktop: Dashboard > Scanner > Matrix > Controls
@@ -122,8 +121,6 @@ export default function Layout({ children }: LayoutProps) {
       setActiveTab(2);
     } else if (path === '/controls') {
       setActiveTab(3);
-    } else if (path === '/graph') {
-      setActiveTab(-1); // Graph has no tab
     }
   }, [getCurrentPath, isMobile]);
 

@@ -1,4 +1,4 @@
-import type { Clause, ClauseFamily, ClauseFamilyGroup, GraphData } from '../types/clause';
+import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiResponse } from '../types/api';
 import { apiCall } from './api';
 import { urlBasedApiCall } from './urlBasedApi';
@@ -37,22 +37,6 @@ export const hybridClauseService = {
       return {
         data: [],
         error: error instanceof Error ? error.message : 'Failed to fetch clauses'
-      };
-    }
-  },
-
-  getGraphData: async (): Promise<ApiResponse<GraphData>> => {
-    try {
-      const context = getContextFromStorage();
-      const response = ENABLE_URL_BASED_ROUTING && context
-        ? await urlBasedApiCall<GraphData>('/clauses/graph', {}, context)
-        : await apiCall<GraphData>('/api/clauses/graph');
-      return response;
-    } catch (error) {
-      console.error('Error fetching graph data:', error);
-      return {
-        data: { nodes: [], links: [] },
-        error: error instanceof Error ? error.message : 'Failed to fetch graph data'
       };
     }
   },

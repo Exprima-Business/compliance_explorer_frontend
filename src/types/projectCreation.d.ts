@@ -86,6 +86,8 @@ export interface Clause {
     status: 'DETECTED' | 'VALIDATED' | 'MANUAL';
     confidence?: number;
     locations?: string[];
+    sourceType?: 'database' | 'scan-detected';
+    clauseId?: string;
     projectId: string;
     createdAt: string;
     updatedAt: string;

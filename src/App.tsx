@@ -4,7 +4,6 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { theme } from './theme';
 import Layout from './components/Layout';
-import Home from './pages/Home';
 import AuthPage from './pages/AuthPage';
 import AuthCallback from './pages/AuthCallback';
 import OrganizationSetup from './pages/OrganizationSetup';

@@ -25,7 +25,6 @@ import {
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   FolderOpen as FolderIcon,
-  BubbleChart as GraphIcon,
   DocumentScanner as ScannerIcon,
   TableChart as MatrixIcon,
   ArrowForward as ArrowIcon,
@@ -833,22 +832,6 @@ const Dashboard: React.FC = () => {
               sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
             >
               Matrix
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<GraphIcon />}
-              onClick={() => navigate('/graph')}
-              fullWidth
-              sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                py: 1.2,
-                borderColor: '#8b5cf6',
-                color: '#8b5cf6',
-                '&:hover': { borderColor: '#7c3aed', bgcolor: 'rgba(139,92,246,0.04)' },
-              }}
-            >
-              Node Map
             </Button>
           </Box>
         </CardContent>
