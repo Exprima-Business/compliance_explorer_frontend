@@ -4,13 +4,6 @@ export interface ClauseFamily {
     name: string;
     description?: string;
 }
-export interface ClauseRelationship {
-    id: string;
-    sourceClauseId: string;
-    targetClauseId: string;
-    type: string;
-    description?: string;
-}
 export interface Clause {
     id: string;
     /**
@@ -36,9 +29,6 @@ export interface Clause {
     riskClassification: RiskClassification;
     referenceUrl?: string;
     metadata: Record<string, any>;
-    relationships: ClauseRelationship[];
-    parentClause?: string;
-    siblings?: string[];
     created_at: string;
     updated_at: string;
 }

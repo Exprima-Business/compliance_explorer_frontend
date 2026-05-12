@@ -95,7 +95,6 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows, scanDe
     conditions: 240,
     implementationGuidance: 300,
     assessmentMethod: 240,
-    parentClause: 120,
     reciprocity: 240,
     penalties: 240,
     riskClassification: 100,
@@ -160,13 +159,6 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows, scanDe
     resizingCol.current = null;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
-  };
-
-  // Function to find parent clause's clauseId
-  const getParentClauseId = (clause: Clause): string => {
-    if (!clause.parentClause) return '';
-    const parent = rows.find(c => c.id === clause.parentClause);
-    return parent ? parent.clauseId : '';
   };
 
   // Function to format cell value
@@ -517,9 +509,7 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows, scanDe
               {rows.map((row) => {
                 const isExpanded = expandedRows.has(row.id.toString());
                 const hasLongContent = columns.some(column => {
-                  const value = column.field === 'parentClause' 
-                    ? getParentClauseId(rows.find(c => c.id === row.id) as Clause)
-                    : formatCellValue(row[column.field as keyof MatrixRow]);
+                  const value = formatCellValue(row[column.field as keyof MatrixRow]);
                   return typeof value === 'string' && value.length > 100;
                 });
 
@@ -538,9 +528,7 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows, scanDe
                     }}
                   >
                     {columns.map((column) => {
-                      const value = column.field === 'parentClause'
-                        ? getParentClauseId(rows.find(c => c.id === row.id) as Clause)
-                        : formatCellValue(row[column.field as keyof MatrixRow]);
+                      const value = formatCellValue(row[column.field as keyof MatrixRow]);
                       const isLong = typeof value === 'string' && value.length > 100;
                       const showExpandButton = isLong && !isExpanded;
 

@@ -183,41 +183,18 @@ const Matrix: React.FC = () => {
   // they were skipped during loading/error states, changing the hook count.
   // ---------------------------------------------------------------------------
 
-  // Helper: find parent clauses for a given clause
-  const findParentClauses = (clause: Clause): Clause[] => {
-    if (!clause.relationships || !Array.isArray(clause.relationships)) return [];
-    const parentClauses: Clause[] = [];
-    clause.relationships.forEach(relationship => {
-      if (relationship.type === 'PARENT') {
-        const parentClause = clauses.find(c => c.id === relationship.targetClauseId);
-        if (parentClause) parentClauses.push(parentClause);
-      }
-    });
-    return parentClauses;
-  };
-
-  // Memoize all derived data — these are expensive array scans that should not
-  // re-run on every render if bookmarks and clauses haven't changed.
-  const bookmarkedClauses = useMemo(
-    () => bookmarks
-      .map(b => clauses.find(c => c.id === b.clauseId))
-      .filter((c): c is Clause => Boolean(c)),
-    [bookmarks, clauses]
-  );
-
-  const parentClauseIds = useMemo(() => {
-    const ids = new Set<string>();
-    bookmarkedClauses.forEach(clause => {
-      findParentClauses(clause).forEach(parent => ids.add(parent.id));
-    });
-    return ids;
-  }, [bookmarkedClauses]);
-
+  // Memoize derived data — expensive array scans that should not re-run on
+  // every render if bookmarks and clauses haven't changed.
+  //
+  // Cross-clause requirements (e.g. "bookmark X implies you also need Y") now
+  // run through the framework→clause reciprocity layer
+  // (control_clause_mappings + getReciprocity), so the matrix is a pure
+  // bookmarks view — no implicit parent-clause expansion.
   const matrixClauses = useMemo(
     () => clauses.filter((clause: Clause) =>
-      bookmarks.some(b => b.clauseId === clause.id) || parentClauseIds.has(clause.id)
+      bookmarks.some(b => b.clauseId === clause.id)
     ),
-    [clauses, bookmarks, parentClauseIds]
+    [clauses, bookmarks]
   );
 
   const matrixData = useMemo(
