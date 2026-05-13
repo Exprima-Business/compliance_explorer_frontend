@@ -6,33 +6,38 @@ export interface ClauseFamily {
   description?: string;
 }
 
+/**
+ * Application-layer clause shape. Mirrors the backend `Clause` domain type
+ * produced by `transformClauseRow()` — every read from the API can be
+ * relied on to come back in this exact camelCase shape.
+ */
 export interface Clause {
   id: string;
   /**
    * Human-readable reference such as "DFARS 252.204-7012".
-   * Renamed from `clauseId` to avoid confusion with the primary-key UUID.
    */
   clauseCode: string;
-  /**
-   * @deprecated Temporary alias during migration; will be removed.
-   */
-  clauseId?: string;
   title: string;
   description: string;
   content: string;
   intent: string;
   status: string;
-  category: string;
+  /** Backend column: clause_category. Renamed at the boundary. */
+  clauseCategory: string;
   family: ClauseFamily | null;
   familyId: string;
   conditions: string;
   implementationGuidance: string;
   assessmentMethod: string;
   riskClassification: RiskClassification;
-  referenceUrl?: string;
-  metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
+  referenceUrl: string;
+  metadata: Record<string, any> | null;
+  isBookmarked: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  embeddingVector: string | null;
 }
 
 export interface ClauseFamilyGroup {

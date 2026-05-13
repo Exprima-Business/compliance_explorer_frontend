@@ -75,7 +75,7 @@ export const BookmarkedClauses = ({
                     mb: 0.5
                   }}
                 >
-                  {clause.clauseCode || clause.clauseId}
+                  {clause.clauseCode}
                 </Typography>
                 <Typography 
                   variant="body2" 

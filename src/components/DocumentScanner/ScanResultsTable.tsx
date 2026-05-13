@@ -351,9 +351,9 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
                                     <strong>Intent:</strong> {row.dbMatch.intent}
                                   </Typography>
                                 )}
-                                {row.dbMatch.category && (
+                                {row.dbMatch.clauseCategory && (
                                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                    <strong>Category:</strong> {row.dbMatch.category}
+                                    <strong>Category:</strong> {row.dbMatch.clauseCategory}
                                   </Typography>
                                 )}
                                 <Typography variant="caption" color="text.disabled">

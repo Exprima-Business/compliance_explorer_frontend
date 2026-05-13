@@ -205,7 +205,7 @@ const Matrix: React.FC = () => {
       description: clause.description,
       intent: clause.intent,
       status: clause.status,
-      category: clause.category,
+      category: clause.clauseCategory,
       family: clause.family ?? { id: 'unknown', name: 'Uncategorized' },
       conditions: clause.conditions,
       implementationGuidance: clause.implementationGuidance,
