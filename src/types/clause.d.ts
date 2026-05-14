@@ -30,12 +30,10 @@ export interface Clause {
     riskClassification: RiskClassification;
     referenceUrl: string;
     metadata: Record<string, any> | null;
-    isBookmarked: boolean;
     createdAt: string;
     updatedAt: string;
     createdBy: string | null;
     updatedBy: string | null;
-    embeddingVector: string | null;
 }
 export interface ClauseFamilyGroup {
     id: string;
