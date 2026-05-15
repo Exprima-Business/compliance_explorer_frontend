@@ -433,23 +433,30 @@ const Matrix: React.FC = () => {
         </Box>
       </Card>
 
-      {/* Scan-Detected Clauses (not in reference database) */}
+      {/* Posture Gaps — regulations detected in scans but not in our database.
+          These are always persisted server-side (regardless of selection in the
+          scanner UI) because they signal both a customer posture gap AND a
+          ClauseAtlas regulatory-database gap. The user can disposition each:
+          add to program, mark not-applicable, or flag for ingestion. */}
       {scanDetectedClauses.length > 0 && (
         <Card sx={{ mt: { xs: 1.5, md: 3 }, border: '1px solid', borderColor: 'warning.light' }}>
           <CardContent sx={{ p: { xs: 1, md: 2 } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <WarningAmberIcon sx={{ color: '#b45309' }} />
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#b45309' }}>
-                Scan-Detected Clauses ({scanDetectedClauses.length})
+                Posture Gaps — Detected, Not in Database ({scanDetectedClauses.length})
               </Typography>
               <Chip
-                label="Not in Reference Database"
+                label="Tracked as Posture Gap"
                 size="small"
                 sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 600, fontSize: '0.7rem' }}
               />
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              These clauses were identified by the document scanner but do not match any entries in the curated reference database. They may require manual review or addition to the database.
+              The scanner found these regulations in a solicitation, but they aren't yet in our curated database.
+              They've been tracked against your compliance program automatically so you don't lose the signal.
+              For each one, you'll want to decide: <strong>add to your program</strong>, <strong>mark as not applicable</strong>,
+              or <strong>flag for ClauseAtlas</strong> to ingest authoritatively.
             </Typography>
             <TableContainer>
               <Table size="small">
