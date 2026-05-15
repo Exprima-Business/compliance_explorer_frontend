@@ -40,6 +40,24 @@ export const DocumentScanner: React.FC = () => {
     [scan.results, clauses],
   );
 
+  // Detected clauses the user has UN-checked. Computed here (where both the
+  // full result set and the live selection are available) and handed to the
+  // save dialog so it can warn before the user excludes anything — especially
+  // unmatched clauses, which are real regulations not yet in our database.
+  // `selectedClauses` holds `matchedClauseId || clauseId`, so a result counts
+  // as selected when either of those identifiers is present.
+  const deselectedClauses = useMemo(
+    () =>
+      validatedResults
+        .filter(r => !selectedClauses.includes(r.matchedClauseId || r.clauseId))
+        .map(r => ({
+          clauseId: r.clauseId,
+          title: r.title,
+          isUnmatched: r.matchType === 'none',
+        })),
+    [validatedResults, selectedClauses],
+  );
+
   // -- NO conditional hooks below this line ----------------------------------
 
   if (!user) {
@@ -135,6 +153,7 @@ export const DocumentScanner: React.FC = () => {
             onClose={() => setShowSaveDialog(false)}
             scanId={scan.scanId}
             selectedClauseIds={selectedClauses}
+            deselectedClauses={deselectedClauses}
             onProjectCreated={(projectId) => {
               // Navigate to the Matrix page for the new project.
               // SaveAsProjectDialog already set localStorage('projectId')

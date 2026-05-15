@@ -30,11 +30,25 @@ import { useOrg } from '../../contexts/OrgContext';
 
 type SaveMode = 'create' | 'existing';
 
+interface DeselectedClause {
+  clauseId: string;
+  title: string;
+  /** True when the clause isn't in our database — a higher-risk exclusion */
+  isUnmatched: boolean;
+}
+
 interface SaveAsProjectDialogProps {
   open: boolean;
   onClose: () => void;
   scanId: string | null;
   selectedClauseIds: string[];
+  /**
+   * Detected clauses the user un-checked. When non-empty, the dialog shows a
+   * confirmation step before saving so the user can't silently drop a
+   * regulation — especially an unmatched one (a real clause not yet in our
+   * database). Defaults to [] for callers that don't supply it.
+   */
+  deselectedClauses?: DeselectedClause[];
   /** Called after the project is successfully created / updated */
   onProjectCreated?: (projectId: string) => void;
 }
@@ -64,6 +78,7 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
   onClose,
   scanId,
   selectedClauseIds,
+  deselectedClauses = [],
   onProjectCreated,
 }) => {
   const muiTheme = useTheme();
@@ -75,6 +90,12 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // When the user has excluded clauses, the dialog flips to a confirmation
+  // step before the API call. `doSubmit` runs the actual save.
+  const [confirmStep, setConfirmStep] = useState(false);
+
+  const unmatchedDeselected = deselectedClauses.filter(c => c.isUnmatched);
+  const matchedDeselected = deselectedClauses.filter(c => !c.isUnmatched);
 
   const { projects, refreshProjects } = useProject();
   const { currentOrg } = useOrg();
@@ -86,7 +107,9 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
       ? !!name.trim()
       : !!selectedProjectId;
 
-  const handleSubmit = async () => {
+  // Validate inputs, then either gate on the confirmation step (if the user
+  // excluded clauses) or run the save directly.
+  const handleSubmit = () => {
     if (!scanId) {
       setError('No scan ID available.');
       return;
@@ -103,6 +126,25 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
     }
     if (mode === 'existing' && !selectedProjectId) {
       setError('Please select a project.');
+      return;
+    }
+
+    // Gate: excluding detected clauses is a deliberate action — make the
+    // user confirm before the save proceeds. Skipped when nothing is excluded.
+    if (deselectedClauses.length > 0 && !confirmStep) {
+      setError(null);
+      setConfirmStep(true);
+      return;
+    }
+
+    void doSubmit();
+  };
+
+  const doSubmit = async () => {
+    // Re-guard: handleSubmit validated these, but doSubmit is a separate
+    // function so TypeScript's narrowing doesn't carry over.
+    if (!scanId || !currentOrg) {
+      setError('Missing scan or organization context.');
       return;
     }
 
@@ -169,6 +211,7 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
     setSelectedProjectId('');
     setMode('create');
     setError(null);
+    setConfirmStep(false);
   };
 
   const handleClose = () => {
@@ -179,8 +222,99 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
-      <DialogTitle>Save Scan Results to Project</DialogTitle>
+      <DialogTitle>
+        {confirmStep ? 'Confirm Excluded Clauses' : 'Save Scan Results to Project'}
+      </DialogTitle>
 
+      {/* ----- Confirmation step: shown when the user excluded clauses ----- */}
+      {confirmStep ? (
+        <>
+          <DialogContent>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              You&apos;re about to save with{' '}
+              <strong>
+                {deselectedClauses.length} detected clause
+                {deselectedClauses.length !== 1 ? 's' : ''} excluded
+              </strong>
+              . Excluded clauses won&apos;t be tracked in this project&apos;s
+              compliance matrix.
+            </Typography>
+
+            {unmatchedDeselected.length > 0 && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  {unmatchedDeselected.length}{' '}
+                  {unmatchedDeselected.length === 1
+                    ? 'is a regulation'
+                    : 'are regulations'}{' '}
+                  not in our database
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  These were detected in your solicitation but aren&apos;t in the
+                  ClauseAtlas database yet. Excluding them means they won&apos;t be
+                  tracked at all — we recommend keeping them so you have a record
+                  of the requirement.
+                </Typography>
+                <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                  {unmatchedDeselected.map(c => (
+                    <li key={c.clauseId}>
+                      <Typography variant="body2" component="span" sx={{ fontWeight: 600 }}>
+                        {c.clauseId}
+                      </Typography>
+                      {c.title && c.title !== c.clauseId ? ` — ${c.title}` : ''}
+                    </li>
+                  ))}
+                </Box>
+              </Alert>
+            )}
+
+            {matchedDeselected.length > 0 && (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Also excluded:
+                </Typography>
+                <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                  {matchedDeselected.map(c => (
+                    <li key={c.clauseId}>
+                      <Typography variant="body2" component="span">
+                        {c.clauseId}
+                        {c.title && c.title !== c.clauseId ? ` — ${c.title}` : ''}
+                      </Typography>
+                    </li>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+              </Alert>
+            )}
+          </DialogContent>
+
+          <DialogActions>
+            <Button
+              onClick={() => { setConfirmStep(false); setError(null); }}
+              disabled={loading}
+            >
+              Go Back &amp; Review
+            </Button>
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={handleSubmit}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={18} /> : undefined}
+            >
+              {loading
+                ? 'Saving...'
+                : `Exclude ${deselectedClauses.length} & Save`}
+            </Button>
+          </DialogActions>
+        </>
+      ) : (
+      <>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Save {selectedClauseIds.length} selected clause
@@ -290,6 +424,8 @@ const SaveAsProjectDialog: React.FC<SaveAsProjectDialogProps> = ({
           }
         </Button>
       </DialogActions>
+      </>
+      )}
     </Dialog>
   );
 };

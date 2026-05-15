@@ -433,11 +433,10 @@ const Matrix: React.FC = () => {
         </Box>
       </Card>
 
-      {/* Posture Gaps — regulations detected in scans but not in our database.
-          These are always persisted server-side (regardless of selection in the
-          scanner UI) because they signal both a customer posture gap AND a
-          ClauseAtlas regulatory-database gap. The user can disposition each:
-          add to program, mark not-applicable, or flag for ingestion. */}
+      {/* Posture Gaps — regulations the user chose to include from a scan that
+          aren't in our curated database. These persist as scan-detected rows
+          (clause_id=null) with limited data; the user opted in by selecting
+          them in the scanner UI. */}
       {scanDetectedClauses.length > 0 && (
         <Card sx={{ mt: { xs: 1.5, md: 3 }, border: '1px solid', borderColor: 'warning.light' }}>
           <CardContent sx={{ p: { xs: 1, md: 2 } }}>
@@ -447,16 +446,15 @@ const Matrix: React.FC = () => {
                 Posture Gaps — Detected, Not in Database ({scanDetectedClauses.length})
               </Typography>
               <Chip
-                label="Tracked as Posture Gap"
+                label="Limited Data"
                 size="small"
                 sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 600, fontSize: '0.7rem' }}
               />
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              The scanner found these regulations in a solicitation, but they aren't yet in our curated database.
-              They've been tracked against your compliance program automatically so you don't lose the signal.
-              For each one, you'll want to decide: <strong>add to your program</strong>, <strong>mark as not applicable</strong>,
-              or <strong>flag for ClauseAtlas</strong> to ingest authoritatively.
+              The scanner found these regulations in a solicitation and you chose to include them, but they
+              aren't yet in our curated database — so they're tracked here with limited data (no framework
+              controls or implementation guidance). They may require manual review or addition to the database.
             </Typography>
             <TableContainer>
               <Table size="small">

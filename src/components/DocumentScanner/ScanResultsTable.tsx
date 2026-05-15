@@ -77,8 +77,13 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [selected, setSelected] = useState<Set<string>>(() => {
-    // Default: select only clauses that have a DB match
-    return new Set(results.filter(r => r.matchType !== 'none').map(r => r.clauseId));
+    // Default: select EVERY detected clause — matched and unmatched alike.
+    // The scanner found it in the solicitation, so the safe default is to
+    // include it. Excluding a clause is a deliberate user action, guarded by
+    // a confirmation dialog at save time. Auto-deselecting unmatched clauses
+    // would make the riskiest items (regulations not in our database) the
+    // easiest to silently lose.
+    return new Set(results.map(r => r.clauseId));
   });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0);
@@ -132,14 +137,17 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
   const selectedCount = useMemo(() => selected.size, [selected]);
   const matchedCount = useMemo(() => results.filter(r => r.matchType !== 'none').length, [results]);
 
-  // Apply confidence threshold — auto-select clauses above threshold, deselect below
+  // Apply confidence threshold — select clauses at or above the threshold,
+  // deselect below. Filters purely on confidence; matched and unmatched
+  // clauses are treated alike (an unmatched clause above the threshold is
+  // still a real detection worth keeping).
   const applyThreshold = (threshold: number) => {
     setConfidenceThreshold(threshold);
     if (threshold === 0) return; // 0 means no filter active
     const thresholdDecimal = threshold / 100;
     const next = new Set<string>(
       results
-        .filter(r => r.matchType !== 'none' && r.confidence >= thresholdDecimal)
+        .filter(r => r.confidence >= thresholdDecimal)
         .map(r => r.clauseId),
     );
     updateSelection(next);
@@ -147,17 +155,14 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
 
   // Reset selection & expanded state when results change (e.g. second scan).
   // Also notifies parent with the correct initial UUIDs for the new results.
+  // Default selects ALL detected clauses (see useState initializer above).
   React.useEffect(() => {
-    const defaultSelected = new Set(
-      results.filter(r => r.matchType !== 'none').map(r => r.clauseId),
-    );
+    const defaultSelected = new Set(results.map(r => r.clauseId));
     setSelected(defaultSelected);
     setExpandedRows(new Set());
     setConfidenceThreshold(0);
 
-    const initialIds = results
-      .filter(r => r.matchType !== 'none')
-      .map(r => r.matchedClauseId || r.clauseId);
+    const initialIds = results.map(r => r.matchedClauseId || r.clauseId);
     onSelectionChange(initialIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results]);
@@ -404,8 +409,10 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
       {/* Summary note about unmatched clauses */}
       {results.length - matchedCount > 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, fontStyle: 'italic' }}>
-          Clauses not found in the database will have limited data in the project matrix.
-          Unmatched clauses are deselected by default.
+          Clauses not found in the database will have limited data in the project matrix
+          (no framework controls or implementation guidance). They are still selected by
+          default — the scanner found them in your solicitation, so they are tracked as
+          posture gaps unless you deliberately exclude them.
         </Typography>
       )}
     </Box>
