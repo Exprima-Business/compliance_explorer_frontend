@@ -62,6 +62,11 @@ export function useScanUpload(initialScanId?: string): ScanUploadResult {
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseFailuresRef = useRef(0);
   const isMountedRef = useRef(true);
+  // True once this hook instance has started a scan itself. Guards the
+  // initialScanId restore effect: when `upload()` mirrors the new scanId
+  // into the URL, `initialScanId` changes and the effect would otherwise
+  // re-fetch and re-connect a scan we are already streaming.
+  const startedLocallyRef = useRef(false);
 
   // -- helpers ---------------------------------------------------------------
 
@@ -304,6 +309,7 @@ export function useScanUpload(initialScanId?: string): ScanUploadResult {
           return;
         }
 
+        startedLocallyRef.current = true;
         setScanId(newScanId);
         setState('processing');
         sseFailuresRef.current = 0;
@@ -326,13 +332,18 @@ export function useScanUpload(initialScanId?: string): ScanUploadResult {
     setResults([]);
     setError(null);
     sseFailuresRef.current = 0;
+    startedLocallyRef.current = false;
   }, [cleanup]);
 
   // -- effects ---------------------------------------------------------------
 
-  // If we were initialized with a scanId (URL param), start monitoring
+  // If we were initialized with a scanId (URL param), start monitoring.
+  // Skip when this instance started the scan itself — `upload()` already
+  // connected SSE, and the scanId only reached the URL because we put it
+  // there; re-fetching here would duplicate work mid-scan.
   useEffect(() => {
     if (!initialScanId) return;
+    if (startedLocallyRef.current) return;
     // Try to fetch current status first, then decide SSE vs polling
     (async () => {
       try {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, Alert, Paper, useMediaQuery, useTheme } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -38,6 +38,30 @@ export const DocumentScanner: React.FC = () => {
     () => validateDetectedClauses(scan.results, clauses),
     [scan.results, clauses],
   );
+
+  // ── Scan persistence ──────────────────────────────────────────────
+  // Scan state lives in memory; navigating away unmounts this component
+  // and loses it. The scan itself is a server-side job and keeps running.
+  // Once a scan has an id, mirror it into the URL and remember it, so
+  // returning to the scanner (tab click or back) restores the in-progress
+  // or completed scan via useScanUpload's scanId-restore path. Demo scans
+  // (demo-* ids) are local-only and cannot be restored, so they are skipped.
+  useEffect(() => {
+    const sid = scan.scanId;
+    if (!sid || sid.startsWith('demo-')) return;
+    localStorage.setItem('lastScanId', sid);
+    if (sid !== urlScanId) {
+      navigate(`/document-scanner/${sid}`, { replace: true });
+    }
+  }, [scan.scanId, urlScanId, navigate]);
+
+  // Reset both the scan state and the persisted/URL scan reference, so
+  // "Scan Another Document" (and error retry) return to a clean slate.
+  const handleReset = useCallback(() => {
+    scan.reset();
+    localStorage.removeItem('lastScanId');
+    navigate('/document-scanner', { replace: true });
+  }, [scan, navigate]);
 
   // -- NO conditional hooks below this line ----------------------------------
 
@@ -84,7 +108,7 @@ export const DocumentScanner: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<RefreshIcon />}
-            onClick={scan.reset}
+            onClick={handleReset}
           >
             Try Again
           </Button>
@@ -111,7 +135,7 @@ export const DocumentScanner: React.FC = () => {
               variant="outlined"
               size={isMobile ? 'small' : 'medium'}
               startIcon={<RefreshIcon />}
-              onClick={() => scan.reset()}
+              onClick={handleReset}
               fullWidth={isMobile}
             >
               Scan Another Document

@@ -132,11 +132,14 @@ export default function Layout({ children }: LayoutProps) {
     if (!route) return;
 
     if (route === '/document-scanner') {
-      // Preserve the current scanId when re-selecting scanner tab
+      // Resume an in-progress / last scan when re-entering the scanner tab.
+      // Prefer a scanId already in the path; otherwise the one the scanner
+      // remembered when the scan started (cleared on "Scan Another Document").
       const currentPath = getCurrentPath();
       const scanIdMatch = currentPath.match(/^\/document-scanner\/([^\/]+)$/);
-      if (scanIdMatch) {
-        navigateTo(`/document-scanner/${scanIdMatch[1]}`);
+      const resumeScanId = scanIdMatch?.[1] || localStorage.getItem('lastScanId');
+      if (resumeScanId) {
+        navigateTo(`/document-scanner/${resumeScanId}`);
         return;
       }
     }
