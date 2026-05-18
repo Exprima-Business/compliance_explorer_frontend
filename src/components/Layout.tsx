@@ -106,8 +106,8 @@ export default function Layout({ children }: LayoutProps) {
   // Mobile  tabs: 0=Scanner    1=Matrix   2=Controls
   // ─────────────────────────────────────────────────────────────────
 
-  // Both mobile and desktop: Dashboard > Scanner > Matrix > Controls
-  const tabRoutes = ['/', '/document-scanner', '/matrix', '/controls'];
+  // Both mobile and desktop: Dashboard > Scanner > Matrix > Controls > Solicitations
+  const tabRoutes = ['/', '/document-scanner', '/matrix', '/controls', '/evaluations'];
 
   // Update active tab based on current route
   useEffect(() => {
@@ -121,6 +121,8 @@ export default function Layout({ children }: LayoutProps) {
       setActiveTab(2);
     } else if (path === '/controls') {
       setActiveTab(3);
+    } else if (path === '/evaluations' || path.startsWith('/evaluations/')) {
+      setActiveTab(4);
     }
   }, [getCurrentPath, isMobile]);
 

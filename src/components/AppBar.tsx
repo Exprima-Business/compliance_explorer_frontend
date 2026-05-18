@@ -26,6 +26,7 @@ import {
   TableChart as TableChartIcon,
   DocumentScanner as ScannerIcon,
   Shield as ShieldIcon,
+  FactCheck as FactCheckIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -156,6 +157,11 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
               <Tab
                 label={isMobile ? undefined : "Controls"}
                 icon={isMobile ? <ShieldIcon /> : undefined}
+                iconPosition="start"
+              />
+              <Tab
+                label={isMobile ? undefined : "Solicitations"}
+                icon={isMobile ? <FactCheckIcon /> : undefined}
                 iconPosition="start"
               />
             </Tabs>

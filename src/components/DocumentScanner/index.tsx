@@ -12,6 +12,7 @@ import FileUpload from './FileUpload';
 import ScanProgress from './ScanProgress';
 import ScanResultsTable from './ScanResultsTable';
 import SaveAsProjectDialog from './SaveAsProjectDialog';
+import SaveAsEvaluationDialog from './SaveAsEvaluationDialog';
 
 // ---------------------------------------------------------------------------
 // DocumentScanner — thin orchestrator
@@ -30,6 +31,7 @@ export const DocumentScanner: React.FC = () => {
   const scan = useScanUpload(urlScanId);
 
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showEvalDialog, setShowEvalDialog] = useState(false);
   const [selectedClauses, setSelectedClauses] = useState<string[]>([]);
 
   // Cross-reference scan results against the clauses DB whenever results
@@ -135,8 +137,10 @@ export const DocumentScanner: React.FC = () => {
             >
               Scan Another Document
             </Button>
+            {/* Secondary, transitional: direct save into a project.
+                Retired in 036f-2 once the evaluation flow is validated. */}
             <Button
-              variant="contained"
+              variant="outlined"
               size={isMobile ? 'small' : 'medium'}
               startIcon={<SaveIcon />}
               onClick={() => setShowSaveDialog(true)}
@@ -145,9 +149,21 @@ export const DocumentScanner: React.FC = () => {
             >
               Save to Project ({selectedClauses.length})
             </Button>
+            {/* Primary: save the scan as a solicitation evaluation. The
+                evaluation captures ALL detected clauses (not just the
+                checked ones) — it is the full pre-bid analysis record. */}
+            <Button
+              variant="contained"
+              size={isMobile ? 'small' : 'medium'}
+              startIcon={<SaveIcon />}
+              onClick={() => setShowEvalDialog(true)}
+              fullWidth={isMobile}
+            >
+              Save as Solicitation Evaluation
+            </Button>
           </Box>
 
-          {/* Save-as-project dialog */}
+          {/* Save-as-project dialog (transitional) */}
           <SaveAsProjectDialog
             open={showSaveDialog}
             onClose={() => setShowSaveDialog(false)}
@@ -161,6 +177,14 @@ export const DocumentScanner: React.FC = () => {
               // BookmarkContext will pick up the new project automatically.
               navigate(`/matrix/${projectId}`);
             }}
+          />
+
+          {/* Save-as-evaluation dialog (036f — pre-bid validator flow) */}
+          <SaveAsEvaluationDialog
+            open={showEvalDialog}
+            onClose={() => setShowEvalDialog(false)}
+            scanId={scan.scanId}
+            onCreated={(evaluationId) => navigate(`/evaluations/${evaluationId}`)}
           />
         </>
       )}
