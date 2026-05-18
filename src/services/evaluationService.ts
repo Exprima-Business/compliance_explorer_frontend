@@ -24,11 +24,21 @@ export interface EvaluationClause {
   title: string | null;
   confidence: number | null;
   coverageStatus: CoverageStatus;
-  /**
-   * Live framework-completion percentage (0-100) for this clause, or null
-   * when no activated framework maps to it / it is not in our catalog.
-   */
-  completionPct: number | null;
+}
+
+/**
+ * A framework the evaluation's detected clauses imply, with the program's
+ * live completion against it. A non-activated framework still appears (0%) —
+ * it remains a requirement the solicitation introduces.
+ */
+export interface RequiredFramework {
+  id: string;
+  name: string;
+  version: string;
+  activated: boolean;
+  totalControls: number;
+  implementedControls: number;
+  completionPct: number;
 }
 
 export interface SolicitationEvaluation {
@@ -49,6 +59,8 @@ export interface SolicitationEvaluation {
 export interface EvaluationDetail {
   evaluation: SolicitationEvaluation;
   clauses: EvaluationClause[];
+  /** Frameworks the detected clauses imply, with live completion. */
+  frameworks: RequiredFramework[];
 }
 
 export interface CreateEvaluationRequest {

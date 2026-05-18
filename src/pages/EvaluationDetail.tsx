@@ -9,57 +9,69 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
   evaluationService,
   type EvaluationDetail as EvaluationDetailData,
-  type EvaluationClause,
+  type RequiredFramework,
   type CoverageStatus,
 } from '../services/evaluationService';
 import { useProject } from '../contexts/ProjectContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
 
-const COVERAGE_COLOR: Record<CoverageStatus, 'success' | 'warning' | 'default'> = {
-  covered: 'success',
+// The clause-row chip describes SCOPE — is this detected clause already in
+// your program, or a new requirement? It is deliberately NOT a compliance
+// signal; compliance lives in the per-framework completion panel above.
+const SCOPE_COLOR: Record<CoverageStatus, 'info' | 'warning' | 'default'> = {
+  covered: 'info',
   gap: 'warning',
   unknown: 'default',
 };
-
-// Coverage status is the scan-time snapshot: was the clause already tracked
-// in the program? It is NOT a compliance measure — that is `completionPct`.
-const COVERAGE_LABEL: Record<CoverageStatus, string> = {
-  covered: 'Tracked',
-  gap: 'Not tracked',
+const SCOPE_LABEL: Record<CoverageStatus, string> = {
+  covered: 'Already in program',
+  gap: 'New requirement',
   unknown: 'Not in catalog',
 };
 
+/** MUI palette key for a completion percentage. */
 const pctColor = (pct: number): 'success' | 'warning' | 'error' =>
   pct >= 80 ? 'success' : pct >= 40 ? 'warning' : 'error';
 
 /**
- * Coverage cell — shows the live framework-completion percentage when we can
- * compute it, otherwise falls back to the coverage-status chip. The percentage
- * is the honest signal: a "Tracked" clause can still be 0% implemented.
+ * Per-framework completion panel — the honest "am I compliant?" view for the
+ * evaluation. Each framework the detected clauses require, with the program's
+ * implemented-control percentage. A framework not yet activated reads 0%.
  */
-const CoverageCell: React.FC<{ clause: EvaluationClause }> = ({ clause }) => {
-  if (clause.completionPct != null) {
-    const pct = clause.completionPct;
-    return (
-      <Box sx={{ minWidth: 130 }}>
-        <Typography variant="caption" sx={{ fontWeight: 600 }}>
-          {pct}% complete
-        </Typography>
-        <LinearProgress
-          variant="determinate"
-          value={pct}
-          color={pctColor(pct)}
-          sx={{ height: 6, borderRadius: 3, mt: 0.25 }}
-        />
-      </Box>
-    );
-  }
+const FrameworkPanel: React.FC<{ frameworks: RequiredFramework[] }> = ({ frameworks }) => {
+  if (frameworks.length === 0) return null;
   return (
-    <Chip
-      size="small"
-      label={COVERAGE_LABEL[clause.coverageStatus]}
-      color={COVERAGE_COLOR[clause.coverageStatus]}
-    />
+    <Card sx={{ mb: 2 }}>
+      <CardContent>
+        <Typography variant="subtitle2">Frameworks this solicitation requires</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+          Completion is your program's progress against each framework — implemented
+          controls out of total. A framework you have not activated reads 0%.
+        </Typography>
+        {frameworks.map(fw => (
+          <Box key={fw.id} sx={{ mb: 1.5, '&:last-child': { mb: 0 } }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {fw.name} {fw.version}
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: `${pctColor(fw.completionPct)}.main` }}>
+                {fw.completionPct}%
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={fw.completionPct}
+              color={pctColor(fw.completionPct)}
+              sx={{ height: 8, borderRadius: 4, my: 0.5 }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              {fw.implementedControls}/{fw.totalControls} controls implemented
+              {!fw.activated && ' · not yet activated'}
+            </Typography>
+          </Box>
+        ))}
+      </CardContent>
+    </Card>
   );
 };
 
@@ -203,10 +215,13 @@ const EvaluationDetail: React.FC = () => {
       {/* Coverage summary */}
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 3 }}>
         <StatTile label="Detected" value={summary.detected} />
-        <StatTile label="Tracked" value={summary.covered} color={theme.palette.success.main} />
-        <StatTile label="Gaps" value={summary.gaps} color={theme.palette.warning.main} />
-        <StatTile label="Unknown" value={summary.unknown} color={theme.palette.text.disabled} />
+        <StatTile label="In Program" value={summary.covered} color={theme.palette.info.main} />
+        <StatTile label="New" value={summary.gaps} color={theme.palette.warning.main} />
+        <StatTile label="Not in Catalog" value={summary.unknown} color={theme.palette.text.disabled} />
       </Box>
+
+      {/* Per-framework completion — the compliance headline */}
+      <FrameworkPanel frameworks={detail!.frameworks} />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -234,9 +249,9 @@ const EvaluationDetail: React.FC = () => {
 
       {/* Clause list */}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-        Coverage shows live completion — of the framework controls that satisfy each
-        clause, how many your program has implemented. A clause can be tracked yet
-        still 0% complete until the underlying controls are done.
+        Each detected clause is marked by scope — already in your program, or a new
+        requirement this solicitation introduces. Compliance progress is shown by
+        framework in the panel above.
       </Typography>
       <Card>
         <TableContainer>
@@ -253,7 +268,7 @@ const EvaluationDetail: React.FC = () => {
                 <TableCell sx={{ fontWeight: 600 }}>Clause</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Confidence</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Coverage</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Scope</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -274,7 +289,11 @@ const EvaluationDetail: React.FC = () => {
                     {c.confidence != null ? `${Math.round(c.confidence * 100)}%` : '—'}
                   </TableCell>
                   <TableCell>
-                    <CoverageCell clause={c} />
+                    <Chip
+                      size="small"
+                      label={SCOPE_LABEL[c.coverageStatus]}
+                      color={SCOPE_COLOR[c.coverageStatus]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
