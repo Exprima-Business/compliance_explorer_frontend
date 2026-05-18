@@ -11,7 +11,6 @@ import { validateDetectedClauses } from '../../utils/clauseMatching';
 import FileUpload from './FileUpload';
 import ScanProgress from './ScanProgress';
 import ScanResultsTable from './ScanResultsTable';
-import SaveAsProjectDialog from './SaveAsProjectDialog';
 import SaveAsEvaluationDialog from './SaveAsEvaluationDialog';
 
 // ---------------------------------------------------------------------------
@@ -30,9 +29,7 @@ export const DocumentScanner: React.FC = () => {
   const navigate = useNavigate();
   const scan = useScanUpload(urlScanId);
 
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showEvalDialog, setShowEvalDialog] = useState(false);
-  const [selectedClauses, setSelectedClauses] = useState<string[]>([]);
 
   // Cross-reference scan results against the clauses DB whenever results
   // or the DB clause list changes. This gives immediate feedback about
@@ -40,24 +37,6 @@ export const DocumentScanner: React.FC = () => {
   const validatedResults = useMemo(
     () => validateDetectedClauses(scan.results, clauses),
     [scan.results, clauses],
-  );
-
-  // Detected clauses the user has UN-checked. Computed here (where both the
-  // full result set and the live selection are available) and handed to the
-  // save dialog so it can warn before the user excludes anything — especially
-  // unmatched clauses, which are real regulations not yet in our database.
-  // `selectedClauses` holds `matchedClauseId || clauseId`, so a result counts
-  // as selected when either of those identifiers is present.
-  const deselectedClauses = useMemo(
-    () =>
-      validatedResults
-        .filter(r => !selectedClauses.includes(r.matchedClauseId || r.clauseId))
-        .map(r => ({
-          clauseId: r.clauseId,
-          title: r.title,
-          isUnmatched: r.matchType === 'none',
-        })),
-    [validatedResults, selectedClauses],
   );
 
   // -- NO conditional hooks below this line ----------------------------------
@@ -117,7 +96,7 @@ export const DocumentScanner: React.FC = () => {
         <>
           <ScanResultsTable
             results={validatedResults}
-            onSelectionChange={setSelectedClauses}
+            onSelectionChange={() => {}}
           />
 
           {/* Action bar */}
@@ -132,26 +111,15 @@ export const DocumentScanner: React.FC = () => {
               variant="outlined"
               size={isMobile ? 'small' : 'medium'}
               startIcon={<RefreshIcon />}
-              onClick={() => { scan.reset(); setSelectedClauses([]); }}
+              onClick={() => scan.reset()}
               fullWidth={isMobile}
             >
               Scan Another Document
             </Button>
-            {/* Secondary, transitional: direct save into a project.
-                Retired in 036f-2 once the evaluation flow is validated. */}
-            <Button
-              variant="outlined"
-              size={isMobile ? 'small' : 'medium'}
-              startIcon={<SaveIcon />}
-              onClick={() => setShowSaveDialog(true)}
-              disabled={selectedClauses.length === 0}
-              fullWidth={isMobile}
-            >
-              Save to Project ({selectedClauses.length})
-            </Button>
-            {/* Primary: save the scan as a solicitation evaluation. The
-                evaluation captures ALL detected clauses (not just the
-                checked ones) — it is the full pre-bid analysis record. */}
+            {/* Save the scan as a solicitation evaluation — the full
+                pre-bid analysis record covering ALL detected clauses.
+                Applying selected clauses to the compliance program
+                happens from the evaluation detail page. */}
             <Button
               variant="contained"
               size={isMobile ? 'small' : 'medium'}
@@ -162,22 +130,6 @@ export const DocumentScanner: React.FC = () => {
               Save as Solicitation Evaluation
             </Button>
           </Box>
-
-          {/* Save-as-project dialog (transitional) */}
-          <SaveAsProjectDialog
-            open={showSaveDialog}
-            onClose={() => setShowSaveDialog(false)}
-            scanId={scan.scanId}
-            selectedClauseIds={selectedClauses}
-            deselectedClauses={deselectedClauses}
-            onProjectCreated={(projectId) => {
-              // Navigate to the Matrix page for the new project.
-              // SaveAsProjectDialog already set localStorage('projectId')
-              // and called refreshProjects(), so the project selector and
-              // BookmarkContext will pick up the new project automatically.
-              navigate(`/matrix/${projectId}`);
-            }}
-          />
 
           {/* Save-as-evaluation dialog (036f — pre-bid validator flow) */}
           <SaveAsEvaluationDialog

@@ -60,18 +60,6 @@ export interface ScanProgress {
   totalPages: number;
 }
 
-export interface CreateProjectFromScanRequest {
-  scanId: string;
-  projectName: string;
-  description?: string;
-  organizationId: string;
-  options?: {
-    saveToExisting?: boolean;
-    existingProjectId?: string;
-    clauseFilter?: string[];
-  };
-}
-
 // ---------------------------------------------------------------------------
 // File validation
 // ---------------------------------------------------------------------------
@@ -147,22 +135,6 @@ export const scanApi = {
   deleteScan: async (scanId: string): Promise<ApiResponse<void>> => {
     return apiCall<void>(`/api/scans/${scanId}`, {
       method: 'DELETE',
-      requireAuth: true,
-    });
-  },
-
-  /**
-   * Create a project from completed scan results.
-   *
-   * Hits `POST /api/projects/create-from-scan` — the backend handles
-   * project creation, clause validation, and bookmark creation in one call.
-   */
-  createProjectFromScan: async (
-    request: CreateProjectFromScanRequest,
-  ): Promise<ApiResponse<any>> => {
-    return apiCall<any>('/api/projects/create-from-scan', {
-      method: 'POST',
-      body: JSON.stringify(request),
       requireAuth: true,
     });
   },
