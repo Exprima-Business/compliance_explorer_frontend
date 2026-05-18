@@ -42,7 +42,10 @@ export interface RequiredFramework {
   version: string;
   activated: boolean;
   totalControls: number;
+  /** Controls explicitly marked IMPLEMENTED */
   implementedControls: number;
+  /** Additional controls satisfied only via a cross-framework crosswalk */
+  crosswalkCredited: number;
   completionPct: number;
 }
 

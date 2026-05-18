@@ -66,6 +66,7 @@ const FrameworkPanel: React.FC<{ frameworks: RequiredFramework[] }> = ({ framewo
             />
             <Typography variant="caption" color="text.secondary">
               {fw.implementedControls}/{fw.totalControls} controls implemented
+              {fw.crosswalkCredited > 0 && ` · +${fw.crosswalkCredited} satisfied via crosswalk`}
               {!fw.activated && ' · not yet activated'}
             </Typography>
           </Box>
