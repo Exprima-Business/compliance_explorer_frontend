@@ -12,6 +12,7 @@ import {
   type CoverageStatus,
 } from '../services/evaluationService';
 import { useProject } from '../contexts/ProjectContext';
+import { useBookmarks } from '../contexts/BookmarkContext';
 
 const COVERAGE_COLOR: Record<CoverageStatus, 'success' | 'warning' | 'default'> = {
   covered: 'success',
@@ -35,6 +36,7 @@ const EvaluationDetail: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { currentProject, projects } = useProject();
+  const { refresh: refreshBookmarks } = useBookmarks();
   const program = currentProject ?? projects?.[0] ?? null;
 
   const [detail, setDetail] = useState<EvaluationDetailData | null>(null);
@@ -86,8 +88,8 @@ const EvaluationDetail: React.FC = () => {
     setApplying(true);
     setError(null);
     const resp = await evaluationService.apply(id, program.id, Array.from(selected));
-    setApplying(false);
     if (resp.error) {
+      setApplying(false);
       setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
       return;
     }
@@ -95,8 +97,14 @@ const EvaluationDetail: React.FC = () => {
     setSnack(
       `Applied to ${program.name}: ${r?.appliedMatched ?? 0} tracked clause(s)` +
       `${r?.appliedScanDetected ? `, ${r.appliedScanDetected} posture gap(s)` : ''}` +
-      `, ${r?.bookmarksCreated ?? 0} bookmark(s).`,
+      `, ${r?.bookmarksCreated ?? 0} bookmark(s). Opening your compliance matrix…`,
     );
+    // Pull the freshly-applied clauses into the bookmark cache so the matrix
+    // renders them, then route the user to their next step: activating the
+    // frameworks those clauses require and working the controls.
+    await refreshBookmarks();
+    setApplying(false);
+    setTimeout(() => navigate('/matrix'), 1800);
   };
 
   const summary = useMemo(
@@ -208,7 +216,7 @@ const EvaluationDetail: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {c.clauseCode || c.clauseId || '—'}
+                      {c.clauseCode || '—'}
                     </Typography>
                   </TableCell>
                   <TableCell>

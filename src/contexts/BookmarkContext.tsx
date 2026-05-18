@@ -12,6 +12,9 @@ interface BookmarkContextValue {
   bookmarks: Bookmark[];
   loading: boolean;
   toggleBookmark: (clauseId: string) => Promise<void>;
+  /** Re-fetch bookmarks from the server. Call after a server-side mutation
+   *  (e.g. applying an evaluation's clauses) so the matrix reflects them. */
+  refresh: () => Promise<void>;
   connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
   isClauseBookmarked: (clauseId: string) => boolean;
   bookmarkError: string | null;
@@ -19,6 +22,25 @@ interface BookmarkContextValue {
 }
 
 const BookmarkContext = createContext<BookmarkContextValue | undefined>(undefined);
+
+/**
+ * Map a raw `bookmarks` row from a Supabase realtime payload (snake_case
+ * DB columns) into the camelCase `Bookmark` domain object. Realtime payloads
+ * bypass the API boundary mapper, so this conversion must happen here.
+ */
+const realtimeRowToBookmark = (row: any): Bookmark => ({
+  id: row.id,
+  organizationId: row.organization_id,
+  projectId: row.project_id ?? undefined,
+  clauseId: row.clause_id,
+  status: row.status ?? undefined,
+  priority: row.priority ?? undefined,
+  notes: row.notes ?? undefined,
+  complianceStatus: row.compliance_status ?? undefined,
+  metadata: row.metadata ?? undefined,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
 
 // Connection management constants
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -130,7 +152,11 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     dlog('Setting up realtime subscription for bookmarks');
     setConnectionStatus('connecting');
 
-    // Subscribe to all row changes for this organisation
+    // Subscribe to all row changes for this organisation.
+    // NOTE: the realtime filter must use the real DB column name
+    // (`organization_id`). Schema unification (migration 031) renamed the
+    // legacy camelCase column; a stale `organizationId` filter silently
+    // matches nothing, so no events are ever delivered.
     const channel = supabase
       .channel('bookmarks-realtime')
       .on(
@@ -139,7 +165,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           event: '*',
           schema: 'public',
           table: 'bookmarks',
-          filter: `organizationId=eq.${currentOrg.id}`
+          filter: `organization_id=eq.${currentOrg.id}`
         },
         (payload) => {
           dlog('Bookmark realtime event received', {
@@ -151,7 +177,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           });
 
           if (payload.eventType === 'INSERT') {
-            const b = payload.new as Bookmark;
+            const b = realtimeRowToBookmark(payload.new);
             dlog('Processing INSERT event', { bookmark: b, currentProject: currentProject.id });
 
             // Only process changes for the current project
@@ -162,7 +188,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
             setBookmarks(prev => {
               // avoid duplicates by checking both id and clauseId
-              const exists = prev.some(item => item.id === b.id || item.clauseId === b.clauseId);
+              const exists = prev.some(item => (item.id && item.id === b.id) || item.clauseId === b.clauseId);
               if (exists) {
                 dlog('Skipping INSERT - bookmark already exists', { bookmarkId: b.id, clauseId: b.clauseId });
                 return prev;
@@ -171,14 +197,15 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               return [...prev, b];
             });
           } else if (payload.eventType === 'DELETE') {
-            // Handle DELETE for multi-tab synchronisation
-            const old = payload.old as Partial<Bookmark>;
-            dlog('Processing DELETE event', { old, currentProject: currentProject.id });
-            if (old?.clauseId) {
-              setBookmarks(prev => prev.filter(b => b.clauseId !== old.clauseId));
+            // Handle DELETE for multi-tab synchronisation. DELETE payloads
+            // carry only the primary key in `old`, so match on id.
+            const oldId = (payload.old as any)?.id;
+            dlog('Processing DELETE event', { oldId, currentProject: currentProject.id });
+            if (oldId) {
+              setBookmarks(prev => prev.filter(b => b.id !== oldId));
             }
           } else if (payload.eventType === 'UPDATE') {
-            const b = payload.new as Bookmark;
+            const b = realtimeRowToBookmark(payload.new);
             dlog('Processing UPDATE event', { bookmark: b, currentProject: currentProject.id });
 
             // Only process changes for the current project
@@ -187,7 +214,9 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               return;
             }
 
-            setBookmarks(prev => prev.map(item => item.id === b.id ? b : item));
+            setBookmarks(prev => prev.map(item =>
+              (item.id === b.id || item.clauseId === b.clauseId) ? b : item
+            ));
           } else {
             dlog('Unknown event type', (payload as any).eventType);
           }
@@ -352,6 +381,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     bookmarks,
     loading,
     toggleBookmark,
+    refresh: load,
     connectionStatus,
     isClauseBookmarked,
     bookmarkError,
