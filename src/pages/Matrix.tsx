@@ -333,8 +333,12 @@ const Matrix: React.FC = () => {
       {heatmapData.length > 0 && (
         <Card sx={{ mb: { xs: 1.5, md: 3 } }}>
           <CardContent sx={{ p: { xs: 1, md: 2 } }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
               Control Family Compliance Heatmap
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+              Completion includes controls satisfied via cross-framework crosswalk —
+              e.g. NIST 800-53 progress crediting NIST 800-171.
             </Typography>
             {heatmapData.map(fw => (
               <Box key={fw.id} sx={{ mb: 2 }}>
