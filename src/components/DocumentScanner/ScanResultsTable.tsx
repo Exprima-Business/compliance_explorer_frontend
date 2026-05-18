@@ -10,11 +10,9 @@ import {
   TableRow,
   Typography,
   Chip,
-  Checkbox,
   Collapse,
   IconButton,
   Tooltip,
-  Slider,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -33,7 +31,6 @@ import type { ValidatedClause, MatchType } from '../../utils/clauseMatching';
 
 interface ScanResultsTableProps {
   results: ValidatedClause[];
-  onSelectionChange: (selectedClauseIds: string[]) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -72,54 +69,17 @@ function matchChipColor(type: MatchType): 'success' | 'info' | 'warning' | 'erro
 // Component
 // ---------------------------------------------------------------------------
 
-const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectionChange }) => {
+/**
+ * ScanResultsTable — a read-only view of what the scan detected and how each
+ * clause matched against the curated clause database. Clause selection lives
+ * downstream: the scan is saved as a solicitation evaluation (all detected
+ * clauses), and clauses are chosen from the evaluation detail page.
+ */
+const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const [selected, setSelected] = useState<Set<string>>(() => {
-    // Default: select EVERY detected clause — matched and unmatched alike.
-    // The scanner found it in the solicitation, so the safe default is to
-    // include it. Excluding a clause is a deliberate user action, guarded by
-    // a confirmation dialog at save time. Auto-deselecting unmatched clauses
-    // would make the riskiest items (regulations not in our database) the
-    // easiest to silently lose.
-    return new Set(results.map(r => r.clauseId));
-  });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0);
-
-  // Keep parent in sync — send matchedClauseId (DB UUID) for matched clauses,
-  // or the AI clauseId string for unmatched clauses so they are included in the
-  // clauseFilter and the backend can create new clause records for them.
-  const updateSelection = (next: Set<string>) => {
-    setSelected(next);
-    const ids = results
-      .filter(r => next.has(r.clauseId))
-      .map(r => r.matchedClauseId || r.clauseId);
-    onSelectionChange(ids);
-  };
-
-  // Select / deselect all
-  const allSelected = selected.size === results.length && results.length > 0;
-  const someSelected = selected.size > 0 && selected.size < results.length;
-
-  const handleSelectAll = () => {
-    if (allSelected) {
-      updateSelection(new Set());
-    } else {
-      updateSelection(new Set(results.map(r => r.clauseId)));
-    }
-  };
-
-  const toggleRow = (clauseId: string) => {
-    const next = new Set(selected);
-    if (next.has(clauseId)) {
-      next.delete(clauseId);
-    } else {
-      next.add(clauseId);
-    }
-    updateSelection(next);
-  };
 
   const toggleExpand = (clauseId: string) => {
     setExpandedRows(prev => {
@@ -133,39 +93,7 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
     });
   };
 
-  // Memoized counts
-  const selectedCount = useMemo(() => selected.size, [selected]);
   const matchedCount = useMemo(() => results.filter(r => r.matchType !== 'none').length, [results]);
-
-  // Apply confidence threshold — select clauses at or above the threshold,
-  // deselect below. Filters purely on confidence; matched and unmatched
-  // clauses are treated alike (an unmatched clause above the threshold is
-  // still a real detection worth keeping).
-  const applyThreshold = (threshold: number) => {
-    setConfidenceThreshold(threshold);
-    if (threshold === 0) return; // 0 means no filter active
-    const thresholdDecimal = threshold / 100;
-    const next = new Set<string>(
-      results
-        .filter(r => r.confidence >= thresholdDecimal)
-        .map(r => r.clauseId),
-    );
-    updateSelection(next);
-  };
-
-  // Reset selection & expanded state when results change (e.g. second scan).
-  // Also notifies parent with the correct initial UUIDs for the new results.
-  // Default selects ALL detected clauses (see useState initializer above).
-  React.useEffect(() => {
-    const defaultSelected = new Set(results.map(r => r.clauseId));
-    setSelected(defaultSelected);
-    setExpandedRows(new Set());
-    setConfidenceThreshold(0);
-
-    const initialIds = results.map(r => r.matchedClauseId || r.clauseId);
-    onSelectionChange(initialIds);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results]);
 
   if (results.length === 0) {
     return (
@@ -205,53 +133,13 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
               size="small"
             />
           )}
-          <Typography variant="body2" color="text.secondary">
-            {selectedCount} selected
-          </Typography>
         </Box>
-      </Box>
-
-      {/* Confidence threshold slider */}
-      <Box sx={{
-        display: 'flex', alignItems: 'center', gap: 2, mb: 1.5, px: 1,
-        flexDirection: isMobile ? 'column' : 'row',
-      }}>
-        <Typography variant="body2" sx={{ fontWeight: 500, whiteSpace: 'nowrap', minWidth: 140 }}>
-          Confidence Threshold: {confidenceThreshold > 0 ? `${confidenceThreshold}%` : 'Off'}
-        </Typography>
-        <Slider
-          value={confidenceThreshold}
-          onChange={(_, v) => applyThreshold(v as number)}
-          min={0}
-          max={100}
-          step={5}
-          marks={[
-            { value: 0, label: 'Off' },
-            { value: 50, label: '50%' },
-            { value: 80, label: '80%' },
-            { value: 100, label: '100%' },
-          ]}
-          valueLabelDisplay="auto"
-          valueLabelFormat={(v) => v === 0 ? 'Off' : `${v}%`}
-          sx={{
-            flex: 1,
-            '& .MuiSlider-markLabel': { fontSize: '0.65rem' },
-            '& .MuiSlider-thumb': { width: 16, height: 16 },
-          }}
-        />
       </Box>
 
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  checked={allSelected}
-                  indeterminate={someSelected}
-                  onChange={handleSelectAll}
-                />
-              </TableCell>
               <TableCell>Clause ID</TableCell>
               {!isMobile && <TableCell>Title</TableCell>}
               {!isMobile && <TableCell>Family</TableCell>}
@@ -268,25 +156,11 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
                 <React.Fragment key={row.clauseId}>
                   <TableRow
                     hover
-                    selected={selected.has(row.clauseId)}
                     sx={{
                       '& > *': { borderBottom: isExpanded ? 'none' : undefined },
                       opacity: isUnmatched ? 0.7 : 1,
                     }}
                   >
-                    <TableCell padding="checkbox">
-                      <Tooltip
-                        title={isUnmatched
-                          ? 'This clause is not in the database. Including it may result in limited data in the project matrix.'
-                          : ''
-                        }
-                      >
-                        <Checkbox
-                          checked={selected.has(row.clauseId)}
-                          onChange={() => toggleRow(row.clauseId)}
-                        />
-                      </Tooltip>
-                    </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: isUnmatched ? 'normal' : 'medium' }}>
                         {row.clauseId}
@@ -305,7 +179,7 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
                         )}
                       </TableCell>
                     )}
-                    {!isMobile && <TableCell>{row.family || '\u2014'}</TableCell>}
+                    {!isMobile && <TableCell>{row.family || '—'}</TableCell>}
                     <TableCell>
                       <Chip
                         icon={confidenceIcon(row.confidence)}
@@ -337,7 +211,7 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
                   {/* Expandable detail row */}
                   {!isMobile && (row.supportingContext || row.dbMatch) && (
                     <TableRow>
-                      <TableCell colSpan={7} sx={{ py: 0 }}>
+                      <TableCell colSpan={6} sx={{ py: 0 }}>
                         <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                           <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, my: 1 }}>
                             {/* DB match info */}
@@ -409,10 +283,9 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results, onSelectio
       {/* Summary note about unmatched clauses */}
       {results.length - matchedCount > 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, fontStyle: 'italic' }}>
-          Clauses not found in the database will have limited data in the project matrix
-          (no framework controls or implementation guidance). They are still selected by
-          default — the scanner found them in your solicitation, so they are tracked as
-          posture gaps unless you deliberately exclude them.
+          Clauses not found in the database will have limited data once tracked
+          (no framework controls or implementation guidance). They are still
+          captured by the evaluation as posture gaps for manual review.
         </Typography>
       )}
     </Box>

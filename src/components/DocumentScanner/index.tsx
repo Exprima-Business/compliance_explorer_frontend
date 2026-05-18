@@ -118,10 +118,7 @@ export const DocumentScanner: React.FC = () => {
       {/* ---- Complete: show results + actions ---- */}
       {scan.state === 'complete' && (
         <>
-          <ScanResultsTable
-            results={validatedResults}
-            onSelectionChange={() => {}}
-          />
+          <ScanResultsTable results={validatedResults} />
 
           {/* Action bar */}
           <Box sx={{
