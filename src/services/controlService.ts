@@ -40,6 +40,8 @@ export interface ControlWithStatus {
   status: ControlStatus;
   evidence_notes: string | null;
   objectives?: ControlObjective[];
+  /** True when not directly IMPLEMENTED but credited via a cross-framework crosswalk. */
+  crosswalk_satisfied?: boolean;
 }
 
 export interface FamilyWithControls {

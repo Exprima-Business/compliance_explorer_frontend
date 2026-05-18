@@ -534,6 +534,16 @@ const ControlRow: React.FC<{
               sx={{ fontSize: '0.65rem', height: 20, color: '#22c55e', borderColor: '#22c55e' }}
             />
           )}
+          {control.crosswalk_satisfied && (
+            <Tooltip title="Credited via the NIST 800-53 crosswalk — every 800-53 control this requirement derives from is implemented.">
+              <Chip
+                label="via 800-53"
+                size="small"
+                variant="outlined"
+                sx={{ fontSize: '0.65rem', height: 20, color: '#0ea5e9', borderColor: '#0ea5e9' }}
+              />
+            </Tooltip>
+          )}
           {control.title && (
             <Typography variant="body2" sx={{ fontWeight: 500, color: control.is_withdrawn ? 'text.disabled' : 'text.primary' }}>
               {control.title}
@@ -1161,12 +1171,18 @@ const Controls: React.FC = () => {
           controls: fam.controls.map(c =>
             c.id === controlId ? { ...c, status: newStatus } : c
           ),
-          implemented_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) =>
-            n + ((c.id === controlId ? newStatus : c.status) === 'IMPLEMENTED' ? 1 : 0), 0),
-          in_progress_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) =>
-            n + ((c.id === controlId ? newStatus : c.status) === 'IN_PROGRESS' ? 1 : 0), 0),
-          not_started_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) =>
-            n + ((c.id === controlId ? newStatus : c.status) === 'NOT_STARTED' ? 1 : 0), 0),
+          implemented_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) => {
+            const st = c.id === controlId ? newStatus : c.status;
+            return n + (st === 'IMPLEMENTED' || c.crosswalk_satisfied ? 1 : 0);
+          }, 0),
+          in_progress_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) => {
+            const st = c.id === controlId ? newStatus : c.status;
+            return n + (st === 'IN_PROGRESS' && !c.crosswalk_satisfied ? 1 : 0);
+          }, 0),
+          not_started_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) => {
+            const st = c.id === controlId ? newStatus : c.status;
+            return n + (st === 'NOT_STARTED' && !c.crosswalk_satisfied ? 1 : 0);
+          }, 0),
         })),
       };
     });
@@ -1278,8 +1294,9 @@ const Controls: React.FC = () => {
     const all = activeFramework.families.flatMap(f => f.controls);
     const active = all.filter(c => !c.is_withdrawn);
     const withdrawn = all.filter(c => c.is_withdrawn).length;
-    const implemented = active.filter(c => c.status === 'IMPLEMENTED').length;
-    const inProgress = active.filter(c => c.status === 'IN_PROGRESS').length;
+    // Crosswalk-satisfied controls count as implemented — matches the heatmap.
+    const implemented = active.filter(c => c.status === 'IMPLEMENTED' || c.crosswalk_satisfied).length;
+    const inProgress = active.filter(c => c.status === 'IN_PROGRESS' && !c.crosswalk_satisfied).length;
     const total = active.length;
     return {
       total,
