@@ -24,6 +24,11 @@ export interface EvaluationClause {
   title: string | null;
   confidence: number | null;
   coverageStatus: CoverageStatus;
+  /**
+   * Live completion (0-100) of the framework this clause resolves to, or
+   * null when it maps to no tracked framework / is not in our catalog.
+   */
+  completionPct: number | null;
 }
 
 /**

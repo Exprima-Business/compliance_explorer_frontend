@@ -249,9 +249,9 @@ const EvaluationDetail: React.FC = () => {
 
       {/* Clause list */}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-        Each detected clause is marked by scope — already in your program, or a new
-        requirement this solicitation introduces. Compliance progress is shown by
-        framework in the panel above.
+        Scope marks whether each detected clause is already in your program or a new
+        requirement. Completion is the live progress of the framework that clause
+        belongs to — a dash means the clause maps to no tracked framework.
       </Typography>
       <Card>
         <TableContainer>
@@ -269,6 +269,7 @@ const EvaluationDetail: React.FC = () => {
                 <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Confidence</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Scope</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Completion</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -294,6 +295,18 @@ const EvaluationDetail: React.FC = () => {
                       label={SCOPE_LABEL[c.coverageStatus]}
                       color={SCOPE_COLOR[c.coverageStatus]}
                     />
+                  </TableCell>
+                  <TableCell>
+                    {c.completionPct != null ? (
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 700, color: `${pctColor(c.completionPct)}.main` }}
+                      >
+                        {c.completionPct}%
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.disabled">—</Typography>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
