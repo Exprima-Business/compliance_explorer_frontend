@@ -42,6 +42,22 @@ export interface ControlWithStatus {
   objectives?: ControlObjective[];
   /** True when not directly IMPLEMENTED but credited via a cross-framework crosswalk. */
   crosswalk_satisfied?: boolean;
+  /** DoD baseline ODPs for this control (currently 800-171 Rev 3 only). */
+  odps?: ControlOdp[];
+}
+
+/**
+ * An Organization-Defined Parameter and its authoritative DoD baseline.
+ * Used to render guidance on each control ("DoD baseline — meet or exceed").
+ */
+export interface ControlOdp {
+  id: string;
+  control_id: string;
+  odp_identifier: string;
+  assignment_text: string | null;
+  odp_type: 'value' | 'selection' | 'guidance';
+  dod_baseline_value: string | null;
+  source_authority: string | null;
 }
 
 export interface FamilyWithControls {

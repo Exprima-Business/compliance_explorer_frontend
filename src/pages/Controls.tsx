@@ -621,6 +621,66 @@ const ControlRow: React.FC<{
         </Typography>
       )}
 
+      {/* DoD baseline ODPs — "meet or exceed" guidance from the April 2025
+          DoD CIO memo. Renders only when the control has ODPs (currently
+          800-171 Rev 3). Read-only guidance, not an editable per-program
+          setting — the org's SSP is the system of record for chosen values. */}
+      {control.odps && control.odps.length > 0 && !control.is_withdrawn && (
+        <Box
+          sx={{
+            mt: 1.5,
+            p: 1.5,
+            bgcolor: 'rgba(2, 132, 199, 0.04)',
+            borderLeft: '3px solid',
+            borderColor: 'info.main',
+            borderRadius: 1,
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 700,
+              color: 'info.main',
+              display: 'block',
+              mb: 0.75,
+              textTransform: 'uppercase',
+              letterSpacing: 0.4,
+              fontSize: '0.65rem',
+            }}
+          >
+            DoD baseline ODPs — meet or exceed
+          </Typography>
+          {control.odps.map(odp => (
+            <Box key={odp.id} sx={{ mb: 0.75, '&:last-child': { mb: 0 } }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  color: 'text.secondary',
+                  fontFamily: 'monospace',
+                  fontSize: '0.7rem',
+                  mb: 0.25,
+                }}
+              >
+                {odp.odp_identifier}{odp.assignment_text ? ` · ${odp.assignment_text}` : ''}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: odp.odp_type === 'guidance' ? 'text.secondary' : 'text.primary',
+                  fontStyle: odp.odp_type === 'guidance' ? 'italic' : 'normal',
+                  fontWeight: odp.odp_type === 'guidance' ? 400 : 600,
+                  lineHeight: 1.5,
+                  whiteSpace: 'pre-line',
+                }}
+              >
+                {odp.dod_baseline_value}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
+
       {/* Objectives expand button — prominent placement */}
       {objectives.length > 0 && !control.is_withdrawn && (
         <Box
