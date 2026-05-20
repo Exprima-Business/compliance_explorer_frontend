@@ -33,6 +33,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import FlagIcon from '@mui/icons-material/Flag';
+import { useSearchParams } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
 import {
   ITEM_STATUSES,
@@ -101,6 +102,7 @@ const POAM: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { currentProject } = useProject();
   const programId = currentProject?.id ?? null;
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [items, setItems] = useState<PoamItem[]>([]);
   const [controlOptions, setControlOptions] = useState<ControlOption[]>([]);
@@ -151,6 +153,39 @@ const POAM: React.FC = () => {
   }, [programId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // ── Deep-link from Controls page ─────────────────────────────────────────
+  // Controls.tsx renders a flag icon on unfinished controls that navigates here
+  // with ?controlId=<uuid>&controlIdentifier=<id>&action=create. Consume it once
+  // (clear the params so refresh doesn't re-trigger), pre-open the dialog with
+  // the control linked and a sensible default weakness.
+  const dialogPrefilledRef = React.useRef(false);
+  useEffect(() => {
+    if (dialogPrefilledRef.current) return;
+    if (!programId) return;
+    const action = searchParams.get('action');
+    const ctrlId = searchParams.get('controlId');
+    if (action !== 'create' || !ctrlId) return;
+
+    const ctrlIdent = searchParams.get('controlIdentifier') || '';
+    dialogPrefilledRef.current = true;
+
+    setEditingItem(null);
+    setItemForm({
+      ...blankItemForm(programId),
+      controlId: ctrlId,
+      weakness: ctrlIdent ? `Control ${ctrlIdent} not yet implemented` : '',
+    });
+    setSaveError(null);
+    setItemDialogOpen(true);
+
+    // Consume — clear so a page refresh doesn't re-open the dialog.
+    const next = new URLSearchParams(searchParams);
+    next.delete('action');
+    next.delete('controlId');
+    next.delete('controlIdentifier');
+    setSearchParams(next, { replace: true });
+  }, [programId, searchParams, setSearchParams]);
 
   // ── Counts ───────────────────────────────────────────────────────────────
   const counts = useMemo(() => {

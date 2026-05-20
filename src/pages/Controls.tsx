@@ -41,6 +41,7 @@ import {
   KeyboardArrowRight as CollapseIcon,
   UploadFile as UploadFileIcon,
   Description as DocumentIcon,
+  Flag as FlagIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
@@ -630,6 +631,12 @@ const ControlRow: React.FC<{
   const [detailObj, setDetailObj] = useState<ParsedObjective | null>(null);
   const [detailStatus, setDetailStatus] = useState<ObjectiveStatusEntry | null>(null);
   const statusCfg = STATUS_CONFIG[control.status];
+  const navigate = useNavigate();
+
+  // Show "Open POA&M" only for unfinished controls — IMPLEMENTED controls
+  // by definition have no gap to track, and WITHDRAWN ones aren't actionable.
+  const canOpenPoam =
+    !control.is_withdrawn && (control.status === 'NOT_STARTED' || control.status === 'IN_PROGRESS');
 
   // Use real objectives from API if available, fall back to text parsing
   const objectives = useMemo(() => {
@@ -733,6 +740,21 @@ const ControlRow: React.FC<{
             );
           })}
         </ToggleButtonGroup>
+
+        {canOpenPoam && (
+          <Tooltip title="Open a POA&M item for this control">
+            <IconButton
+              size="small"
+              onClick={() =>
+                navigate(`/poam?controlId=${encodeURIComponent(control.id)}&controlIdentifier=${encodeURIComponent(control.identifier)}&action=create`)
+              }
+              sx={{ flexShrink: 0, color: 'warning.main' }}
+              aria-label={`Open POA&M for ${control.identifier}`}
+            >
+              <FlagIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {/* Requirement text — the lettered sub-sections (a., b., c., d.) */}
