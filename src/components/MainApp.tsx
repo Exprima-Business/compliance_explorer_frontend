@@ -7,6 +7,7 @@ import Controls from '../pages/Controls';
 import ExecutiveReport from '../pages/ExecutiveReport';
 import Evaluations from '../pages/Evaluations';
 import EvaluationDetail from '../pages/EvaluationDetail';
+import POAM from '../pages/POAM';
 import { DocumentScanner } from './DocumentScanner';
 import { ErrorBoundary } from './ErrorBoundary';
 import { PreferencesProvider } from '../contexts/PreferencesContext';
@@ -40,6 +41,7 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
                     <Route path="/report" element={<ExecutiveReport />} />
                     <Route path="/evaluations" element={<Evaluations />} />
                     <Route path="/evaluations/:id" element={<EvaluationDetail />} />
+                    <Route path="/poam" element={<POAM />} />
                     {enableScanner && (
                       <Route path="/document-scanner/:scanId?" element={
                         <ErrorBoundary fallbackMessage="The document scanner encountered an error. Click below to try again.">
