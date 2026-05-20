@@ -29,6 +29,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -64,6 +65,38 @@ function fmtDate(iso: string | null): string {
   // Accept either YYYY-MM-DD or ISO timestamp; show YYYY-MM-DD.
   const m = iso.match(/^(\d{4}-\d{2}-\d{2})/);
   return m ? m[1] : iso;
+}
+
+/** Plain YYYY-MM-DD (no em-dash placeholder) for CSV cells. */
+function csvDate(iso: string | null): string {
+  if (!iso) return '';
+  const m = iso.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : iso;
+}
+
+/** Excel-safe CSV cell — wraps in quotes if the value contains a comma, quote, or newline; doubles internal quotes. */
+function csvCell(value: string | null | undefined): string {
+  const s = (value ?? '').toString();
+  if (s === '') return '';
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function downloadCsv(filename: string, rows: string[][]): void {
+  // Excel-friendly: UTF-8 BOM + CRLF line endings.
+  const bom = '﻿';
+  const body = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([bom + body], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function blankItemForm(programId: string) {
@@ -216,6 +249,48 @@ const POAM: React.FC = () => {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+  };
+
+  // ── Export ───────────────────────────────────────────────────────────────
+  const handleExportCsv = () => {
+    if (items.length === 0) return;
+    const header = [
+      'Item #',
+      'Linked control',
+      'Weakness',
+      'Description',
+      'Risk level',
+      'Status',
+      'Responsible party',
+      'Identified',
+      'Scheduled completion',
+      'Completed',
+      'Remediation plan',
+      'Milestones',
+    ];
+    const rows: string[][] = [header];
+    items.forEach((it, idx) => {
+      const milestones = it.milestones
+        .map(ms => `[${milestoneStatusLabel(ms.status)}${ms.targetDate ? `, target ${csvDate(ms.targetDate)}` : ''}] ${ms.description}`)
+        .join(' | ');
+      rows.push([
+        String(idx + 1),
+        it.controlIdentifier ?? '',
+        it.weakness,
+        it.description ?? '',
+        riskLabel(it.riskLevel),
+        itemStatusLabel(it.status),
+        it.responsibleParty ?? '',
+        csvDate(it.identifiedAt),
+        csvDate(it.scheduledCompletion),
+        csvDate(it.completedAt),
+        it.remediationPlan ?? '',
+        milestones,
+      ]);
+    });
+    const slug = (currentProject?.name || 'program').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const today = new Date().toISOString().slice(0, 10);
+    downloadCsv(`poam-${slug}-${today}.csv`, rows);
   };
 
   // ── Item CRUD ────────────────────────────────────────────────────────────
@@ -411,7 +486,15 @@ const POAM: React.FC = () => {
       </Box>
 
       {/* Actions */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
+        <Button
+          variant="outlined"
+          startIcon={<DownloadIcon />}
+          onClick={handleExportCsv}
+          disabled={items.length === 0}
+        >
+          Export CSV
+        </Button>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
