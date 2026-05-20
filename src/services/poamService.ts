@@ -29,6 +29,8 @@ export interface PoamItem {
   id: string;
   programId: string;
   controlId: string | null;
+  /** Human-readable identifier of the linked control (e.g. "03.01.05"). Null when controlId is null. */
+  controlIdentifier: string | null;
   weakness: string;
   description: string | null;
   riskLevel: PoamRiskLevel;
@@ -88,6 +90,18 @@ export interface UpdatePoamMilestoneRequest {
   sortOrder?: number;
 }
 
+/**
+ * A control eligible to be linked to a POA&M item — the union of controls
+ * belonging to any framework activated for the program.
+ */
+export interface ControlOption {
+  id: string;
+  identifier: string;
+  title: string | null;
+  frameworkId: string;
+  frameworkName: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Service — wraps /api/poam (items + milestones)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -98,6 +112,14 @@ export const poamService = {
     return apiCall<PoamItem[]>(`/api/poam?programId=${encodeURIComponent(programId)}`, {
       requireAuth: true,
     });
+  },
+
+  /** List controls available for linking — the union of activated frameworks. */
+  listControlOptions: async (programId: string): Promise<ApiResponse<ControlOption[]>> => {
+    return apiCall<ControlOption[]>(
+      `/api/poam/control-options?programId=${encodeURIComponent(programId)}`,
+      { requireAuth: true },
+    );
   },
 
   /** Fetch a single POA&M item with its milestones. */

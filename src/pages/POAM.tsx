@@ -45,6 +45,7 @@ import {
   poamService,
   riskColor,
   riskLabel,
+  type ControlOption,
   type PoamItem,
   type PoamItemStatus,
   type PoamMilestone,
@@ -67,6 +68,7 @@ function fmtDate(iso: string | null): string {
 function blankItemForm(programId: string) {
   return {
     programId,
+    controlId: '' as string,
     weakness: '',
     description: '',
     riskLevel: 'moderate' as PoamRiskLevel,
@@ -101,6 +103,7 @@ const POAM: React.FC = () => {
   const programId = currentProject?.id ?? null;
 
   const [items, setItems] = useState<PoamItem[]>([]);
+  const [controlOptions, setControlOptions] = useState<ControlOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -124,17 +127,25 @@ const POAM: React.FC = () => {
   const load = useCallback(async () => {
     if (!programId) {
       setItems([]);
+      setControlOptions([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-    const resp = await poamService.list(programId);
-    if (resp.error) {
-      setError(extractErrorMessage(resp.error));
+    const [itemsResp, optionsResp] = await Promise.all([
+      poamService.list(programId),
+      poamService.listControlOptions(programId),
+    ]);
+    if (itemsResp.error) {
+      setError(extractErrorMessage(itemsResp.error));
       setItems([]);
     } else {
-      setItems(resp.data ?? []);
+      setItems(itemsResp.data ?? []);
+    }
+    // Soft-fail on control options — items still render without the dropdown.
+    if (!optionsResp.error) {
+      setControlOptions(optionsResp.data ?? []);
     }
     setLoading(false);
   }, [programId]);
@@ -185,6 +196,7 @@ const POAM: React.FC = () => {
     setEditingItem(it);
     setItemForm({
       programId: it.programId,
+      controlId: it.controlId ?? '',
       weakness: it.weakness,
       description: it.description ?? '',
       riskLevel: it.riskLevel,
@@ -215,6 +227,7 @@ const POAM: React.FC = () => {
     setSaveError(null);
     try {
       const payload = {
+        controlId: itemForm.controlId || null,
         weakness: itemForm.weakness.trim(),
         description: itemForm.description.trim() || null,
         riskLevel: itemForm.riskLevel,
@@ -424,9 +437,20 @@ const POAM: React.FC = () => {
                         </IconButton>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{it.weakness}</Typography>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                          {it.controlIdentifier && (
+                            <Chip
+                              size="small"
+                              label={it.controlIdentifier}
+                              variant="outlined"
+                              color="primary"
+                              sx={{ fontFamily: 'monospace', fontWeight: 600 }}
+                            />
+                          )}
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{it.weakness}</Typography>
+                        </Stack>
                         {it.description && (
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
                             {it.description.length > 120
                               ? `${it.description.slice(0, 120)}…`
                               : it.description}
@@ -499,6 +523,27 @@ const POAM: React.FC = () => {
         <DialogContent dividers>
           {itemForm && (
             <Stack spacing={2} sx={{ pt: 1 }}>
+              <TextField
+                select
+                label="Linked control"
+                value={itemForm.controlId}
+                onChange={e => setItemForm({ ...itemForm, controlId: e.target.value })}
+                fullWidth
+                helperText={
+                  controlOptions.length === 0
+                    ? 'No frameworks activated — link will appear once a framework is activated.'
+                    : 'The control this weakness applies to. Leave blank for cross-cutting findings.'
+                }
+                disabled={controlOptions.length === 0}
+              >
+                <MenuItem value=""><em>None</em></MenuItem>
+                {controlOptions.map(c => (
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.identifier}{c.title ? ` — ${c.title}` : ''}
+                    {c.frameworkName ? ` (${c.frameworkName})` : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
               <TextField
                 label="Weakness *"
                 value={itemForm.weakness}
