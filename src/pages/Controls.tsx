@@ -366,29 +366,64 @@ const ObjectivesList: React.FC<{
     return m;
   }, [objectiveStatuses]);
 
-  // Place each ODP next to its specific objective when we can match by id suffix
-  // (e.g. ODP "03.01.01.f.02" -> objective whose id ends with "f.02" or "f.2").
-  // ODPs with only the control prefix (no sub-letter suffix, e.g. "03.13.10")
-  // apply to the whole control — render at the top as control-wide guidance.
+  // Place each DoD ODP next to its NIST OSCAL "defining" assessment objective —
+  // those are the rows whose id ends in `ODP[NN]` and whose text reads
+  // "the [thing] is defined." That is the conceptual home for a DoD baseline:
+  // NIST asks "is the value defined?" and the answer is "yes, at the DoD
+  // baseline (meet or exceed)." The other objectives ("use" objectives like
+  // `a`, `b[01]`, `c`) reference the defining one via the
+  // <A.X.X.X.ODP[NN]: name> placeholder in their own text, so the link is
+  // visible inline without us having to render the baseline twice.
+  //
+  // Pairing: DoD ODPs sorted numerically (b.01 < b.02 < c) zip 1:1 against
+  // defining objectives sorted by NN. This is the 800-171 Rev 3 reality —
+  // every DoD ODP corresponds to exactly one defining objective in OSCAL.
+  // When counts don't align (other frameworks, edge cases) we fall back to
+  // a tolerant suffix matcher that normalises bracket notation (`b[01]` ->
+  // `b.01`) and zero-padding (`b.02` -> `b.2`).
   const { byObjective, controlWide } = useMemo(() => {
     const byObj = new Map<string, ControlOdp[]>();
     const wide: ControlOdp[] = [];
     if (!odps || odps.length === 0) return { byObjective: byObj, controlWide: wide };
-    for (const odp of odps) {
+
+    const sortedOdps = [...odps].sort((a, b) =>
+      a.odp_identifier.localeCompare(b.odp_identifier, undefined, { numeric: true }),
+    );
+
+    // Defining objectives — id ends in ODP[NN] / ODP.NN / ODP-NN / ODPNN.
+    const defObjs = objectives
+      .map(o => {
+        const m = o.id.match(/ODP[\[._-]?(\d+)\]?$/i);
+        return m ? { obj: o, n: parseInt(m[1], 10) } : null;
+      })
+      .filter((x): x is { obj: ParsedObjective; n: number } => x !== null)
+      .sort((a, b) => a.n - b.n);
+
+    const placed = new Set<string>();
+    if (sortedOdps.length > 0 && sortedOdps.length === defObjs.length) {
+      for (let i = 0; i < sortedOdps.length; i++) {
+        const list = byObj.get(defObjs[i].obj.id) || [];
+        list.push(sortedOdps[i]);
+        byObj.set(defObjs[i].obj.id, list);
+        placed.add(sortedOdps[i].id);
+      }
+    }
+
+    // Fallback for any ODP not placed sequentially: tolerant suffix match
+    // with bracket-notation and zero-padding normalisation.
+    for (const odp of sortedOdps) {
+      if (placed.has(odp.id)) continue;
       const parts = odp.odp_identifier.split('.');
-      // Control id is the first 3 segments ("03.01.01"); shorter id = control-wide.
       if (parts.length < 4) { wide.push(odp); continue; }
       const tail = parts.slice(3).join('.');
-      // Normalise zero-padding ("f.02" -> "f.2") for tolerant matching.
-      const tailNorm = tail.replace(/(^|\.)0+(\d)/g, '$1$2');
+      const tailNorm = tail.replace(/(^|\.)0+(\d)/g, '$1$2').toLowerCase();
       let match: ParsedObjective | undefined;
       for (const obj of objectives) {
-        const id = obj.id.toLowerCase();
-        const t1 = tail.toLowerCase();
-        const t2 = tailNorm.toLowerCase();
-        if (id === t1 || id === t2 ||
-            id.endsWith('.' + t1) || id.endsWith('.' + t2) ||
-            id.endsWith(t1) || id.endsWith(t2)) {
+        const norm = obj.id.toLowerCase()
+          .replace(/^a\./, '')                  // strip "A." prefix
+          .replace(/\[(\d+)\]/g, '.$1')         // b[01] -> b.01
+          .replace(/(\.|^)0+(\d)/g, '$1$2');    // .01   -> .1
+        if (norm === tailNorm || norm.endsWith('.' + tailNorm) || norm.endsWith(tailNorm)) {
           match = obj; break;
         }
       }
@@ -397,7 +432,6 @@ const ObjectivesList: React.FC<{
         list.push(odp);
         byObj.set(match.id, list);
       } else {
-        // Unmatched: surface alongside the control-wide list so it isn't lost.
         wide.push(odp);
       }
     }
