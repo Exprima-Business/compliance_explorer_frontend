@@ -74,6 +74,7 @@ import {
   type SPRSScore,
   type FARDetail,
   type FARRequirement,
+  type ControlOdp,
 } from '../services/controlService';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -352,9 +353,10 @@ const ObjectiveDetailDialog: React.FC<{
 const ObjectivesList: React.FC<{
   objectives: ParsedObjective[];
   objectiveStatuses: ObjectiveStatusEntry[];
+  odps?: ControlOdp[];
   isMobile: boolean;
   onObjectiveClick: (obj: ParsedObjective, statusEntry: ObjectiveStatusEntry | null) => void;
-}> = ({ objectives, objectiveStatuses, isMobile, onObjectiveClick }) => {
+}> = ({ objectives, objectiveStatuses, odps, isMobile, onObjectiveClick }) => {
   // Build a lookup: identifier → status entry
   const statusMap = useMemo(() => {
     const m = new Map<string, ObjectiveStatusEntry>();
@@ -363,6 +365,44 @@ const ObjectivesList: React.FC<{
     }
     return m;
   }, [objectiveStatuses]);
+
+  // Place each ODP next to its specific objective when we can match by id suffix
+  // (e.g. ODP "03.01.01.f.02" -> objective whose id ends with "f.02" or "f.2").
+  // ODPs with only the control prefix (no sub-letter suffix, e.g. "03.13.10")
+  // apply to the whole control — render at the top as control-wide guidance.
+  const { byObjective, controlWide } = useMemo(() => {
+    const byObj = new Map<string, ControlOdp[]>();
+    const wide: ControlOdp[] = [];
+    if (!odps || odps.length === 0) return { byObjective: byObj, controlWide: wide };
+    for (const odp of odps) {
+      const parts = odp.odp_identifier.split('.');
+      // Control id is the first 3 segments ("03.01.01"); shorter id = control-wide.
+      if (parts.length < 4) { wide.push(odp); continue; }
+      const tail = parts.slice(3).join('.');
+      // Normalise zero-padding ("f.02" -> "f.2") for tolerant matching.
+      const tailNorm = tail.replace(/(^|\.)0+(\d)/g, '$1$2');
+      let match: ParsedObjective | undefined;
+      for (const obj of objectives) {
+        const id = obj.id.toLowerCase();
+        const t1 = tail.toLowerCase();
+        const t2 = tailNorm.toLowerCase();
+        if (id === t1 || id === t2 ||
+            id.endsWith('.' + t1) || id.endsWith('.' + t2) ||
+            id.endsWith(t1) || id.endsWith(t2)) {
+          match = obj; break;
+        }
+      }
+      if (match) {
+        const list = byObj.get(match.id) || [];
+        list.push(odp);
+        byObj.set(match.id, list);
+      } else {
+        // Unmatched: surface alongside the control-wide list so it isn't lost.
+        wide.push(odp);
+      }
+    }
+    return { byObjective: byObj, controlWide: wide };
+  }, [odps, objectives]);
 
   // Summary counts
   const counts = useMemo(() => {
@@ -403,19 +443,58 @@ const ObjectivesList: React.FC<{
           <Chip icon={<NotStartedIcon sx={{ fontSize: 12, color: '#94a3b8 !important' }} />} label={counts.notSt} size="small" sx={{ height: 20, fontSize: '0.65rem' }} />
         )}
       </Box>
+      {controlWide.length > 0 && (
+        <Box
+          sx={{
+            mb: 1,
+            mt: 0.5,
+            p: 1,
+            bgcolor: 'rgba(2,132,199,0.04)',
+            borderLeft: '3px solid',
+            borderColor: 'info.main',
+            borderRadius: 0.5,
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 700, color: 'info.main', display: 'block', mb: 0.5,
+              textTransform: 'uppercase', letterSpacing: 0.4, fontSize: '0.6rem',
+            }}
+          >
+            Control-wide DoD baseline — meet or exceed
+          </Typography>
+          {controlWide.map(odp => (
+            <Box key={odp.id} sx={{ mb: 0.5, '&:last-child': { mb: 0 } }}>
+              <Typography variant="caption" sx={{
+                display: 'block', color: 'text.secondary',
+                fontFamily: 'monospace', fontSize: '0.65rem',
+              }}>
+                {odp.odp_identifier}{odp.assignment_text ? ` · ${odp.assignment_text}` : ''}
+              </Typography>
+              <Typography variant="body2" sx={{
+                color: odp.odp_type === 'guidance' ? 'text.secondary' : 'text.primary',
+                fontStyle: odp.odp_type === 'guidance' ? 'italic' : 'normal',
+                fontWeight: odp.odp_type === 'guidance' ? 400 : 600,
+                lineHeight: 1.5, fontSize: '0.8rem', whiteSpace: 'pre-line',
+              }}>
+                {odp.dod_baseline_value}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
       {objectives.map((obj, idx) => {
         const statusEntry = statusMap.get(obj.id) || null;
         const status = statusEntry?.status || 'NOT_STARTED';
         const cfg = STATUS_CONFIG[status];
+        const matchedOdps = byObjective.get(obj.id) || [];
 
         return (
           <Box
             key={obj.id}
             onClick={() => onObjectiveClick(obj, statusEntry)}
             sx={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 1,
               py: 0.75,
               px: 0.5,
               borderBottom: idx < objectives.length - 1 ? '1px solid' : 'none',
@@ -425,44 +504,78 @@ const ObjectivesList: React.FC<{
               '&:hover': { bgcolor: 'rgba(99,102,241,0.06)' },
             }}
           >
-            {/* Status icon */}
-            <Box sx={{ mt: 0.25, flexShrink: 0 }}>
-              {cfg.icon}
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+              {/* Status icon */}
+              <Box sx={{ mt: 0.25, flexShrink: 0 }}>
+                {cfg.icon}
+              </Box>
+              <Chip
+                label={obj.id}
+                size="small"
+                variant="outlined"
+                sx={{
+                  fontFamily: 'monospace',
+                  fontSize: '0.65rem',
+                  height: 22,
+                  flexShrink: 0,
+                  mt: 0.25,
+                  borderColor: cfg.color,
+                  color: cfg.color,
+                }}
+              />
+              <Typography
+                variant="caption"
+                sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '0.75rem', flex: 1 }}
+              >
+                {obj.text}
+              </Typography>
+              {/* Status label chip */}
+              <Chip
+                label={cfg.label}
+                size="small"
+                sx={{
+                  fontSize: '0.6rem',
+                  height: 18,
+                  bgcolor: cfg.bg,
+                  color: cfg.color,
+                  fontWeight: 600,
+                  flexShrink: 0,
+                  mt: 0.25,
+                }}
+              />
             </Box>
-            <Chip
-              label={obj.id}
-              size="small"
-              variant="outlined"
-              sx={{
-                fontFamily: 'monospace',
-                fontSize: '0.65rem',
-                height: 22,
-                flexShrink: 0,
-                mt: 0.25,
-                borderColor: cfg.color,
-                color: cfg.color,
-              }}
-            />
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', lineHeight: 1.5, fontSize: '0.75rem', flex: 1 }}
-            >
-              {obj.text}
-            </Typography>
-            {/* Status label chip */}
-            <Chip
-              label={cfg.label}
-              size="small"
-              sx={{
-                fontSize: '0.6rem',
-                height: 18,
-                bgcolor: cfg.bg,
-                color: cfg.color,
-                fontWeight: 600,
-                flexShrink: 0,
-                mt: 0.25,
-              }}
-            />
+            {matchedOdps.length > 0 && (
+              <Box sx={{
+                mt: 0.75, ml: 4, pl: 1.5,
+                borderLeft: '2px solid', borderColor: 'info.main',
+              }}>
+                {matchedOdps.map(odp => (
+                  <Box key={odp.id} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, py: 0.25 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'info.main', fontWeight: 700, fontSize: '0.6rem',
+                        textTransform: 'uppercase', letterSpacing: 0.3, flexShrink: 0,
+                      }}
+                    >
+                      DoD baseline
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: odp.odp_type === 'guidance' ? 'text.secondary' : 'text.primary',
+                        fontStyle: odp.odp_type === 'guidance' ? 'italic' : 'normal',
+                        fontWeight: odp.odp_type === 'guidance' ? 400 : 600,
+                        fontSize: '0.75rem',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {odp.dod_baseline_value}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
           </Box>
         );
       })}
@@ -621,67 +734,10 @@ const ControlRow: React.FC<{
         </Typography>
       )}
 
-      {/* DoD baseline ODPs — "meet or exceed" guidance from the April 2025
-          DoD CIO memo. Renders only when the control has ODPs (currently
-          800-171 Rev 3). Read-only guidance, not an editable per-program
-          setting — the org's SSP is the system of record for chosen values. */}
-      {control.odps && control.odps.length > 0 && !control.is_withdrawn && (
-        <Box
-          sx={{
-            mt: 1.5,
-            p: 1.5,
-            bgcolor: 'rgba(2, 132, 199, 0.04)',
-            borderLeft: '3px solid',
-            borderColor: 'info.main',
-            borderRadius: 1,
-          }}
-        >
-          <Typography
-            variant="caption"
-            sx={{
-              fontWeight: 700,
-              color: 'info.main',
-              display: 'block',
-              mb: 0.75,
-              textTransform: 'uppercase',
-              letterSpacing: 0.4,
-              fontSize: '0.65rem',
-            }}
-          >
-            DoD baseline ODPs — meet or exceed
-          </Typography>
-          {control.odps.map(odp => (
-            <Box key={odp.id} sx={{ mb: 0.75, '&:last-child': { mb: 0 } }}>
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  color: 'text.secondary',
-                  fontFamily: 'monospace',
-                  fontSize: '0.7rem',
-                  mb: 0.25,
-                }}
-              >
-                {odp.odp_identifier}{odp.assignment_text ? ` · ${odp.assignment_text}` : ''}
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: odp.odp_type === 'guidance' ? 'text.secondary' : 'text.primary',
-                  fontStyle: odp.odp_type === 'guidance' ? 'italic' : 'normal',
-                  fontWeight: odp.odp_type === 'guidance' ? 400 : 600,
-                  lineHeight: 1.5,
-                  whiteSpace: 'pre-line',
-                }}
-              >
-                {odp.dod_baseline_value}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-      )}
-
-      {/* Objectives expand button — prominent placement */}
+      {/* Objectives expand button — prominent placement.
+          ODPs are rendered INSIDE the objectives list (inline with the
+          objective each applies to, plus a control-wide block for the
+          control-level ones). See ObjectivesList above. */}
       {objectives.length > 0 && !control.is_withdrawn && (
         <Box
           onClick={() => setObjectivesOpen(prev => !prev)}
@@ -731,6 +787,7 @@ const ControlRow: React.FC<{
         <ObjectivesList
           objectives={objectives}
           objectiveStatuses={objectiveStatuses}
+          odps={control.odps}
           isMobile={isMobile}
           onObjectiveClick={(obj, st) => { setDetailObj(obj); setDetailStatus(st); }}
         />
