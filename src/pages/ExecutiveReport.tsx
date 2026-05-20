@@ -88,8 +88,15 @@ const ExecutiveReport: React.FC = () => {
   const stats = useMemo(() => {
     if (!framework) return null;
     const all = framework.families.flatMap(f => f.controls);
-    const implemented = all.filter(c => c.status === 'IMPLEMENTED').length;
-    const inProgress = all.filter(c => c.status === 'IN_PROGRESS').length;
+    // Per-framework completion vocabulary — Section 508 SUPPORTS counts as
+    // implemented, CMMC MET counts, HIPAA ALTERNATIVE_IMPLEMENTED counts, etc.
+    const completedSet = new Set(
+      (framework.status_config || []).filter(s => s.is_completed).map(s => s.status_value),
+    );
+    if (completedSet.size === 0) completedSet.add('IMPLEMENTED');
+    const inProgressValue = (framework.status_config || []).find(s => !s.is_completed && s.ordinal === 2)?.status_value || 'IN_PROGRESS';
+    const implemented = all.filter(c => completedSet.has(c.status)).length;
+    const inProgress = all.filter(c => c.status === inProgressValue).length;
     const total = all.length;
     const notStarted = total - implemented - inProgress;
     const pct = total > 0 ? Math.round((implemented / total) * 100) : 0;

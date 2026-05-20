@@ -4,7 +4,28 @@ import { apiCall } from './api';
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ControlStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'IMPLEMENTED' | 'WITHDRAWN';
+/**
+ * Per-framework status value. The legacy NIST union is preserved as the
+ * default vocabulary, but Section 508 (SUPPORTS/...), CMMC (adds MET), and
+ * HIPAA (adds ALTERNATIVE_IMPLEMENTED) all introduce additional values via
+ * framework_status_config. Use the framework's `status_config` array to
+ * render the picker rather than assuming this union.
+ */
+export type ControlStatus =
+  | 'NOT_STARTED' | 'IN_PROGRESS' | 'IMPLEMENTED' | 'WITHDRAWN'
+  | 'SUPPORTS' | 'PARTIALLY_SUPPORTS' | 'DOES_NOT_SUPPORT' | 'NOT_APPLICABLE'
+  | 'NOT_IMPLEMENTED' | 'PARTIALLY_IMPLEMENTED' | 'MET'
+  | 'ALTERNATIVE_IMPLEMENTED'
+  | string; // open-ended for future frameworks; validation lives in framework_status_config
+
+/** A single allowed status value for a framework, sourced from framework_status_config. */
+export interface FrameworkStatusOption {
+  status_value: string;
+  display_label: string;
+  display_color: string | null;
+  is_completed: boolean;
+  ordinal: number;
+}
 
 export interface ControlFramework {
   id: string;
@@ -75,6 +96,11 @@ export interface FamilyWithControls {
 
 export interface FrameworkWithFamilies extends ControlFramework {
   families: FamilyWithControls[];
+  /**
+   * Per-framework status vocabulary used by the picker and completion-% logic.
+   * Defaults to legacy NIST 3-state set if the framework has no config rows.
+   */
+  status_config: FrameworkStatusOption[];
 }
 
 export interface ReciprocityResult {

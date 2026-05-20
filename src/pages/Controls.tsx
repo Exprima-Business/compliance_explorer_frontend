@@ -59,6 +59,7 @@ import {
   updateObjectiveStatus,
   type ControlFramework,
   type FrameworkWithFamilies,
+  type FrameworkStatusOption,
   type FamilyWithControls,
   type ControlWithStatus,
   type ControlStatus,
@@ -82,25 +83,27 @@ import {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<ControlStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-  IMPLEMENTED: {
-    label: 'Implemented',
-    color: '#22c55e',
-    bg: 'rgba(34,197,94,0.08)',
-    icon: <CheckCircleIcon fontSize="small" sx={{ color: '#22c55e' }} />,
-  },
-  IN_PROGRESS: {
-    label: 'In Progress',
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.08)',
-    icon: <InProgressIcon fontSize="small" sx={{ color: '#f59e0b' }} />,
-  },
-  NOT_STARTED: {
-    label: 'Not Started',
-    color: '#94a3b8',
-    bg: 'rgba(148,163,184,0.08)',
-    icon: <NotStartedIcon fontSize="small" sx={{ color: '#94a3b8' }} />,
-  },
+/**
+ * Maps abstract palette names (returned by framework_status_config.display_color)
+ * to concrete hex + icon. The BE seeds 'red' / 'amber' / 'green' / 'grey' across
+ * every framework's status enum — this is the only place we materialise them.
+ */
+const STATUS_COLOR_PALETTE: Record<string, { color: string; bg: string; icon: React.ReactNode }> = {
+  green: { color: '#22c55e', bg: 'rgba(34,197,94,0.08)',  icon: <CheckCircleIcon fontSize="small" sx={{ color: '#22c55e' }} /> },
+  amber: { color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', icon: <InProgressIcon  fontSize="small" sx={{ color: '#f59e0b' }} /> },
+  red:   { color: '#ef4444', bg: 'rgba(239,68,68,0.08)',  icon: <NotStartedIcon  fontSize="small" sx={{ color: '#ef4444' }} /> },
+  grey:  { color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', icon: <NotStartedIcon fontSize="small" sx={{ color: '#94a3b8' }} /> },
+};
+
+/**
+ * Legacy hardcoded NIST mapping. Kept as a fallback for callsites that don't
+ * yet have framework.status_config available (e.g. first render before the
+ * framework loads). New code should prefer `resolveStatusVisuals(option)`.
+ */
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+  IMPLEMENTED: { label: 'Implemented', ...STATUS_COLOR_PALETTE.green },
+  IN_PROGRESS: { label: 'In Progress', ...STATUS_COLOR_PALETTE.amber },
+  NOT_STARTED: { label: 'Not Started', ...STATUS_COLOR_PALETTE.grey },
   WITHDRAWN: {
     label: 'Withdrawn',
     color: '#64748b',
@@ -108,6 +111,37 @@ const STATUS_CONFIG: Record<ControlStatus, { label: string; color: string; bg: s
     icon: <NotStartedIcon fontSize="small" sx={{ color: '#64748b', textDecoration: 'line-through' }} />,
   },
 };
+
+/** Find a status_config entry by value, returning undefined if not present. */
+function findStatusOption(
+  statusConfig: FrameworkStatusOption[] | undefined,
+  value: string,
+): FrameworkStatusOption | undefined {
+  return statusConfig?.find(s => s.status_value === value);
+}
+
+/**
+ * Resolve a framework-aware status into label/color/bg/icon. Falls back to the
+ * legacy STATUS_CONFIG when the option is missing (e.g. WITHDRAWN, or first
+ * paint before status_config loads).
+ */
+function resolveStatusVisuals(
+  option: FrameworkStatusOption | undefined,
+  fallbackStatus: string,
+): { label: string; color: string; bg: string; icon: React.ReactNode } {
+  if (!option) return STATUS_CONFIG[fallbackStatus] ?? STATUS_CONFIG.NOT_STARTED;
+  const palette = STATUS_COLOR_PALETTE[option.display_color ?? 'grey'] ?? STATUS_COLOR_PALETTE.grey;
+  return { label: option.display_label, ...palette };
+}
+
+/** Whether a given status counts as "satisfied" for the framework (is_completed=true). */
+function isCompletedStatus(
+  statusConfig: FrameworkStatusOption[] | undefined,
+  status: string,
+): boolean {
+  if (!statusConfig || statusConfig.length === 0) return status === 'IMPLEMENTED'; // legacy NIST fallback
+  return findStatusOption(statusConfig, status)?.is_completed ?? false;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
@@ -622,21 +656,23 @@ const ControlRow: React.FC<{
   control: ControlWithStatus;
   isMobile: boolean;
   objectiveStatuses: ObjectiveStatusEntry[];
+  statusConfig: FrameworkStatusOption[];
   onStatusChange: (controlId: string, status: ControlStatus) => void;
   onObjectiveStatusChange: (objectiveId: string, newStatus: ControlStatus) => void;
-}> = ({ control, isMobile, objectiveStatuses, onStatusChange, onObjectiveStatusChange }) => {
+}> = ({ control, isMobile, objectiveStatuses, statusConfig, onStatusChange, onObjectiveStatusChange }) => {
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(control.evidence_notes || '');
   const [objectivesOpen, setObjectivesOpen] = useState(false);
   const [detailObj, setDetailObj] = useState<ParsedObjective | null>(null);
   const [detailStatus, setDetailStatus] = useState<ObjectiveStatusEntry | null>(null);
-  const statusCfg = STATUS_CONFIG[control.status];
+  const statusCfg = resolveStatusVisuals(findStatusOption(statusConfig, control.status), control.status);
   const navigate = useNavigate();
 
-  // Show "Open POA&M" only for unfinished controls — IMPLEMENTED controls
-  // by definition have no gap to track, and WITHDRAWN ones aren't actionable.
+  // Show "Open POA&M" for any unfinished, non-withdrawn control — i.e. anything
+  // whose framework status is neither "completed" (rolls up as satisfied) nor
+  // WITHDRAWN. Works across NIST, CMMC, HIPAA, and Section 508 vocabularies.
   const canOpenPoam =
-    !control.is_withdrawn && (control.status === 'NOT_STARTED' || control.status === 'IN_PROGRESS');
+    !control.is_withdrawn && !isCompletedStatus(statusConfig, control.status);
 
   // Use real objectives from API if available, fall back to text parsing
   const objectives = useMemo(() => {
@@ -715,13 +751,17 @@ const ControlRow: React.FC<{
           }}
           sx={{ flexShrink: 0 }}
         >
-          {(Object.keys(STATUS_CONFIG) as ControlStatus[]).filter(st => st !== 'WITHDRAWN').map(st => {
-            const cfg = STATUS_CONFIG[st];
-            const isActive = control.status === st;
+          {/* Render buttons from the framework's seeded status vocabulary —
+              NIST shows NOT_STARTED/IN_PROGRESS/IMPLEMENTED, Section 508
+              shows SUPPORTS/PARTIALLY_SUPPORTS/DOES_NOT_SUPPORT/NOT_APPLICABLE,
+              CMMC adds MET, HIPAA adds ALTERNATIVE_IMPLEMENTED. */}
+          {statusConfig.map(option => {
+            const cfg = resolveStatusVisuals(option, option.status_value);
+            const isActive = control.status === option.status_value;
             return (
               <ToggleButton
-                key={st}
-                value={st}
+                key={option.status_value}
+                value={option.status_value}
                 sx={{
                   px: isMobile ? 1.2 : 1.5,
                   py: isMobile ? 0.75 : 0.5,
@@ -1337,6 +1377,8 @@ const Controls: React.FC = () => {
     // Optimistic update
     setActiveFramework(prev => {
       if (!prev) return prev;
+      const statusConfig = prev.status_config;
+      const inProgressValue = statusConfig?.find(s => !s.is_completed && s.ordinal === 2)?.status_value || 'IN_PROGRESS';
       return {
         ...prev,
         families: prev.families.map(fam => ({
@@ -1346,15 +1388,15 @@ const Controls: React.FC = () => {
           ),
           implemented_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) => {
             const st = c.id === controlId ? newStatus : c.status;
-            return n + (st === 'IMPLEMENTED' || c.crosswalk_satisfied ? 1 : 0);
+            return n + (isCompletedStatus(statusConfig, st) || c.crosswalk_satisfied ? 1 : 0);
           }, 0),
           in_progress_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) => {
             const st = c.id === controlId ? newStatus : c.status;
-            return n + (st === 'IN_PROGRESS' && !c.crosswalk_satisfied ? 1 : 0);
+            return n + (st === inProgressValue && !c.crosswalk_satisfied ? 1 : 0);
           }, 0),
           not_started_count: fam.controls.filter(c => !c.is_withdrawn).reduce((n, c) => {
             const st = c.id === controlId ? newStatus : c.status;
-            return n + (st === 'NOT_STARTED' && !c.crosswalk_satisfied ? 1 : 0);
+            return n + (!isCompletedStatus(statusConfig, st) && st !== inProgressValue && !c.crosswalk_satisfied ? 1 : 0);
           }, 0),
         })),
       };
@@ -1362,7 +1404,11 @@ const Controls: React.FC = () => {
 
     try {
       await updateControlStatus(controlId, newStatus);
-      setFeedbackSnack({ open: true, message: `✓ ${STATUS_CONFIG[newStatus].label}`, severity: 'success' });
+      const visuals = resolveStatusVisuals(
+        findStatusOption(activeFramework?.status_config, newStatus),
+        newStatus,
+      );
+      setFeedbackSnack({ open: true, message: `✓ ${visuals.label}`, severity: 'success' });
       // Refresh reciprocity + SPRS after status change
       if (activeFramework) {
         const [recip, sprs, far] = await Promise.all([
@@ -1467,9 +1513,13 @@ const Controls: React.FC = () => {
     const all = activeFramework.families.flatMap(f => f.controls);
     const active = all.filter(c => !c.is_withdrawn);
     const withdrawn = all.filter(c => c.is_withdrawn).length;
+    const statusConfig = activeFramework.status_config;
+    const inProgressValue = statusConfig?.find(s => !s.is_completed && s.ordinal === 2)?.status_value || 'IN_PROGRESS';
     // Crosswalk-satisfied controls count as implemented — matches the heatmap.
-    const implemented = active.filter(c => c.status === 'IMPLEMENTED' || c.crosswalk_satisfied).length;
-    const inProgress = active.filter(c => c.status === 'IN_PROGRESS' && !c.crosswalk_satisfied).length;
+    // is_completed honours each framework's own vocabulary (Section 508 SUPPORTS,
+    // CMMC MET, HIPAA ALTERNATIVE_IMPLEMENTED, etc.).
+    const implemented = active.filter(c => isCompletedStatus(statusConfig, c.status) || c.crosswalk_satisfied).length;
+    const inProgress = active.filter(c => c.status === inProgressValue && !c.crosswalk_satisfied).length;
     const total = active.length;
     return {
       total,
@@ -2281,6 +2331,7 @@ const Controls: React.FC = () => {
                   control={control}
                   isMobile={isMobile}
                   objectiveStatuses={objectiveStatuses[control.id] || []}
+                  statusConfig={activeFramework?.status_config || []}
                   onStatusChange={handleStatusChange}
                   onObjectiveStatusChange={handleObjectiveStatusChange}
                 />
