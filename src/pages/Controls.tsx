@@ -739,6 +739,22 @@ const ControlRow: React.FC<{
               />
             </Tooltip>
           )}
+          {control.crosswalk_supported && (
+            <Tooltip title="Supported by NIST-published cross-references — at least one referenced 800-53 control is implemented. This is supporting evidence, not full satisfaction. Mark the control's status explicitly when your implementation work is complete.">
+              <Chip
+                label="supported by 800-53"
+                size="small"
+                variant="outlined"
+                sx={{
+                  fontSize: '0.65rem',
+                  height: 20,
+                  color: '#94a3b8',
+                  borderColor: '#94a3b8',
+                  borderStyle: 'dashed',
+                }}
+              />
+            </Tooltip>
+          )}
           {control.title && (
             <Typography variant="body2" sx={{ fontWeight: 500, color: control.is_withdrawn ? 'text.disabled' : 'text.primary' }}>
               {control.title}

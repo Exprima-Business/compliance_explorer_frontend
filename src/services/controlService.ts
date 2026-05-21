@@ -61,8 +61,16 @@ export interface ControlWithStatus {
   status: ControlStatus;
   evidence_notes: string | null;
   objectives?: ControlObjective[];
-  /** True when not directly IMPLEMENTED but credited via a cross-framework crosswalk. */
+  /** True when not directly IMPLEMENTED but credited via a strict cross-framework derivation (e.g. 800-171 ← 800-53). */
   crosswalk_satisfied?: boolean;
+  /**
+   * True when not directly IMPLEMENTED and not crosswalk_satisfied, but at
+   * least one informative-reference target (NIST-published mapping like
+   * SSDF→800-53) IS implemented. Renders as a "supported by X" chip — does
+   * NOT count as fully complete. Audit-safe: we never claim satisfaction
+   * for informative references.
+   */
+  crosswalk_supported?: boolean;
   /** DoD baseline ODPs for this control (currently 800-171 Rev 3 only). */
   odps?: ControlOdp[];
 }
