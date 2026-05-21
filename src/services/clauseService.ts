@@ -113,4 +113,47 @@ export const clauseService = {
       };
     }
   }
-}; 
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Clause detail (reciprocity-derived checklist)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ClauseDetailControl {
+  id: string;
+  identifier: string;
+  title: string | null;
+  requirement_text: string | null;
+  status: string;
+  is_completed: boolean;
+  is_withdrawn: boolean;
+}
+
+export interface ClauseDetailActivatedFramework {
+  framework: { id: string; name: string; version: string };
+  mappingType: string;
+  mappingDescription: string | null;
+  controls: ClauseDetailControl[];
+  completionPct: number;
+  satisfied: number;
+  total: number;
+}
+
+export interface ClauseDetailAlternativeFramework {
+  framework: { id: string; name: string; version: string };
+  mappingType: string;
+}
+
+export interface ClauseDetailResponse {
+  clause: Clause;
+  activatedFrameworks: ClauseDetailActivatedFramework[];
+  alternativeFrameworks: ClauseDetailAlternativeFramework[];
+  hasFrameworkCoverage: boolean;
+}
+
+export async function fetchClauseDetail(clauseCode: string): Promise<ApiResponse<ClauseDetailResponse>> {
+  return apiCall<ClauseDetailResponse>(
+    `/api/clauses/by-code/${encodeURIComponent(clauseCode)}/detail`,
+    { requireAuth: true },
+  );
+}

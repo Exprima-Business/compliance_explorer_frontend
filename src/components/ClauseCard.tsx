@@ -6,9 +6,11 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import SecurityIcon from '@mui/icons-material/Security';
 import CategoryIcon from '@mui/icons-material/Category';
 import LinkIcon from '@mui/icons-material/Link';
+import LaunchIcon from '@mui/icons-material/Launch';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import CloseIcon from '@mui/icons-material/Close';
+import { useNavigate } from 'react-router-dom';
 import type { Clause } from '../types/clause';
 import { useBookmarks } from '../contexts/BookmarkContext';
 
@@ -22,9 +24,14 @@ interface ClauseCardProps {
 
 export const ClauseCard = ({ clause, onBookmarkToggle, onClose, sx, compact = false }: ClauseCardProps) => {
   const { isClauseBookmarked, toggleBookmark } = useBookmarks();
-  
+  const navigate = useNavigate();
+
   // Determine bookmark status from BookmarkContext
   const isBookmarked = isClauseBookmarked(clause.id);
+
+  const handleViewDetail = () => {
+    navigate(`/clauses/${encodeURIComponent(clause.clauseCode)}`);
+  };
   
   const handleBookmarkToggle = () => {
     if (onBookmarkToggle) {
@@ -296,15 +303,24 @@ export const ClauseCard = ({ clause, onBookmarkToggle, onClose, sx, compact = fa
                 >
                   {clause.clauseCode}
                 </Typography>
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
+                <Typography
+                  variant="h6"
+                  sx={{
                     fontWeight: 600,
                     color: 'text.primary',
                   }}
                 >
                   {clause.title}
                 </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  endIcon={<LaunchIcon fontSize="small" />}
+                  onClick={handleViewDetail}
+                  sx={{ mt: 1.5, textTransform: 'none', fontWeight: 600 }}
+                >
+                  View checklist &amp; framework controls
+                </Button>
               </Box>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {onBookmarkToggle && (
