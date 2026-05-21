@@ -1213,7 +1213,7 @@ const Controls: React.FC = () => {
   const [farDetail, setFarDetail] = useState<FARDetail | null>(null);
 
   // Feedback snackbar
-  const [feedbackSnack, setFeedbackSnack] = useState<{ open: boolean; message: string; severity: 'success' | 'info' | 'error' }>({
+  const [feedbackSnack, setFeedbackSnack] = useState<{ open: boolean; message: string; severity: 'success' | 'info' | 'warning' | 'error' }>({
     open: false, message: '', severity: 'success',
   });
 
