@@ -82,6 +82,7 @@ import {
   type ControlOdp,
 } from '../services/controlService';
 import { Section508Wizard } from '../components/Section508Wizard';
+import { BundlePicker } from '../components/BundlePicker';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -1643,16 +1644,32 @@ const Controls: React.FC = () => {
           </Typography>
         </Box>
 
-        <Card variant="outlined" sx={{ mb: 3, bgcolor: 'rgba(99,102,241,0.04)', borderColor: 'primary.light' }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-              No control frameworks activated for this project
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Activate a compliance framework to begin tracking your implementation status against its controls.
-            </Typography>
-          </CardContent>
-        </Card>
+        {/* Curated bundles — framework-led onboarding picker */}
+        <Box sx={{ mb: 4 }}>
+          <BundlePicker
+            onApplied={async (result) => {
+              // After applying, reload the page to get the activated frameworks
+              // through the normal load path (sets active framework, loads
+              // controls/objectives/SPRS/etc).
+              setFeedbackSnack({
+                open: true,
+                message: result.activated.length > 0
+                  ? `Activated ${result.activated.length} framework${result.activated.length === 1 ? '' : 's'}: ${result.activated.map(a => a.name).join(', ')}`
+                  : 'No frameworks activated (none loaded in this environment).',
+                severity: result.activated.length > 0 ? 'success' : 'warning',
+              });
+              if (result.activated.length > 0) {
+                const activated = await fetchActivatedFrameworks();
+                setActivatedFrameworks(activated);
+                if (activated.length > 0) {
+                  setSelectedFrameworkId(activated[0].id);
+                  const detail = await fetchFrameworkWithStatus(activated[0].id);
+                  if (detail) setActiveFramework(detail);
+                }
+              }
+            }}
+          />
+        </Box>
 
         {/* Recommended frameworks based on project clauses */}
         {recommendations.length > 0 && (
