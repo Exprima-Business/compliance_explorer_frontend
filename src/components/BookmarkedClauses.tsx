@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography, Paper, Stack, IconButton } from '@mui/material';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import { useNavigate } from 'react-router-dom';
 import type { Clause } from '../types/clause';
 
 interface BookmarkedClausesProps {
@@ -15,6 +16,7 @@ export const BookmarkedClauses = ({
   onClauseClick,
   onBookmarkToggle
 }: BookmarkedClausesProps) => {
+  const navigate = useNavigate();
   return (
     <Box sx={{ mt: 3 }}>
       <Typography 
@@ -67,13 +69,25 @@ export const BookmarkedClauses = ({
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <Box>
-                <Typography 
-                  variant="subtitle2" 
-                  sx={{ 
+                <Typography
+                  variant="subtitle2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/clauses/${encodeURIComponent(clause.clauseCode)}`);
+                  }}
+                  sx={{
                     fontWeight: 600,
                     color: 'primary.main',
-                    mb: 0.5
+                    mb: 0.5,
+                    cursor: 'pointer',
+                    display: 'inline-block',
+                    textDecorationLine: 'underline',
+                    textDecorationStyle: 'dotted',
+                    textDecorationColor: 'rgba(99,102,241,0.4)',
+                    textUnderlineOffset: '3px',
+                    '&:hover': { color: 'primary.dark' },
                   }}
+                  title={`Open ${clause.clauseCode} detail page`}
                 >
                   {clause.clauseCode}
                 </Typography>

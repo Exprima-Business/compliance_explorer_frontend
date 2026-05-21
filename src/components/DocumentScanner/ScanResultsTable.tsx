@@ -23,6 +23,7 @@ import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import { useNavigate } from 'react-router-dom';
 import type { ValidatedClause, MatchType } from '../../utils/clauseMatching';
 
 // ---------------------------------------------------------------------------
@@ -78,6 +79,7 @@ function matchChipColor(type: MatchType): 'success' | 'info' | 'warning' | 'erro
 const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -236,7 +238,28 @@ const ScanResultsTable: React.FC<ScanResultsTableProps> = ({ results }) => {
                                   </Typography>
                                 )}
                                 <Typography variant="caption" color="text.disabled">
-                                  Clause Code: {row.dbMatch.clauseCode} | Match: {matchLabel(row.matchType)}
+                                  Clause Code:{' '}
+                                  <Typography
+                                    component="span"
+                                    variant="caption"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/clauses/${encodeURIComponent(row.dbMatch!.clauseCode)}`);
+                                    }}
+                                    sx={{
+                                      color: 'primary.main',
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      textDecorationLine: 'underline',
+                                      textDecorationStyle: 'dotted',
+                                      textUnderlineOffset: '2px',
+                                      '&:hover': { color: 'primary.dark' },
+                                    }}
+                                    title={`Open ${row.dbMatch.clauseCode} detail page`}
+                                  >
+                                    {row.dbMatch.clauseCode}
+                                  </Typography>
+                                  {' | Match: '}{matchLabel(row.matchType)}
                                 </Typography>
                               </Box>
                             )}

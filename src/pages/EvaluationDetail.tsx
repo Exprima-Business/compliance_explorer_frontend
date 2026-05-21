@@ -280,9 +280,31 @@ const EvaluationDetail: React.FC = () => {
                     <Checkbox checked={selected.has(c.id)} onChange={() => toggle(c.id)} />
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {c.clauseCode || '—'}
-                    </Typography>
+                    {c.clauseCode ? (
+                      <Typography
+                        variant="body2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/clauses/${encodeURIComponent(c.clauseCode!)}`);
+                        }}
+                        sx={{
+                          fontWeight: 600,
+                          color: 'primary.main',
+                          cursor: 'pointer',
+                          display: 'inline-block',
+                          textDecorationLine: 'underline',
+                          textDecorationStyle: 'dotted',
+                          textDecorationColor: 'rgba(99,102,241,0.4)',
+                          textUnderlineOffset: '3px',
+                          '&:hover': { color: 'primary.dark' },
+                        }}
+                        title={`Open ${c.clauseCode} detail page`}
+                      >
+                        {c.clauseCode}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">—</Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">{c.title || '—'}</Typography>
