@@ -97,7 +97,9 @@ const ExecutiveReport: React.FC = () => {
     const inProgressValue = (framework.status_config || []).find(s => !s.is_completed && s.ordinal === 2)?.status_value || 'IN_PROGRESS';
     const implemented = all.filter(c => completedSet.has(c.status)).length;
     const inProgress = all.filter(c => c.status === inProgressValue).length;
+    const notApplicable = all.filter(c => c.status === 'NOT_APPLICABLE').length;
     const total = all.length;
+    const applicable = total - notApplicable;
     const notStarted = total - implemented - inProgress;
     const pct = total > 0 ? Math.round((implemented / total) * 100) : 0;
 
@@ -120,7 +122,7 @@ const ExecutiveReport: React.FC = () => {
       .sort((a, b) => a.pct - b.pct)
       .slice(0, 5);
 
-    return { total, implemented, inProgress, notStarted, pct, riskLevel, familyGaps };
+    return { total, applicable, notApplicable, implemented, inProgress, notStarted, pct, riskLevel, familyGaps };
   }, [framework]);
 
   const riskColors: Record<string, string> = {
@@ -208,8 +210,13 @@ const ExecutiveReport: React.FC = () => {
               {stats.pct}%
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {stats.implemented} of {stats.total} controls
+              {stats.implemented} of {stats.notApplicable > 0 ? stats.applicable : stats.total} {stats.notApplicable > 0 ? 'applicable' : ''} controls
             </Typography>
+            {stats.notApplicable > 0 && (
+              <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.5 }}>
+                {stats.notApplicable} marked Not Applicable ({stats.total} total in framework)
+              </Typography>
+            )}
           </CardContent>
         </Card>
 

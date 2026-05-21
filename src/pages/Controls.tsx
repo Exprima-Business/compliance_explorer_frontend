@@ -1187,6 +1187,10 @@ const Controls: React.FC = () => {
   const [scoping, setScoping] = useState<ProgramScoping | null>(null);
   const [scopingLoaded, setScopingLoaded] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  // Per-session toggle. Defaults to false (hide N/A) — resets every time the
+  // user navigates back to this page. Sticky behavior was rejected to avoid
+  // stale state confusing users who re-scope.
+  const [showNotApplicable, setShowNotApplicable] = useState(false);
 
   // Detect Section 508 framework. Match by name so the check is portable across
   // environments that re-seeded with different UUIDs.
@@ -1557,10 +1561,21 @@ const Controls: React.FC = () => {
   // ── Search filter ────────────────────────────────────────────────
   const filteredFamilies = useMemo(() => {
     if (!activeFramework) return [];
-    if (!searchTerm.trim()) return activeFramework.families;
+
+    // First pass: hide N/A controls unless the user has toggled them on.
+    // This keeps the catalog focused on what actually applies. N/A is the
+    // 'satisfied-by-scoping' state, so users rarely need to act on those.
+    const familiesAfterNa = showNotApplicable
+      ? activeFramework.families
+      : activeFramework.families.map(fam => ({
+          ...fam,
+          controls: fam.controls.filter(c => c.status !== 'NOT_APPLICABLE'),
+        }));
+
+    if (!searchTerm.trim()) return familiesAfterNa;
 
     const term = searchTerm.toLowerCase();
-    return activeFramework.families
+    return familiesAfterNa
       .map(fam => ({
         ...fam,
         controls: fam.controls.filter(c =>
@@ -1570,11 +1585,11 @@ const Controls: React.FC = () => {
         ),
       }))
       .filter(fam => fam.controls.length > 0 || fam.name.toLowerCase().includes(term));
-  }, [activeFramework, searchTerm]);
+  }, [activeFramework, searchTerm, showNotApplicable]);
 
   // ── Summary stats ────────────────────────────────────────────────
   const summary = useMemo(() => {
-    if (!activeFramework) return { total: 0, implemented: 0, inProgress: 0, notStarted: 0, withdrawn: 0, pct: 0 };
+    if (!activeFramework) return { total: 0, applicable: 0, notApplicable: 0, implemented: 0, inProgress: 0, notStarted: 0, withdrawn: 0, pct: 0 };
     const all = activeFramework.families.flatMap(f => f.controls);
     const active = all.filter(c => !c.is_withdrawn);
     const withdrawn = all.filter(c => c.is_withdrawn).length;
@@ -1583,11 +1598,15 @@ const Controls: React.FC = () => {
     // Crosswalk-satisfied controls count as implemented — matches the heatmap.
     // is_completed honours each framework's own vocabulary (Section 508 SUPPORTS,
     // CMMC MET, HIPAA ALTERNATIVE_IMPLEMENTED, etc.).
+    const notApplicable = active.filter(c => c.status === 'NOT_APPLICABLE').length;
     const implemented = active.filter(c => isCompletedStatus(statusConfig, c.status) || c.crosswalk_satisfied).length;
     const inProgress = active.filter(c => c.status === inProgressValue && !c.crosswalk_satisfied).length;
     const total = active.length;
+    const applicable = total - notApplicable;
     return {
       total,
+      applicable,
+      notApplicable,
       implemented,
       inProgress,
       notStarted: total - implemented - inProgress,
@@ -1816,6 +1835,19 @@ const Controls: React.FC = () => {
               {scoping ? 'Re-scope applicability' : 'Scope applicability'}
             </Button>
           )}
+          {summary.notApplicable > 0 && (
+            <Button
+              variant="outlined"
+              size="small"
+              color="inherit"
+              onClick={() => setShowNotApplicable(v => !v)}
+              sx={{ whiteSpace: 'nowrap', color: 'text.secondary' }}
+            >
+              {showNotApplicable
+                ? `Hide N/A (${summary.notApplicable})`
+                : `Show N/A (${summary.notApplicable})`}
+            </Button>
+          )}
           <Button
             variant="outlined"
             size="small"
@@ -1880,9 +1912,16 @@ const Controls: React.FC = () => {
         <Card variant="outlined">
           <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 }, textAlign: 'center' }}>
             <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
-              {summary.total}
+              {summary.notApplicable > 0 ? summary.applicable : summary.total}
             </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Active Controls</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {summary.notApplicable > 0 ? 'Applicable Controls' : 'Active Controls'}
+            </Typography>
+            {summary.notApplicable > 0 && (
+              <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', fontSize: '0.65rem' }}>
+                {summary.notApplicable} marked N/A
+              </Typography>
+            )}
             {summary.withdrawn > 0 && (
               <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', fontSize: '0.65rem' }}>
                 +{summary.withdrawn} withdrawn

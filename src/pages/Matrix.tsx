@@ -25,6 +25,9 @@ interface FamilyHeatmapData {
   identifier: string;
   name: string;
   total: number;
+  /** Applicable count (total minus N/A). Optional for backward compat with older BE responses. */
+  applicable?: number;
+  notApplicable?: number;
   implemented: number;
   inProgress: number;
   notStarted: number;
@@ -35,6 +38,9 @@ interface FrameworkHeatmapData {
   name: string;
   families: FamilyHeatmapData[];
   completionPct: number;
+  /** Framework-level applicable/N/A counts. Optional for backward compat. */
+  applicableControls?: number;
+  notApplicable?: number;
 }
 
 function heatColor(pct: number): string {
@@ -340,10 +346,22 @@ const Matrix: React.FC = () => {
               Completion includes controls satisfied via cross-framework crosswalk —
               e.g. NIST 800-53 progress crediting NIST 800-171.
             </Typography>
-            {heatmapData.map(fw => (
+            {heatmapData.map(fw => {
+              const naCount = fw.notApplicable ?? 0;
+              const applicable = fw.applicableControls ?? null;
+              return (
               <Box key={fw.id} sx={{ mb: 2 }}>
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                   {fw.name} — {fw.completionPct}% overall
+                  {applicable !== null && naCount > 0 && (
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      sx={{ ml: 1, color: 'text.secondary', fontWeight: 400 }}
+                    >
+                      ({applicable} applicable, {naCount} N/A)
+                    </Typography>
+                  )}
                 </Typography>
                 <Box sx={{
                   display: 'grid',
@@ -407,7 +425,8 @@ const Matrix: React.FC = () => {
                   ))}
                 </Box>
               </Box>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       )}
