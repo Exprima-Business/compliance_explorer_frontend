@@ -73,11 +73,15 @@ import {
   fetchSPRSScore,
   fetchFARDetail,
   deactivateFramework as deactivateFrameworkAPI,
+  fetchScoping,
+  type ProgramScoping,
+  type ScopingApplyResult,
   type SPRSScore,
   type FARDetail,
   type FARRequirement,
   type ControlOdp,
 } from '../services/controlService';
+import { Section508Wizard } from '../components/Section508Wizard';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -1177,6 +1181,17 @@ const Controls: React.FC = () => {
   const [sspError, setSspError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Section 508 scoping wizard state. Only meaningful when activeFramework is
+  // Section 508 (other frameworks leave applicability_conditions NULL and apply
+  // uniformly — no wizard needed).
+  const [scoping, setScoping] = useState<ProgramScoping | null>(null);
+  const [scopingLoaded, setScopingLoaded] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  // Detect Section 508 framework. Match by name so the check is portable across
+  // environments that re-seeded with different UUIDs.
+  const isSection508 = !!activeFramework && /Section 508/i.test(activeFramework.name);
+
   // Assessment Import state
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -1318,6 +1333,56 @@ const Controls: React.FC = () => {
     })();
     return () => { cancelled = true; };
   }, [isAuthenticated, authLoading, currentProject]);
+
+  // ── Load Section 508 scoping when that framework becomes active ───
+  // Only fires for Section 508 — other frameworks apply uniformly and don't
+  // need scoping. Scoping load is non-fatal: if the endpoint errors, the
+  // page still works (the wizard button just won't show the saved answers).
+  useEffect(() => {
+    if (!activeFramework || !isSection508) {
+      setScoping(null);
+      setScopingLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    setScopingLoaded(false);
+    (async () => {
+      try {
+        const resp = await fetchScoping(activeFramework.id);
+        if (!cancelled) setScoping(resp?.scoping ?? null);
+      } catch {
+        if (!cancelled) setScoping(null);
+      } finally {
+        if (!cancelled) setScopingLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeFramework, isSection508]);
+
+  // ── Wizard apply handler — reload the framework after status changes ──
+  const handleWizardApplied = useCallback(async (result: ScopingApplyResult) => {
+    setWizardOpen(false);
+    setFeedbackSnack({
+      open: true,
+      message: result.nowNotApplicable === 0
+        ? `Scoping saved — all ${result.totalControls} controls apply to your ICT.`
+        : `Scoping applied — ${result.nowNotApplicable} of ${result.totalControls} controls marked Not Applicable${result.statusPreserved > 0 ? ` (${result.statusPreserved} preserved with existing evidence)` : ''}.`,
+      severity: 'success',
+    });
+    // Reload framework so the UI reflects the new N/A statuses + counters.
+    if (activeFramework) {
+      try {
+        const [detail, freshScoping] = await Promise.all([
+          fetchFrameworkWithStatus(activeFramework.id),
+          fetchScoping(activeFramework.id),
+        ]);
+        if (detail) setActiveFramework(detail);
+        setScoping(freshScoping?.scoping ?? null);
+      } catch {
+        // Reload failure is non-fatal — user can refresh manually.
+      }
+    }
+  }, [activeFramework]);
 
   // ── Activate a framework ──────────────────────────────────────────
   const handleActivateFramework = useCallback(async (frameworkId: string) => {
@@ -1740,6 +1805,17 @@ const Controls: React.FC = () => {
             {activeFramework.name}
           </Typography>
           <Chip label={activeFramework.version} size="small" variant="outlined" />
+          {isSection508 && scopingLoaded && (
+            <Button
+              variant={scoping ? 'outlined' : 'contained'}
+              size="small"
+              color="primary"
+              onClick={() => setWizardOpen(true)}
+              sx={{ whiteSpace: 'nowrap' }}
+            >
+              {scoping ? 'Re-scope applicability' : 'Scope applicability'}
+            </Button>
+          )}
           <Button
             variant="outlined"
             size="small"
@@ -1780,6 +1856,24 @@ const Controls: React.FC = () => {
           {activeFramework.description}
         </Typography>
       </Box>
+
+      {/* Section 508 scoping prompt — only shows when no scoping exists yet */}
+      {isSection508 && scopingLoaded && !scoping && (
+        <Alert
+          severity="info"
+          sx={{ mb: 3 }}
+          action={
+            <Button color="primary" size="small" variant="contained" onClick={() => setWizardOpen(true)}>
+              Run wizard
+            </Button>
+          }
+        >
+          <strong>Tell us about your ICT</strong> so we can show only the
+          Section 508 requirements that apply. The 12-question wizard takes
+          about a minute and cites the CFR paragraph behind each question.
+          Your existing control assessments are preserved.
+        </Alert>
+      )}
 
       {/* Summary cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 2, mb: 3 }}>
@@ -2368,6 +2462,17 @@ const Controls: React.FC = () => {
           {feedbackSnack.message}
         </Alert>
       </Snackbar>
+
+      {/* Section 508 applicability wizard — only renders when Section 508 is active */}
+      {isSection508 && activeFramework && (
+        <Section508Wizard
+          open={wizardOpen}
+          frameworkId={activeFramework.id}
+          initialAnswers={scoping?.answers ?? null}
+          onClose={() => setWizardOpen(false)}
+          onApplied={handleWizardApplied}
+        />
+      )}
     </Box>
   );
 };

@@ -160,6 +160,76 @@ export async function fetchReciprocity(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Applicability scoping (Section 508 wizard)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Wizard answers — condition key (hardware, software_ui, etc.) → boolean. */
+export type ScopingAnswers = Record<string, boolean>;
+
+export interface ProgramScoping {
+  programId: string;
+  frameworkId: string;
+  answers: ScopingAnswers;
+  updatedAt: string;
+  updatedBy: string | null;
+}
+
+export interface ControlApplicability {
+  controlId: string;
+  applicable: boolean;
+  source: string | null;
+}
+
+export interface ScopingResponse {
+  scoping: ProgramScoping | null;
+  applicability: ControlApplicability[];
+}
+
+export interface ScopingApplyResult {
+  totalControls: number;
+  nowApplicable: number;
+  nowNotApplicable: number;
+  statusPreserved: number;
+}
+
+/** Read saved wizard answers + the computed per-control applicability set. */
+export async function fetchScoping(frameworkId: string): Promise<ScopingResponse | null> {
+  const res = await apiCall<ScopingResponse>(
+    `/api/controls/frameworks/${frameworkId}/scoping`,
+    { requireAuth: true },
+  );
+  return res.data ?? null;
+}
+
+/** Save wizard answers (no status side-effects — call applyScoping next). */
+export async function saveScoping(
+  frameworkId: string,
+  answers: ScopingAnswers,
+): Promise<ProgramScoping | null> {
+  const res = await apiCall<ProgramScoping>(
+    `/api/controls/frameworks/${frameworkId}/scoping`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ answers }),
+      requireAuth: true,
+    },
+  );
+  return res.data ?? null;
+}
+
+/** Recompute applicability and materialise status changes (non-destructive). */
+export async function applyScoping(frameworkId: string): Promise<ScopingApplyResult | null> {
+  const res = await apiCall<ScopingApplyResult>(
+    `/api/controls/frameworks/${frameworkId}/scoping/apply`,
+    {
+      method: 'POST',
+      requireAuth: true,
+    },
+  );
+  return res.data ?? null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Framework Activation
 // ─────────────────────────────────────────────────────────────────────────────
 
