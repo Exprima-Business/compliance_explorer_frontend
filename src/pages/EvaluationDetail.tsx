@@ -33,6 +33,115 @@ const SCOPE_LABEL: Record<CoverageStatus, string> = {
 const pctColor = (pct: number): 'success' | 'warning' | 'error' =>
   pct >= 80 ? 'success' : pct >= 40 ? 'warning' : 'error';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Go / Evaluate / No-Go verdict — derived purely from data we already have
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Verdict = 'GO' | 'EVALUATE' | 'NO_GO';
+
+interface VerdictResult {
+  verdict: Verdict;
+  headline: string;
+  rationale: string[];
+  /** Min framework completion across all required-but-activated frameworks (or null if none). */
+  minActivatedPct: number | null;
+  /** Required frameworks the program hasn't activated yet. */
+  notActivatedNames: string[];
+  /** Critical detected clauses that are "new" (not yet in program). */
+  newClauseCount: number;
+}
+
+/**
+ * Compute the Go / Evaluate / No-Go verdict from the evaluation data.
+ *
+ * Inputs (all sourced from the BE response — no platform interpretation):
+ *   - coverage summary (detected / covered / gaps / unknown)
+ *   - per-framework completion % for required frameworks
+ *   - activated flag on each required framework
+ *
+ * Defensibility note: this is a heuristic *decision-support* summary, NOT a
+ * compliance attestation. The rationale strings make the inputs explicit so
+ * a contracting officer / acquisition lead sees why the verdict landed.
+ */
+function computeVerdict(
+  frameworks: RequiredFramework[],
+  coverage: { detected: number; covered: number; gaps: number; unknown: number },
+): VerdictResult {
+  const activated = frameworks.filter(f => f.activated);
+  const notActivated = frameworks.filter(f => !f.activated);
+
+  const minActivatedPct = activated.length > 0
+    ? Math.min(...activated.map(f => f.completionPct))
+    : null;
+
+  const newClauseCount = coverage.gaps;
+  const rationale: string[] = [];
+  let verdict: Verdict;
+  let headline: string;
+
+  if (notActivated.length > 0) {
+    rationale.push(
+      `${notActivated.length} required framework${notActivated.length === 1 ? '' : 's'} not activated: ${notActivated.map(f => f.name).join(', ')}.`
+    );
+  }
+
+  if (activated.length > 0) {
+    rationale.push(
+      `Activated framework completion ranges from ${Math.min(...activated.map(f => f.completionPct))}% to ${Math.max(...activated.map(f => f.completionPct))}%.`
+    );
+  }
+
+  if (newClauseCount > 0) {
+    rationale.push(
+      `${newClauseCount} new requirement${newClauseCount === 1 ? '' : 's'} the solicitation introduces beyond your current program scope.`
+    );
+  }
+
+  if (coverage.unknown > 0) {
+    rationale.push(
+      `${coverage.unknown} detected clause${coverage.unknown === 1 ? '' : 's'} not yet in our catalog — manual review recommended.`
+    );
+  }
+
+  // Verdict thresholds — intentionally conservative. A "GO" recommendation
+  // implies the platform has high confidence; ambiguous cases get
+  // "EVALUATE" so the user is forced to look at the detail.
+  if (frameworks.length === 0) {
+    verdict = 'EVALUATE';
+    headline = 'Solicitation detected no tracked compliance frameworks';
+  } else if (notActivated.length > 0 && newClauseCount > 0) {
+    verdict = 'NO_GO';
+    headline = 'You have not activated required frameworks for this solicitation';
+  } else if (minActivatedPct !== null && minActivatedPct < 40) {
+    verdict = 'NO_GO';
+    headline = 'A required framework is less than 40% implemented';
+  } else if (minActivatedPct !== null && minActivatedPct < 80) {
+    verdict = 'EVALUATE';
+    headline = 'Required frameworks are partially implemented — review the gaps';
+  } else if (minActivatedPct !== null && minActivatedPct >= 80) {
+    verdict = 'GO';
+    headline = 'Your program substantially covers this solicitation';
+  } else {
+    verdict = 'EVALUATE';
+    headline = 'Review required before bidding';
+  }
+
+  return {
+    verdict,
+    headline,
+    rationale,
+    minActivatedPct,
+    notActivatedNames: notActivated.map(f => f.name),
+    newClauseCount,
+  };
+}
+
+const VERDICT_PALETTE: Record<Verdict, { color: string; bg: string; label: string }> = {
+  GO: { color: '#22c55e', bg: 'rgba(34,197,94,0.08)', label: 'GO' },
+  EVALUATE: { color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', label: 'EVALUATE' },
+  NO_GO: { color: '#ef4444', bg: 'rgba(239,68,68,0.08)', label: 'NO-GO' },
+};
+
 /**
  * Per-framework completion panel — the honest "am I compliant?" view for the
  * evaluation. Each framework the detected clauses require, with the program's
@@ -168,6 +277,12 @@ const EvaluationDetail: React.FC = () => {
     [detail],
   );
 
+  // Pre-bid go/no-go verdict derived from coverage + per-framework completion.
+  const verdictResult = useMemo(() => {
+    if (!detail) return null;
+    return computeVerdict(detail.frameworks, summary);
+  }, [detail, summary]);
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -212,6 +327,56 @@ const EvaluationDetail: React.FC = () => {
         )}
         <Chip size="small" label={evaluation.status} variant="outlined" />
       </Box>
+
+      {/* Pre-bid verdict — Go / Evaluate / No-Go decision support */}
+      {verdictResult && (
+        <Card
+          sx={{
+            mb: 3,
+            borderLeft: '6px solid',
+            borderColor: VERDICT_PALETTE[verdictResult.verdict].color,
+            bgcolor: VERDICT_PALETTE[verdictResult.verdict].bg,
+          }}
+        >
+          <CardContent sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{
+              flexShrink: 0,
+              minWidth: 110,
+              textAlign: 'center',
+              py: 1,
+              px: 2,
+              borderRadius: 1,
+              bgcolor: VERDICT_PALETTE[verdictResult.verdict].color,
+              color: '#fff',
+            }}>
+              <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 1, lineHeight: 1 }}>
+                {VERDICT_PALETTE[verdictResult.verdict].label}
+              </Typography>
+              <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.9 }}>
+                pre-bid verdict
+              </Typography>
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 240 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+                {verdictResult.headline}
+              </Typography>
+              {verdictResult.rationale.length > 0 && (
+                <Box component="ul" sx={{ pl: 2.5, my: 0, color: 'text.secondary' }}>
+                  {verdictResult.rationale.map((r, i) => (
+                    <Typography key={i} component="li" variant="body2" sx={{ lineHeight: 1.6 }}>
+                      {r}
+                    </Typography>
+                  ))}
+                </Box>
+              )}
+              <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1.5, fontStyle: 'italic' }}>
+                Decision support only — verdict is derived from your current compliance posture
+                vs. the clauses this solicitation detects. Not a compliance attestation.
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Coverage summary */}
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 3 }}>
