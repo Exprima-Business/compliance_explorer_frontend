@@ -11,6 +11,7 @@ import {
   Divider,
   IconButton,
   LinearProgress,
+  Link,
   List,
   ListItem,
   ListItemIcon,
@@ -240,7 +241,12 @@ const ClauseDetail: React.FC = () => {
     );
   }
 
-  if (error) {
+  // We can show the page if EITHER the clause detail OR the regulatory
+  // artifact exists. EOs, OMB memos, statutes, and CFR Parts live only in
+  // the regulatory graph (no `clauses` table entry) but should be viewable.
+  const haveAnyData = !!data || !!graph?.artifact;
+
+  if (error && !haveAnyData) {
     return (
       <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1200, mx: 'auto' }}>
         <IconButton onClick={() => navigate(-1)} sx={{ mb: 1 }} aria-label="Back">
@@ -251,18 +257,31 @@ const ClauseDetail: React.FC = () => {
     );
   }
 
-  if (!data) {
+  if (!haveAnyData) {
     return (
       <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1200, mx: 'auto' }}>
         <IconButton onClick={() => navigate(-1)} sx={{ mb: 1 }} aria-label="Back">
           <ArrowBackIcon />
         </IconButton>
-        <Alert severity="warning">No data for clause {clauseCode}.</Alert>
+        <Alert severity="warning">No regulation found with identifier "{clauseCode}".</Alert>
       </Box>
     );
   }
 
-  const { clause, activatedFrameworks, alternativeFrameworks, hasFrameworkCoverage } = data;
+  // Header content sourced from clause OR artifact (whichever we have).
+  // Both share identifier/code + title; artifact may add citation + authority.
+  const headerCode = data?.clause.clauseCode ?? graph!.artifact!.identifier;
+  const headerTitle = data?.clause.title ?? graph!.artifact!.title;
+  const headerSubtitle = data?.clause.family
+    ? (typeof data.clause.family === 'string' ? data.clause.family : data.clause.family.name)
+    : graph?.artifact?.source_authority;
+
+  // Clause text only exists when the clauses table has a row. EOs/OMB memos
+  // expose summary on the artifact instead.
+  const clauseText = data?.clause.description
+    ?? data?.clause.content
+    ?? graph?.artifact?.summary
+    ?? null;
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1200, mx: 'auto' }}>
@@ -277,36 +296,67 @@ const ClauseDetail: React.FC = () => {
             color="text.secondary"
             sx={{ fontFamily: 'monospace', letterSpacing: 0.5 }}
           >
-            {clause.clauseCode}
+            {headerCode}
           </Typography>
           <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700, mt: -0.5 }}>
-            {clause.title}
+            {headerTitle}
           </Typography>
-          {clause.family && (
+          {headerSubtitle && (
             <Typography variant="caption" color="text.secondary">
-              {typeof clause.family === 'string' ? clause.family : clause.family.name}
+              {headerSubtitle}
             </Typography>
+          )}
+          {/* Artifact-only view: show source authority + link when we don't have a clause record */}
+          {!data && graph?.artifact && (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+              <Chip
+                size="small"
+                label={graph.artifact.artifact_type.replace(/_/g, ' ')}
+                sx={{ fontSize: '0.65rem', height: 20 }}
+                variant="outlined"
+              />
+              <Typography variant="caption" color="text.secondary">
+                {graph.artifact.source_authority}
+              </Typography>
+              {graph.artifact.source_url && (
+                <Link
+                  href={graph.artifact.source_url}
+                  target="_blank"
+                  rel="noopener"
+                  variant="caption"
+                  sx={{ ml: 1 }}
+                >
+                  Authoritative source ↗
+                </Link>
+              )}
+            </Stack>
           )}
         </Box>
       </Stack>
 
-      {/* Clause text */}
+      {/* Clause / artifact text */}
       <Card variant="outlined" sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-            Clause Requirement
+            {data ? 'Clause Requirement' : 'Summary'}
           </Typography>
           <Typography
             variant="body2"
             sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
           >
-            {clause.description || clause.content || 'No verbatim text on file for this clause.'}
+            {clauseText || 'No verbatim text on file. See the authoritative source link above.'}
           </Typography>
+          {!data && graph?.artifact && (
+            <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1.5, fontStyle: 'italic' }}>
+              Summary only — this regulation isn't tracked as a clause in your program yet.
+              See related regulations below for connections to your active frameworks.
+            </Typography>
+          )}
         </CardContent>
       </Card>
 
-      {/* No framework coverage at all */}
-      {!hasFrameworkCoverage && (
+      {/* Framework checklist sections — only render when we have clause-level data */}
+      {data && !data.hasFrameworkCoverage && (
         <Alert severity="info" sx={{ mb: 3 }}>
           <strong>No control framework directly satisfies this clause yet.</strong>{' '}
           The clause text above is the authoritative reference. As we add more
@@ -315,8 +365,7 @@ const ClauseDetail: React.FC = () => {
         </Alert>
       )}
 
-      {/* Activated frameworks — full checklists */}
-      {activatedFrameworks.length > 0 && (
+      {data && data.activatedFrameworks.length > 0 && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
             How your program satisfies this clause
@@ -325,7 +374,7 @@ const ClauseDetail: React.FC = () => {
             These are the framework controls your activated frameworks contribute toward this clause.
             Implement them all to satisfy the clause via reciprocity.
           </Typography>
-          {activatedFrameworks.map(block => (
+          {data.activatedFrameworks.map(block => (
             <FrameworkChecklistCard
               key={block.framework.id}
               block={block}
@@ -335,16 +384,14 @@ const ClauseDetail: React.FC = () => {
         </Box>
       )}
 
-      {/* No activated framework but alternatives exist */}
-      {hasFrameworkCoverage && activatedFrameworks.length === 0 && (
+      {data && data.hasFrameworkCoverage && data.activatedFrameworks.length === 0 && (
         <Alert severity="warning" sx={{ mb: 3 }}>
           <strong>You haven't activated any framework that satisfies this clause yet.</strong>{' '}
           Activate one of the alternatives below to start tracking compliance against it.
         </Alert>
       )}
 
-      {/* Alternative frameworks — not activated, but available */}
-      {alternativeFrameworks.length > 0 && (
+      {data && data.alternativeFrameworks.length > 0 && (
         <>
           <Divider sx={{ my: 3 }} />
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
@@ -355,7 +402,7 @@ const ClauseDetail: React.FC = () => {
             the Controls page to add its checklist here.
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {alternativeFrameworks.map(alt => (
+            {data.alternativeFrameworks.map(alt => (
               <Tooltip key={alt.framework.id} title={`Mapping: ${alt.mappingType}`}>
                 <Chip
                   icon={<LinkIcon />}
