@@ -28,9 +28,12 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import LinkIcon from '@mui/icons-material/Link';
 import {
   fetchClauseDetail,
+  fetchClauseGraph,
   type ClauseDetailResponse,
   type ClauseDetailActivatedFramework,
   type ClauseDetailControl,
+  type ClauseGraphResponse,
+  type RegulatoryArtifactRef,
 } from '../services/clauseService';
 import { extractErrorMessage } from '../utils/errorUtils';
 
@@ -185,6 +188,7 @@ const ClauseDetail: React.FC = () => {
   const clauseCode = encoded ? decodeURIComponent(encoded) : '';
 
   const [data, setData] = useState<ClauseDetailResponse | null>(null);
+  const [graph, setGraph] = useState<ClauseGraphResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -198,12 +202,21 @@ const ClauseDetail: React.FC = () => {
     (async () => {
       setLoading(true);
       setError(null);
-      const resp = await fetchClauseDetail(clauseCode);
+      // Fetch detail + graph in parallel — they're independent.
+      // Graph soft-fails: a missing artifact (404) just means the clause
+      // isn't yet in the regulatory graph; the page still works.
+      const [detailResp, graphResp] = await Promise.all([
+        fetchClauseDetail(clauseCode),
+        fetchClauseGraph(clauseCode),
+      ]);
       if (cancelled) return;
-      if (resp.error) {
-        setError(extractErrorMessage(resp.error));
-      } else if (resp.data) {
-        setData(resp.data);
+      if (detailResp.error) {
+        setError(extractErrorMessage(detailResp.error));
+      } else if (detailResp.data) {
+        setData(detailResp.data);
+      }
+      if (!graphResp.error && graphResp.data) {
+        setGraph(graphResp.data);
       }
       setLoading(false);
     })();
@@ -364,7 +377,194 @@ const ClauseDetail: React.FC = () => {
           </Button>
         </>
       )}
+
+      {/* Phase 1.5 — Related Regulations from the regulatory graph */}
+      {graph && (graph.outgoing.length > 0 || graph.incoming.length > 0) && (
+        <RelatedRegulationsPanel
+          graph={graph}
+          onArtifactClick={(artifact) => {
+            // Only clauses we track have detail pages today; everything else
+            // (EOs, OMB memos, statutes) gets a no-op for now until the
+            // graph has its own viewer (Phase 4). We use the artifact_type
+            // to decide whether to navigate.
+            const navigable = ['far_clause', 'dfars_clause', 'hsar_clause', 'agency_supplement_clause'];
+            if (navigable.includes(artifact.artifact_type)) {
+              navigate(`/clauses/${encodeURIComponent(artifact.identifier)}`);
+            }
+          }}
+        />
+      )}
     </Box>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Related Regulations panel (Phase 1.5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Short human-readable label for a relationship type. */
+function relationshipLabel(rel: string, direction: 'outgoing' | 'incoming'): string {
+  // For outgoing edges, present in active voice ("references X").
+  // For incoming edges, present in passive voice ("referenced by Y").
+  const out: Record<string, string> = {
+    cites: 'references',
+    incorporates_by_reference: 'incorporates by reference',
+    derived_from: 'derived from',
+    flows_down_to: 'flows down to',
+    mandates: 'mandates',
+    implements: 'implements',
+    supersedes: 'supersedes',
+    amends: 'amends',
+    codified_in: 'codified in',
+    created_by: 'created by',
+    extension_of: 'extension of',
+  };
+  const inc: Record<string, string> = {
+    cites: 'referenced by',
+    incorporates_by_reference: 'incorporated by reference in',
+    derived_from: 'derivation source of',
+    flows_down_to: 'flowed down from',
+    mandates: 'mandated by',
+    implements: 'implemented by',
+    supersedes: 'superseded by',
+    amends: 'amended by',
+    codified_in: 'codifies',
+    created_by: 'created',
+    extension_of: 'extended by',
+  };
+  return (direction === 'outgoing' ? out[rel] : inc[rel]) || rel.replace(/_/g, ' ');
+}
+
+/** Visual treatment per artifact type. */
+function artifactTypeColor(type: string): string {
+  if (type === 'executive_order') return '#dc2626';
+  if (type === 'omb_memo') return '#9333ea';
+  if (type === 'statute') return '#0891b2';
+  if (type === 'cfr_part' || type === 'cfr_section') return '#0ea5e9';
+  if (type === 'far_clause' || type === 'dfars_clause' || type === 'hsar_clause') return '#f59e0b';
+  if (type === 'nist_publication') return '#22c55e';
+  return '#64748b';
+}
+
+const ArtifactRow: React.FC<{
+  relationshipLabel: string;
+  artifact: RegulatoryArtifactRef;
+  citation: string | null;
+  description: string | null;
+  onClick: (a: RegulatoryArtifactRef) => void;
+}> = ({ relationshipLabel, artifact, citation, description, onClick }) => {
+  const navigable = ['far_clause', 'dfars_clause', 'hsar_clause', 'agency_supplement_clause'].includes(artifact.artifact_type);
+  return (
+    <Box
+      onClick={() => onClick(artifact)}
+      sx={{
+        p: 1.5,
+        borderLeft: '3px solid',
+        borderColor: artifactTypeColor(artifact.artifact_type),
+        bgcolor: 'background.paper',
+        borderRadius: '0 6px 6px 0',
+        cursor: navigable ? 'pointer' : 'default',
+        '&:hover': navigable ? { bgcolor: 'action.hover' } : {},
+        mb: 1,
+      }}
+    >
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5, flexWrap: 'wrap' }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          {relationshipLabel}
+        </Typography>
+        <Chip
+          label={artifact.artifact_type.replace(/_/g, ' ')}
+          size="small"
+          variant="outlined"
+          sx={{ fontSize: '0.6rem', height: 18, color: artifactTypeColor(artifact.artifact_type), borderColor: artifactTypeColor(artifact.artifact_type) }}
+        />
+      </Stack>
+      <Typography
+        variant="body2"
+        sx={{ fontFamily: 'monospace', fontWeight: 700, color: navigable ? 'primary.main' : 'text.primary' }}
+      >
+        {artifact.identifier}
+      </Typography>
+      <Typography variant="body2" color="text.primary" sx={{ mt: 0.25 }}>
+        {artifact.title}
+      </Typography>
+      {description && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontStyle: 'italic' }}>
+          {description}
+        </Typography>
+      )}
+      {citation && (
+        <Typography
+          variant="caption"
+          sx={{
+            display: 'block',
+            mt: 0.5,
+            color: 'text.disabled',
+            fontFamily: 'monospace',
+            fontSize: '0.7rem',
+          }}
+          title={`Authority: ${citation}`}
+        >
+          Source: {citation}
+        </Typography>
+      )}
+    </Box>
+  );
+};
+
+const RelatedRegulationsPanel: React.FC<{
+  graph: ClauseGraphResponse;
+  onArtifactClick: (a: RegulatoryArtifactRef) => void;
+}> = ({ graph, onArtifactClick }) => {
+  return (
+    <>
+      <Divider sx={{ my: 3 }} />
+      <Box>
+        <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+          Related Regulations
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          How this regulation connects to executive orders, statutes, NIST publications, and other federal regulations.
+          Each link cites the specific paragraph that documents the relationship.
+        </Typography>
+
+        {graph.outgoing.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              This regulation
+            </Typography>
+            {graph.outgoing.map((edge, i) => (
+              <ArtifactRow
+                key={`out-${i}`}
+                relationshipLabel={relationshipLabel(edge.relationship_type, 'outgoing')}
+                artifact={edge.target}
+                citation={edge.source_authority_for_link}
+                description={edge.description}
+                onClick={onArtifactClick}
+              />
+            ))}
+          </Box>
+        )}
+
+        {graph.incoming.length > 0 && (
+          <Box>
+            <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              This regulation is
+            </Typography>
+            {graph.incoming.map((edge, i) => (
+              <ArtifactRow
+                key={`in-${i}`}
+                relationshipLabel={relationshipLabel(edge.relationship_type, 'incoming')}
+                artifact={edge.source}
+                citation={edge.source_authority_for_link}
+                description={edge.description}
+                onClick={onArtifactClick}
+              />
+            ))}
+          </Box>
+        )}
+      </Box>
+    </>
   );
 };
 

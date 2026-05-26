@@ -157,3 +157,42 @@ export async function fetchClauseDetail(clauseCode: string): Promise<ApiResponse
     { requireAuth: true },
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Regulatory graph (Phase 1.5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RegulatoryArtifactRef {
+  id: string;
+  artifact_type: string;
+  identifier: string;
+  title: string;
+  source_authority: string;
+}
+
+export interface RegulatoryArtifact extends RegulatoryArtifactRef {
+  citation: string | null;
+  source_url: string | null;
+  summary: string | null;
+}
+
+export interface RegulatoryEdge {
+  relationship_type: string;
+  description: string | null;
+  source_authority_for_link: string | null;
+  source_paragraph: string | null;
+}
+
+export interface ClauseGraphResponse {
+  artifact: RegulatoryArtifact | null;
+  outgoing: Array<RegulatoryEdge & { target: RegulatoryArtifactRef }>;
+  incoming: Array<RegulatoryEdge & { source: RegulatoryArtifactRef }>;
+}
+
+/** Fetch the regulatory graph neighbourhood for a clause (1 hop in each direction). */
+export async function fetchClauseGraph(clauseCode: string): Promise<ApiResponse<ClauseGraphResponse>> {
+  return apiCall<ClauseGraphResponse>(
+    `/api/clauses/by-code/${encodeURIComponent(clauseCode)}/graph`,
+    { requireAuth: true },
+  );
+}
