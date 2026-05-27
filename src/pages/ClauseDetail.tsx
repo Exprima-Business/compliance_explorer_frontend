@@ -285,24 +285,33 @@ const ClauseDetail: React.FC = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1200, mx: 'auto' }}>
-      {/* Header */}
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-        <IconButton onClick={() => navigate(-1)} aria-label="Back">
+      {/* Header — identifier prominent (it's the canonical reference for
+          federal regulations), title secondary. */}
+      <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ mb: 2 }}>
+        <IconButton onClick={() => navigate(-1)} aria-label="Back" sx={{ mt: 0.5 }}>
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flex: 1 }}>
           <Typography
-            variant="overline"
-            color="text.secondary"
-            sx={{ fontFamily: 'monospace', letterSpacing: 0.5 }}
+            variant={isMobile ? 'h4' : 'h3'}
+            sx={{
+              fontFamily: 'monospace',
+              fontWeight: 800,
+              color: 'primary.main',
+              letterSpacing: '-0.01em',
+              lineHeight: 1.1,
+            }}
           >
             {headerCode}
           </Typography>
-          <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700, mt: -0.5 }}>
+          <Typography
+            variant={isMobile ? 'subtitle1' : 'h6'}
+            sx={{ fontWeight: 500, color: 'text.primary', mt: 0.5, lineHeight: 1.3 }}
+          >
             {headerTitle}
           </Typography>
           {headerSubtitle && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
               {headerSubtitle}
             </Typography>
           )}
