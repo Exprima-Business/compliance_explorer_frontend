@@ -10,6 +10,7 @@ import EvaluationDetail from '../pages/EvaluationDetail';
 import POAM from '../pages/POAM';
 import ClauseDetail from '../pages/ClauseDetail';
 import Regulations from '../pages/Regulations';
+import RegulatoryGraphReview from '../pages/RegulatoryGraphReview';
 import { DocumentScanner } from './DocumentScanner';
 import { ErrorBoundary } from './ErrorBoundary';
 import { PreferencesProvider } from '../contexts/PreferencesContext';
@@ -46,6 +47,7 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
                     <Route path="/poam" element={<POAM />} />
                     <Route path="/clauses/:clauseCode" element={<ClauseDetail />} />
                     <Route path="/regulations" element={<Regulations />} />
+                    <Route path="/admin/regulatory-graph-review" element={<RegulatoryGraphReview />} />
                     {enableScanner && (
                       <Route path="/document-scanner/:scanId?" element={
                         <ErrorBoundary fallbackMessage="The document scanner encountered an error. Click below to try again.">

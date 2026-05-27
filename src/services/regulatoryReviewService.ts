@@ -1,0 +1,115 @@
+import { apiCall } from './api';
+import type { ApiResponse } from '../types/api';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type RelationshipType =
+  | 'cites' | 'incorporates_by_reference' | 'derived_from' | 'flows_down_to'
+  | 'mandates' | 'implements' | 'supersedes' | 'amends' | 'codified_in'
+  | 'created_by' | 'extension_of';
+
+export type CandidateStatus = 'pending' | 'accepted' | 'rejected' | 'needs_context';
+export type ExtractionMethod = 'regex' | 'llm' | 'manual' | 'imported';
+
+export const RELATIONSHIP_TYPES: RelationshipType[] = [
+  'cites', 'incorporates_by_reference', 'derived_from', 'flows_down_to',
+  'mandates', 'implements', 'supersedes', 'amends', 'codified_in',
+  'created_by', 'extension_of',
+];
+
+export interface CandidateArtifactRef {
+  id: string;
+  artifact_type: string;
+  identifier: string;
+  title: string;
+  source_authority: string;
+}
+
+export interface RelationshipCandidate {
+  id: string;
+  source_artifact_id: string;
+  target_artifact_id: string;
+  suggested_relationship_type: RelationshipType;
+  source_paragraph: string;
+  source_authority_for_link: string | null;
+  description: string | null;
+  extraction_method: ExtractionMethod;
+  extraction_confidence: number;
+  extractor_metadata: Record<string, any> | null;
+  status: CandidateStatus;
+  reviewer_notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  resulting_relationship_id: string | null;
+  created_at: string;
+  source: CandidateArtifactRef;
+  target: CandidateArtifactRef;
+}
+
+export interface CandidatesListResponse {
+  items: RelationshipCandidate[];
+  total: number;
+  statusCounts: Record<CandidateStatus, number>;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchCandidates(params: {
+  status?: CandidateStatus;
+  method?: ExtractionMethod;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<ApiResponse<CandidatesListResponse>> {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set('status', params.status);
+  if (params.method) qs.set('method', params.method);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  const suffix = qs.toString();
+  return apiCall<CandidatesListResponse>(
+    `/api/regulatory-review/candidates${suffix ? `?${suffix}` : ''}`,
+    { requireAuth: true },
+  );
+}
+
+export async function acceptCandidate(
+  id: string,
+  params: {
+    relationship_type?: RelationshipType;
+    source_authority_for_link?: string;
+    description?: string;
+    reviewer_notes?: string;
+  } = {},
+): Promise<ApiResponse<{ candidate: RelationshipCandidate; relationship_id: string }>> {
+  return apiCall(`/api/regulatory-review/candidates/${id}/accept`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+    requireAuth: true,
+  });
+}
+
+export async function rejectCandidate(
+  id: string,
+  reviewer_notes: string,
+): Promise<ApiResponse<RelationshipCandidate>> {
+  return apiCall(`/api/regulatory-review/candidates/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reviewer_notes }),
+    requireAuth: true,
+  });
+}
+
+export async function parkCandidate(
+  id: string,
+  reviewer_notes: string,
+): Promise<ApiResponse<RelationshipCandidate>> {
+  return apiCall(`/api/regulatory-review/candidates/${id}/park`, {
+    method: 'POST',
+    body: JSON.stringify({ reviewer_notes }),
+    requireAuth: true,
+  });
+}
