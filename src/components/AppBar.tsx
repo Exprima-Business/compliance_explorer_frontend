@@ -113,64 +113,8 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
                 display: 'block',
               }} />
             </Box>
-            {/* Navigation Tabs */}
-            <Tabs
-              value={activeTab}
-              onChange={onTabChange}
-              aria-label="main navigation tabs"
-              sx={{
-                minHeight: 48,
-                height: 48,
-                '.MuiTab-root': {
-                  fontWeight: 600,
-                  fontSize: isMobile ? '0.75rem' : '1rem',
-                  px: isMobile ? 1.5 : 3,
-                  minHeight: 48,
-                  minWidth: isMobile ? 'auto' : undefined,
-                },
-                '.MuiTabs-indicator': {
-                  height: 3,
-                  borderRadius: 2,
-                  background: 'linear-gradient(90deg, #6366f1 0%, #0ea5e9 100%)',
-                },
-              }}
-              indicatorColor="secondary"
-              textColor="primary"
-            >
-              {/* Dashboard tab — icon-only on mobile, icon+label on desktop */}
-              <Tab
-                label={isMobile ? undefined : "Dashboard"}
-                icon={isMobile ? <DashboardIcon /> : <DashboardIcon />}
-                iconPosition="start"
-              />
-              {enableScanner && (
-                <Tab
-                  label={isMobile ? undefined : "Scanner"}
-                  icon={isMobile ? <ScannerIcon /> : undefined}
-                  iconPosition="start"
-                />
-              )}
-              <Tab
-                label={isMobile ? undefined : "Matrix"}
-                icon={isMobile ? <TableChartIcon /> : undefined}
-                iconPosition="start"
-              />
-              <Tab
-                label={isMobile ? undefined : "Controls"}
-                icon={isMobile ? <ShieldIcon /> : undefined}
-                iconPosition="start"
-              />
-              <Tab
-                label={isMobile ? undefined : "Solicitations"}
-                icon={isMobile ? <FactCheckIcon /> : undefined}
-                iconPosition="start"
-              />
-              <Tab
-                label={isMobile ? undefined : "POA&M"}
-                icon={isMobile ? <FlagIcon /> : undefined}
-                iconPosition="start"
-              />
-            </Tabs>
+            {/* Tabs removed — navigation moved to left side panel (LeftNav).
+                Mobile keeps the existing hamburger drawer pattern for nav. */}
           </Box>
           {/* Right: Controls — hidden on mobile (moved to Sidebar) */}
           {!isMobile && (

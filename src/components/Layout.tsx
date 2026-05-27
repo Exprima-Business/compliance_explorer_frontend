@@ -40,6 +40,9 @@ import ProjectSelector from './ProjectSelector';
 import ConnectionStatus from './ConnectionStatus';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import { warmUpBackend, resetDemo } from '../services/controlService';
+import { LeftNav, LEFT_NAV_EXPANDED_WIDTH, LEFT_NAV_COLLAPSED_WIDTH } from './LeftNav';
+
+const LEFT_NAV_PREF_KEY = 'clauseatlas_left_nav_expanded';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -54,6 +57,20 @@ export default function Layout({ children }: LayoutProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Left nav expand/collapse state — persisted in localStorage so the user's
+  // preference survives reloads. Default to expanded.
+  const [leftNavExpanded, setLeftNavExpanded] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = localStorage.getItem(LEFT_NAV_PREF_KEY);
+    return stored === null ? true : stored === 'true';
+  });
+  const toggleLeftNav = () => {
+    setLeftNavExpanded((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(LEFT_NAV_PREF_KEY, String(next)); } catch {}
+      return next;
+    });
+  };
   const { navigateTo, getCurrentPath, isActiveTab } = useURLBasedNavigation();
   const { user, signOut } = useAuth();
   const { connectionStatus } = useBookmarks();
@@ -210,6 +227,18 @@ export default function Layout({ children }: LayoutProps) {
         </Box>
         <Divider sx={{ my: 1 }} />
 
+        {/* Mobile nav — same structure as the desktop LeftNav, always expanded */}
+        <LeftNav
+          expanded={true}
+          onToggle={() => { /* mobile drawer doesn't collapse the nav, it closes the drawer instead */ }}
+          currentPath={getCurrentPath()}
+          onNavigate={(route) => {
+            setDrawerOpen(false);
+            navigateTo(route);
+          }}
+        />
+        <Divider sx={{ my: 1 }} />
+
         {/* Connection status */}
         <Box sx={{ px: 2, py: 1 }}>
           <ConnectionStatus status={connectionStatus} showLabel={true} size="small" />
@@ -300,17 +329,42 @@ export default function Layout({ children }: LayoutProps) {
         </DialogActions>
       </Dialog>
 
+      {/* Desktop left nav — persistent, collapsible. Hidden on mobile (hamburger
+          still renders the existing temporary drawer). */}
+      {!isMobile && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: '72px',
+            bottom: 0,
+            left: 0,
+            zIndex: (theme) => theme.zIndex.drawer,
+          }}
+        >
+          <LeftNav
+            expanded={leftNavExpanded}
+            onToggle={toggleLeftNav}
+            currentPath={getCurrentPath()}
+            onNavigate={navigateTo}
+          />
+        </Box>
+      )}
+
       <Box
         component="main"
         sx={{
           position: 'absolute',
-          left: 0,
+          left: isMobile ? 0 : (leftNavExpanded ? `${LEFT_NAV_EXPANDED_WIDTH}px` : `${LEFT_NAV_COLLAPSED_WIDTH}px`),
           right: 0,
           top: { xs: '56px', sm: '72px' },
           bottom: 0,
           width: 'auto',
           maxWidth: 'none',
-          overflow: 'auto'
+          overflow: 'auto',
+          transition: (theme) => theme.transitions.create('left', {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.standard,
+          }),
         }}
       >
         {ENABLE_URL_BASED_ROUTING && <URLDebugInfo />}
