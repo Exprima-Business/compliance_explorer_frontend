@@ -285,28 +285,30 @@ const ClauseDetail: React.FC = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1200, mx: 'auto' }}>
-      {/* Header — identifier prominent (it's the canonical reference for
-          federal regulations), title secondary. */}
+      {/* Header — identifier and title at equal visual weight. Both are
+          referenced equally in compliance work, so they get the same
+          typographic emphasis (H5 desktop, H6 mobile). Identifier stays
+          monospace to signal canonical-citation status. */}
       <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ mb: 2 }}>
-        <IconButton onClick={() => navigate(-1)} aria-label="Back" sx={{ mt: 0.5 }}>
+        <IconButton onClick={() => navigate(-1)} aria-label="Back" sx={{ mt: 0.25 }}>
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flex: 1 }}>
           <Typography
-            variant={isMobile ? 'h4' : 'h3'}
+            variant={isMobile ? 'h6' : 'h5'}
             sx={{
               fontFamily: 'monospace',
-              fontWeight: 800,
+              fontWeight: 700,
               color: 'primary.main',
               letterSpacing: '-0.01em',
-              lineHeight: 1.1,
+              lineHeight: 1.3,
             }}
           >
             {headerCode}
           </Typography>
           <Typography
-            variant={isMobile ? 'subtitle1' : 'h6'}
-            sx={{ fontWeight: 500, color: 'text.primary', mt: 0.5, lineHeight: 1.3 }}
+            variant={isMobile ? 'h6' : 'h5'}
+            sx={{ fontWeight: 500, color: 'text.primary', mt: 0.25, lineHeight: 1.3 }}
           >
             {headerTitle}
           </Typography>
