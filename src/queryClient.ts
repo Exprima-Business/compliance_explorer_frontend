@@ -64,4 +64,15 @@ export const keys = {
   // Regulatory graph review
   candidates: (status?: string) =>
     ['regulatory-review', 'candidates', status] as const,
+  // Compliance obligations
+  obligations: (type?: string, owner_role?: string) =>
+    ['obligations', 'catalog', type, owner_role] as const,
+  obligation: (id: string) =>
+    ['obligations', 'detail', id] as const,
+  obligationInstances: (filters?: Record<string, any>) =>
+    ['obligations', 'instances', filters] as const,
+  obligationInstance: (id: string) =>
+    ['obligations', 'instance', id] as const,
+  obligationInstancesDueSoon: (days: number) =>
+    ['obligations', 'instances', 'due-soon', days] as const,
 };

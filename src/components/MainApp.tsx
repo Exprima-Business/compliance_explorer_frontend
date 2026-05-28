@@ -8,6 +8,7 @@ import ExecutiveReport from '../pages/ExecutiveReport';
 import Evaluations from '../pages/Evaluations';
 import EvaluationDetail from '../pages/EvaluationDetail';
 import POAM from '../pages/POAM';
+import Obligations from '../pages/Obligations';
 import ClauseDetail from '../pages/ClauseDetail';
 import Regulations from '../pages/Regulations';
 import RegulatoryGraphReview from '../pages/RegulatoryGraphReview';
@@ -45,6 +46,7 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
                     <Route path="/evaluations" element={<Evaluations />} />
                     <Route path="/evaluations/:id" element={<EvaluationDetail />} />
                     <Route path="/poam" element={<POAM />} />
+                    <Route path="/obligations" element={<Obligations />} />
                     <Route path="/clauses/:clauseCode" element={<ClauseDetail />} />
                     <Route path="/regulations" element={<Regulations />} />
                     <Route path="/admin/regulatory-graph-review" element={<RegulatoryGraphReview />} />

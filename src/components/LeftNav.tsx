@@ -19,6 +19,7 @@ import FlagIcon from '@mui/icons-material/Flag';
 import DocumentScannerIcon from '@mui/icons-material/DocumentScanner';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useNavigate } from 'react-router-dom';
@@ -47,6 +48,7 @@ const SECTIONS: NavSection[] = [
       { route: '/dashboard', label: 'Dashboard', icon: <DashboardIcon />, prefixMatch: false },
       { route: '/matrix', label: 'Matrix', icon: <TableChartIcon />, prefixMatch: true },
       { route: '/controls', label: 'Controls', icon: <ShieldIcon />, prefixMatch: false },
+      { route: '/obligations', label: 'Obligations', icon: <AssignmentTurnedInIcon />, prefixMatch: true },
       { route: '/poam', label: 'POA&M', icon: <FlagIcon />, prefixMatch: true },
     ],
   },
