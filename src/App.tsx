@@ -2,7 +2,9 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { theme } from './theme';
+import { queryClient } from './queryClient';
 import Layout from './components/Layout';
 import AuthPage from './pages/AuthPage';
 import AuthCallback from './pages/AuthCallback';
@@ -86,9 +88,10 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
         <Routes>
           <Route path="/login" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -118,6 +121,7 @@ export default function App() {
           )}
         </Routes>
       </Router>
-    </ThemeProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }

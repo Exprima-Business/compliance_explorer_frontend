@@ -22,7 +22,7 @@
     "@mui/material": "^5.15.10",
     "@mui/x-data-grid": "^6.19.4",
     "@supabase/supabase-js": "^2.87.1",
-    "@tanstack/react-query": "^5.90.12",
+    "@tanstack/react-query": "^5.100.14",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@types/d3": "^7.4.3",
     "@types/file-saver": "^2.0.7",
