@@ -11,7 +11,8 @@ export interface CrossFrameworkControlSummary {
   title: string;
   framework_id: string;
   framework_name: string;
-  framework_short_name: string | null;
+  framework_version: string | null;
+  framework_label: string;
 }
 
 export interface CrossFrameworkEdge {

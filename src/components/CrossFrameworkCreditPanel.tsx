@@ -74,7 +74,7 @@ const CrossFrameworkCreditPanel: React.FC<PanelProps> = ({ controlId, variant = 
       {/* Header */}
       <Stack direction="row" alignItems="baseline" spacing={1.5} sx={{ mb: 2 }}>
         <Chip
-          label={control.framework_short_name ?? control.framework_name}
+          label={control.framework_label || control.framework_name}
           size="small"
           variant="outlined"
           sx={{ fontWeight: 500 }}
@@ -148,13 +148,12 @@ const CreditSection: React.FC<SectionProps> = ({ icon, title, subtitle, edges, t
 
   // Group edges by framework so we render one block per framework
   const byFramework = React.useMemo(() => {
-    const map = new Map<string, { name: string; short: string | null; edges: CrossFrameworkEdge[] }>();
+    const map = new Map<string, { label: string; edges: CrossFrameworkEdge[] }>();
     for (const e of edges) {
       const key = e.control.framework_id;
       if (!map.has(key)) {
         map.set(key, {
-          name: e.control.framework_name,
-          short: e.control.framework_short_name,
+          label: e.control.framework_label || e.control.framework_name,
           edges: [],
         });
       }
@@ -165,7 +164,7 @@ const CreditSection: React.FC<SectionProps> = ({ icon, title, subtitle, edges, t
     for (const grp of arr) {
       grp.edges.sort((a, b) => a.control.identifier.localeCompare(b.control.identifier));
     }
-    return arr.sort((a, b) => (a.short ?? a.name).localeCompare(b.short ?? b.name));
+    return arr.sort((a, b) => a.label.localeCompare(b.label));
   }, [edges]);
 
   return (
@@ -181,9 +180,9 @@ const CreditSection: React.FC<SectionProps> = ({ icon, title, subtitle, edges, t
       <Divider sx={{ mb: 1 }} />
 
       {byFramework.map((grp) => (
-        <Box key={grp.short ?? grp.name} sx={{ mb: 1.5 }}>
+        <Box key={grp.label} sx={{ mb: 1.5 }}>
           <Chip
-            label={grp.short ?? grp.name}
+            label={grp.label}
             size="small"
             sx={{ mb: 0.75, fontWeight: 500 }}
           />

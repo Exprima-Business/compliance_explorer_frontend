@@ -100,6 +100,9 @@ function downloadCsv(filename: string, rows: string[][]): void {
 }
 
 function blankItemForm(programId: string) {
+  // Auto-set Identified date to today on new manual entry. The field stays
+  // editable for cases where the weakness was discovered earlier than today.
+  const today = new Date().toISOString().slice(0, 10);
   return {
     programId,
     controlId: '' as string,
@@ -109,7 +112,7 @@ function blankItemForm(programId: string) {
     status: 'open' as PoamItemStatus,
     remediationPlan: '',
     responsibleParty: '',
-    identifiedAt: '',
+    identifiedAt: today,
     scheduledCompletion: '',
   };
 }
@@ -333,6 +336,14 @@ const POAM: React.FC = () => {
       setSaveError('Weakness summary is required.');
       return;
     }
+    if (!itemForm.remediationPlan.trim()) {
+      setSaveError('Remediation Plan is required — describe the steps that will close this weakness.');
+      return;
+    }
+    if (!itemForm.scheduledCompletion) {
+      setSaveError('Scheduled Completion is required — pick a target date for remediation.');
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -342,10 +353,10 @@ const POAM: React.FC = () => {
         description: itemForm.description.trim() || null,
         riskLevel: itemForm.riskLevel,
         status: itemForm.status,
-        remediationPlan: itemForm.remediationPlan.trim() || null,
+        remediationPlan: itemForm.remediationPlan.trim(),
         responsibleParty: itemForm.responsibleParty.trim() || null,
-        identifiedAt: itemForm.identifiedAt || null,
-        scheduledCompletion: itemForm.scheduledCompletion || null,
+        identifiedAt: itemForm.identifiedAt || new Date().toISOString().slice(0, 10),
+        scheduledCompletion: itemForm.scheduledCompletion,
       };
       if (editingItem) {
         const resp = await poamService.update(editingItem.id, payload);
@@ -711,7 +722,9 @@ const POAM: React.FC = () => {
                 multiline
                 minRows={2}
                 maxRows={6}
-                helperText="How will this be fixed?"
+                required
+                error={!itemForm.remediationPlan.trim() && saveError?.toLowerCase().includes('remediation')}
+                helperText="How will this be fixed? (Required)"
               />
               <TextField
                 label="Responsible party"
@@ -728,6 +741,7 @@ const POAM: React.FC = () => {
                   onChange={e => setItemForm({ ...itemForm, identifiedAt: e.target.value })}
                   fullWidth
                   InputLabelProps={{ shrink: true }}
+                  helperText="Auto-set to today; editable for historical findings"
                 />
                 <TextField
                   label="Scheduled completion"
@@ -735,7 +749,10 @@ const POAM: React.FC = () => {
                   value={itemForm.scheduledCompletion}
                   onChange={e => setItemForm({ ...itemForm, scheduledCompletion: e.target.value })}
                   fullWidth
+                  required
+                  error={!itemForm.scheduledCompletion && saveError?.toLowerCase().includes('scheduled')}
                   InputLabelProps={{ shrink: true }}
+                  helperText="Target remediation date (Required)"
                 />
               </Stack>
               {saveError && <Alert severity="error">{saveError}</Alert>}
