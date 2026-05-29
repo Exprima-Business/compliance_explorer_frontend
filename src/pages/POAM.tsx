@@ -114,6 +114,7 @@ function blankItemForm(programId: string) {
     responsibleParty: '',
     identifiedAt: today,
     scheduledCompletion: '',
+    completedAt: '',
   };
 }
 
@@ -307,17 +308,31 @@ const POAM: React.FC = () => {
 
   const openEditItem = (it: PoamItem) => {
     setEditingItem(it);
+    // When the auto-POA&M workflow has flagged the row "ready to close"
+    // (underlying control/objective went IMPLEMENTED or N/A), pre-fill the
+    // status as 'completed' and the Completed date as today. The reviewer
+    // still has to hit save — they may want to adjust the remediation plan
+    // first — but the dialog opens with the close already staged. Pair
+    // with the "Save & Close" button label below.
+    const today = new Date().toISOString().slice(0, 10);
+    const stagedStatus: PoamItemStatus =
+      it.readyForClosure && it.status !== 'completed' && it.status !== 'risk_accepted'
+        ? 'completed'
+        : it.status;
+    const stagedCompletedAt =
+      stagedStatus === 'completed' ? (it.completedAt ?? today) : (it.completedAt ?? '');
     setItemForm({
       programId: it.programId,
       controlId: it.controlId ?? '',
       weakness: it.weakness,
       description: it.description ?? '',
       riskLevel: it.riskLevel,
-      status: it.status,
+      status: stagedStatus,
       remediationPlan: it.remediationPlan ?? '',
       responsibleParty: it.responsibleParty ?? '',
       identifiedAt: it.identifiedAt ?? '',
       scheduledCompletion: it.scheduledCompletion ?? '',
+      completedAt: stagedCompletedAt,
     });
     setSaveError(null);
     setItemDialogOpen(true);
@@ -347,6 +362,14 @@ const POAM: React.FC = () => {
     setSaving(true);
     setSaveError(null);
     try {
+      // When the row is being marked completed and no Completed date is
+      // set, stamp today. When the row is being moved BACK out of completed,
+      // clear the Completed date so the column doesn't lie.
+      const today = new Date().toISOString().slice(0, 10);
+      const completedAt =
+        itemForm.status === 'completed'
+          ? (itemForm.completedAt || today)
+          : null;
       const payload = {
         controlId: itemForm.controlId || null,
         weakness: itemForm.weakness.trim(),
@@ -355,8 +378,9 @@ const POAM: React.FC = () => {
         status: itemForm.status,
         remediationPlan: itemForm.remediationPlan.trim(),
         responsibleParty: itemForm.responsibleParty.trim() || null,
-        identifiedAt: itemForm.identifiedAt || new Date().toISOString().slice(0, 10),
+        identifiedAt: itemForm.identifiedAt || today,
         scheduledCompletion: itemForm.scheduledCompletion,
+        completedAt,
       };
       if (editingItem) {
         const resp = await poamService.update(editingItem.id, payload);
@@ -790,8 +814,23 @@ const POAM: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={closeItemDialog} disabled={saving}>Cancel</Button>
-          <Button onClick={saveItem} variant="contained" disabled={saving}>
-            {saving ? 'Saving…' : editingItem ? 'Save' : 'Create'}
+          <Button
+            onClick={saveItem}
+            variant="contained"
+            disabled={saving}
+            color={
+              editingItem && itemForm?.status === 'completed' && editingItem.status !== 'completed'
+                ? 'success'
+                : 'primary'
+            }
+          >
+            {saving
+              ? 'Saving…'
+              : !editingItem
+                ? 'Create'
+                : itemForm?.status === 'completed' && editingItem.status !== 'completed'
+                  ? 'Save & Close'
+                  : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
