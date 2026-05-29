@@ -5,11 +5,13 @@ import type { ApiResponse } from '../types/api';
 // Types — mirror the backend PoamService domain objects (camelCase)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type PoamRiskLevel = 'low' | 'moderate' | 'high';
+// 'critical' added on the BE in migration 066 so auto-created rows
+// triggered by a critical finding have a real default-timeline lookup.
+export type PoamRiskLevel = 'low' | 'moderate' | 'high' | 'critical';
 export type PoamItemStatus = 'open' | 'in_progress' | 'completed' | 'risk_accepted';
 export type PoamMilestoneStatus = 'pending' | 'in_progress' | 'complete';
 
-export const RISK_LEVELS: PoamRiskLevel[] = ['low', 'moderate', 'high'];
+export const RISK_LEVELS: PoamRiskLevel[] = ['low', 'moderate', 'high', 'critical'];
 export const ITEM_STATUSES: PoamItemStatus[] = ['open', 'in_progress', 'completed', 'risk_accepted'];
 export const MILESTONE_STATUSES: PoamMilestoneStatus[] = ['pending', 'in_progress', 'complete'];
 
@@ -31,6 +33,10 @@ export interface PoamItem {
   controlId: string | null;
   /** Human-readable identifier of the linked control (e.g. "03.01.05"). Null when controlId is null. */
   controlIdentifier: string | null;
+  /** Optional link to a specific assessment objective (atomic task grain). */
+  objectiveId: string | null;
+  /** Human-readable objective identifier (e.g. "DS-AC-02a.01[01]"). Null when objectiveId is null. */
+  objectiveIdentifier: string | null;
   weakness: string;
   description: string | null;
   riskLevel: PoamRiskLevel;
@@ -40,6 +46,11 @@ export interface PoamItem {
   identifiedAt: string | null;
   scheduledCompletion: string | null;
   completedAt: string | null;
+  /** True when the platform's auto-POA&M workflow created this row. */
+  autoCreated: boolean;
+  /** True when the underlying control/objective is now closed; needs reviewer confirmation. */
+  readyForClosure: boolean;
+  readyForClosureAt: string | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -50,6 +61,7 @@ export interface PoamItem {
 export interface CreatePoamItemRequest {
   programId: string;
   controlId?: string | null;
+  objectiveId?: string | null;
   weakness: string;
   description?: string | null;
   riskLevel?: PoamRiskLevel;
@@ -63,6 +75,7 @@ export interface CreatePoamItemRequest {
 
 export interface UpdatePoamItemRequest {
   controlId?: string | null;
+  objectiveId?: string | null;
   weakness?: string;
   description?: string | null;
   riskLevel?: PoamRiskLevel;
@@ -191,11 +204,16 @@ export const poamService = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function riskLabel(r: PoamRiskLevel): string {
-  return r === 'low' ? 'Low' : r === 'moderate' ? 'Moderate' : 'High';
+  return r === 'low' ? 'Low'
+    : r === 'moderate' ? 'Moderate'
+    : r === 'high' ? 'High'
+    : 'Critical';
 }
 
 export function riskColor(r: PoamRiskLevel): 'success' | 'warning' | 'error' {
-  return r === 'low' ? 'success' : r === 'moderate' ? 'warning' : 'error';
+  return r === 'low' ? 'success'
+    : r === 'moderate' ? 'warning'
+    : 'error'; // high + critical both render red
 }
 
 export function itemStatusLabel(s: PoamItemStatus): string {

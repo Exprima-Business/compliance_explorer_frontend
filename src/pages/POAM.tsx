@@ -576,6 +576,35 @@ const POAM: React.FC = () => {
                               sx={{ fontFamily: 'monospace', fontWeight: 600 }}
                             />
                           )}
+                          {/* Objective-grain chip — tells reviewers this row tracks one
+                              specific 800-53A "determine if..." statement, not the whole control. */}
+                          {it.objectiveIdentifier && (
+                            <Chip
+                              size="small"
+                              label={it.objectiveIdentifier}
+                              variant="outlined"
+                              sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+                              title="Linked to a specific assessment objective"
+                            />
+                          )}
+                          {it.autoCreated && (
+                            <Chip
+                              size="small"
+                              label="Auto"
+                              variant="outlined"
+                              color="info"
+                              title="Created automatically by the auto-POA&M workflow on a control or objective status change"
+                            />
+                          )}
+                          {it.readyForClosure && (
+                            <Chip
+                              size="small"
+                              label="Ready to close"
+                              variant="filled"
+                              color="success"
+                              title="The underlying control/objective is now closed. Confirm the remediation plan, then mark this row completed."
+                            />
+                          )}
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{it.weakness}</Typography>
                         </Stack>
                         {it.description && (
