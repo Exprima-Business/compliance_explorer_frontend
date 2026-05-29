@@ -75,4 +75,7 @@ export const keys = {
     ['obligations', 'instance', id] as const,
   obligationInstancesDueSoon: (days: number) =>
     ['obligations', 'instances', 'due-soon', days] as const,
+  // W2 — cross-framework control credit
+  crossFwCredit: (controlId: string) =>
+    ['cross-fw-credit', controlId] as const,
 };

@@ -42,7 +42,9 @@ import {
   UploadFile as UploadFileIcon,
   Description as DocumentIcon,
   Flag as FlagIcon,
+  Hub as HubIcon,
 } from '@mui/icons-material';
+import CrossFrameworkCreditPanel from '../components/CrossFrameworkCreditPanel';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
 import { useAuth } from '../hooks/useAuth';
@@ -670,6 +672,7 @@ const ControlRow: React.FC<{
   const [objectivesOpen, setObjectivesOpen] = useState(false);
   const [detailObj, setDetailObj] = useState<ParsedObjective | null>(null);
   const [detailStatus, setDetailStatus] = useState<ObjectiveStatusEntry | null>(null);
+  const [crossFwOpen, setCrossFwOpen] = useState(false);
   const statusCfg = resolveStatusVisuals(findStatusOption(statusConfig, control.status), control.status);
   const navigate = useNavigate();
 
@@ -816,6 +819,16 @@ const ControlRow: React.FC<{
             </IconButton>
           </Tooltip>
         )}
+        <Tooltip title="Cross-framework credit — what other controls does this satisfy?">
+          <IconButton
+            size="small"
+            onClick={() => setCrossFwOpen(true)}
+            sx={{ flexShrink: 0, color: 'info.main' }}
+            aria-label={`Cross-framework credit for ${control.identifier}`}
+          >
+            <HubIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       {/* Requirement text — the lettered sub-sections (a., b., c., d.) */}
@@ -922,6 +935,29 @@ const ControlRow: React.FC<{
           setDetailStatus(null);
         }}
       />
+
+      {/* Cross-framework credit dialog (W2) */}
+      <Dialog
+        open={crossFwOpen}
+        onClose={() => setCrossFwOpen(false)}
+        fullWidth
+        maxWidth="lg"
+      >
+        <DialogTitle>
+          Cross-framework credit
+          <Typography variant="caption" display="block" color="text.secondary">
+            Implementing one control can credit related controls across other frameworks.
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {crossFwOpen && (
+            <CrossFrameworkCreditPanel controlId={control.id} variant="wide" />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCrossFwOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
