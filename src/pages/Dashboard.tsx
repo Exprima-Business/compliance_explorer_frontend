@@ -39,6 +39,7 @@ import { useProject } from '../contexts/ProjectContext';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { FloatingPanel } from '../components/FloatingPanel';
+import ObligationsDueWidget from '../components/ObligationsDueWidget';
 import type { Clause, RiskClassification, ClauseFamilyGroup } from '../types/clause';
 import { apiCall } from '../services/api';
 import {
@@ -343,6 +344,9 @@ const Dashboard: React.FC = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* ── Obligations widget (W3 Phase 4) ─────────────────────── */}
+      <ObligationsDueWidget />
 
       {/* ── Risk Distribution ───────────────────────────────────── */}
       {stats.projectClauses > 0 && (
