@@ -99,9 +99,37 @@ function downloadCsv(filename: string, rows: string[][]): void {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Default remediation windows by risk level. Mirrors the system rows seeded
+ * in BE migration 066 `poam_default_timelines` so manual edits in this
+ * dialog match what the auto-POA&M workflow would have set on the server.
+ *
+ * Org-specific or framework-required overrides exist in the BE table but
+ * are NOT consulted here — this is a UX shortcut, not an enforcement
+ * boundary. If you need org-aware defaults in this dialog later, fetch
+ * `/api/poam/default-timelines?programId=…` on dialog open and use the
+ * resolved map.
+ */
+const DEFAULT_REMEDIATION_DAYS: Record<PoamRiskLevel, number> = {
+  critical: 7,
+  high: 14,
+  moderate: 30,
+  low: 60,
+};
+
+/** Add `days` to an ISO date string ('YYYY-MM-DD'). UTC-safe. */
+function addDaysToDate(isoDate: string, days: number): string {
+  const d = new Date(isoDate + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function blankItemForm(programId: string) {
   // Auto-set Identified date to today on new manual entry. The field stays
   // editable for cases where the weakness was discovered earlier than today.
+  // Scheduled completion seeds to today + 30 days (moderate default) so the
+  // required field is filled out of the box — the user can change either
+  // risk or the date and both stay in sync until the date is touched manually.
   const today = new Date().toISOString().slice(0, 10);
   return {
     programId,
@@ -113,7 +141,7 @@ function blankItemForm(programId: string) {
     remediationPlan: '',
     responsibleParty: '',
     identifiedAt: today,
-    scheduledCompletion: '',
+    scheduledCompletion: addDaysToDate(today, DEFAULT_REMEDIATION_DAYS.moderate),
     completedAt: '',
   };
 }
@@ -153,6 +181,13 @@ const POAM: React.FC = () => {
   const [itemForm, setItemForm] = useState<ItemForm | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Tracks whether the user has manually overridden the auto-computed
+  // scheduled completion. While false, changing the risk level recomputes
+  // scheduled = identified + days_for(risk). Flips to true the moment the
+  // user types directly into the Scheduled completion field. Per user
+  // direction (2026-05-29): "if the scheduled close has been modified by
+  // the user prior to the risk level changing, keep the modified value."
+  const [schedManuallyEdited, setSchedManuallyEdited] = useState(false);
 
   // Milestone dialog
   const [msDialogOpen, setMsDialogOpen] = useState(false);
@@ -302,6 +337,9 @@ const POAM: React.FC = () => {
     if (!programId) return;
     setEditingItem(null);
     setItemForm(blankItemForm(programId));
+    // Fresh create — scheduled completion is the auto-computed default
+    // (today + 30d). The user hasn't touched it yet.
+    setSchedManuallyEdited(false);
     setSaveError(null);
     setItemDialogOpen(true);
   };
@@ -334,6 +372,21 @@ const POAM: React.FC = () => {
       scheduledCompletion: it.scheduledCompletion ?? '',
       completedAt: stagedCompletedAt,
     });
+    // Detect whether the existing scheduled date matches what we'd auto-
+    // compute (identified + days_for(risk)). If they match, treat as
+    // still-using-default — future risk-level changes will recompute.
+    // If they don't match (user manually adjusted, or BE used an
+    // org-specific override we don't know about), preserve the manual
+    // override and stop auto-recomputing.
+    const expected =
+      it.identifiedAt
+        ? addDaysToDate(it.identifiedAt, DEFAULT_REMEDIATION_DAYS[it.riskLevel])
+        : null;
+    setSchedManuallyEdited(
+      it.scheduledCompletion !== null
+        && it.scheduledCompletion !== ''
+        && it.scheduledCompletion !== expected,
+    );
     setSaveError(null);
     setItemDialogOpen(true);
   };
@@ -748,8 +801,31 @@ const POAM: React.FC = () => {
                   select
                   label="Risk level"
                   value={itemForm.riskLevel}
-                  onChange={e => setItemForm({ ...itemForm, riskLevel: e.target.value as PoamRiskLevel })}
+                  onChange={e => {
+                    const newRisk = e.target.value as PoamRiskLevel;
+                    // If the user hasn't manually overridden the scheduled
+                    // date, slide it to identified + days_for(newRisk) so
+                    // the remediation window always matches the risk.
+                    // Critical=7d / High=14d / Moderate=30d / Low=60d.
+                    if (!schedManuallyEdited && itemForm.identifiedAt) {
+                      setItemForm({
+                        ...itemForm,
+                        riskLevel: newRisk,
+                        scheduledCompletion: addDaysToDate(
+                          itemForm.identifiedAt,
+                          DEFAULT_REMEDIATION_DAYS[newRisk],
+                        ),
+                      });
+                    } else {
+                      setItemForm({ ...itemForm, riskLevel: newRisk });
+                    }
+                  }}
                   fullWidth
+                  helperText={
+                    schedManuallyEdited
+                      ? 'Scheduled date is locked to your manual value.'
+                      : `Scheduled date auto-tracks to identified + ${DEFAULT_REMEDIATION_DAYS[itemForm.riskLevel]}d for this risk.`
+                  }
                 >
                   {RISK_LEVELS.map(r => (
                     <MenuItem key={r} value={r}>{riskLabel(r)}</MenuItem>
@@ -800,12 +876,31 @@ const POAM: React.FC = () => {
                   label="Scheduled completion"
                   type="date"
                   value={itemForm.scheduledCompletion}
-                  onChange={e => setItemForm({ ...itemForm, scheduledCompletion: e.target.value })}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    // Mark as manually edited the moment the user types a
+                    // value that differs from what we'd auto-compute. From
+                    // then on, risk-level changes leave this date alone.
+                    // Setting it to the auto value (or clearing it) does
+                    // NOT trip the flag — that's a no-op from the user's
+                    // perspective.
+                    const expected = itemForm.identifiedAt
+                      ? addDaysToDate(itemForm.identifiedAt, DEFAULT_REMEDIATION_DAYS[itemForm.riskLevel])
+                      : null;
+                    if (newValue && newValue !== expected) {
+                      setSchedManuallyEdited(true);
+                    }
+                    setItemForm({ ...itemForm, scheduledCompletion: newValue });
+                  }}
                   fullWidth
                   required
                   error={!itemForm.scheduledCompletion && saveError?.toLowerCase().includes('scheduled')}
                   InputLabelProps={{ shrink: true }}
-                  helperText="Target remediation date (Required)"
+                  helperText={
+                    schedManuallyEdited
+                      ? 'Manual value — won’t change when risk level changes.'
+                      : 'Auto-tracks risk level (Required)'
+                  }
                 />
               </Stack>
               {saveError && <Alert severity="error">{saveError}</Alert>}
