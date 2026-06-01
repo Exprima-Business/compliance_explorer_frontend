@@ -7,13 +7,19 @@ export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current directory.
   // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
   const env = loadEnv(mode, process.cwd(), '')
-  
-  // Debug logging for environment variables
-  console.log('Vite Config - Environment Variables:');
-  console.log('Mode:', mode);
-  console.log('VITE_SUPABASE_URL:', env.VITE_SUPABASE_URL);
-  console.log('VITE_SUPABASE_ANON_KEY:', env.VITE_SUPABASE_ANON_KEY ? '***' : 'not set');
-  
+
+  // V2-M-10 (security audit 2026-06 v2): only emit env-var debug to the
+  // build log in non-production. Even though the anon key is already
+  // redacted, the URL and mode log lines were ending up in every Vercel
+  // build log — needless surface, and the pattern was one TODO away from
+  // someone "improving" the log to be less mysterious by un-redacting.
+  if (mode !== 'production') {
+    console.log('Vite Config - Environment Variables:');
+    console.log('Mode:', mode);
+    console.log('VITE_SUPABASE_URL:', env.VITE_SUPABASE_URL);
+    console.log('VITE_SUPABASE_ANON_KEY:', env.VITE_SUPABASE_ANON_KEY ? '***' : 'not set');
+  }
+
   const apiUrl = env.VITE_API_URL || 'http://localhost:3001'
 
   return {

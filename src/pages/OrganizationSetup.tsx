@@ -151,9 +151,17 @@ const OrganizationSetup: React.FC = () => {
         // org claims and setup_required: false). This is a one-time setup flow
         // so the reload cost is negligible.
         //
-        // Build the correct absolute URL. With app.clauseatlas.com the app
-        // is served from root, so no path prefix is needed.
-        const relativePath = data.redirectTo || '/';
+        // V2-M-09 (security audit 2026-06 v2): validate `redirectTo` is a
+        // same-origin path. The server returns this value today, but if a
+        // future change ever lets it carry an absolute URL or starts with
+        // `//`, we'd have an open-redirect vector. Reject anything that
+        // doesn't start with a single `/` (relative path, same-origin).
+        const proposed = data.redirectTo || '/';
+        const isSameOriginPath =
+          typeof proposed === 'string'
+          && proposed.startsWith('/')
+          && !proposed.startsWith('//');
+        const relativePath = isSameOriginPath ? proposed : '/';
         window.location.href = relativePath;
       } else {
         setError(data.error?.message || 'Setup failed');
