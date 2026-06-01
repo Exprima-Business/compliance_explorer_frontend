@@ -124,8 +124,10 @@ const Matrix: React.FC = () => {
   );
 
   // Scan-detected clauses from project_matrix_data — separate key so it
-  // doesn't get invalidated by status flips.
-  const { data: matrixData } = useQuery({
+  // doesn't get invalidated by status flips. Named `matrixScanResp` (not
+  // matrixData) to avoid shadowing the existing bookmark-derived
+  // `matrixData: MatrixRow[]` further down in this component.
+  const { data: matrixScanResp } = useQuery({
     queryKey: keys.matrixData(currentProject?.id),
     queryFn: async () => {
       const res = await apiCall<{
@@ -152,7 +154,7 @@ const Matrix: React.FC = () => {
     staleTime: 5 * 60_000,
   });
   const scanDetectedClauses = useMemo(
-    () => (matrixData?.clauses ?? [])
+    () => (matrixScanResp?.clauses ?? [])
       .filter(c => c.sourceType === 'scan-detected')
       .map(c => ({
         id: c.id,
@@ -162,7 +164,7 @@ const Matrix: React.FC = () => {
         confidence: c.confidence,
         status: c.status,
       })),
-    [matrixData],
+    [matrixScanResp],
   );
 
   const handleActivateFramework = useCallback(async (frameworkId: string) => {
