@@ -46,6 +46,11 @@ export interface RelationshipCandidate {
   created_at: string;
   source: CandidateArtifactRef;
   target: CandidateArtifactRef;
+  auto_proposed_type?: string | null;
+  auto_proposed_notes?: string | null;
+  auto_proposed_confidence?: number | null;
+  auto_proposed_at?: string | null;
+  auto_proposed_by?: string | null;
 }
 
 export interface CandidatesListResponse {
@@ -110,6 +115,22 @@ export async function parkCandidate(
   return apiCall(`/api/regulatory-review/candidates/${id}/park`, {
     method: 'POST',
     body: JSON.stringify({ reviewer_notes }),
+    requireAuth: true,
+  });
+}
+
+export async function bulkSetProposals(
+  proposals: Array<{
+    candidate_id: string;
+    proposed_type: string;
+    notes: string;
+    confidence: number;
+    proposed_by: string;
+  }>,
+): Promise<ApiResponse<{ updated: number; skipped: string[] }>> {
+  return apiCall(`/api/regulatory-review/candidates/bulk-propose`, {
+    method: 'POST',
+    body: JSON.stringify({ proposals }),
     requireAuth: true,
   });
 }

@@ -23,6 +23,8 @@ import GavelIcon from '@mui/icons-material/Gavel';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import DownloadIcon from '@mui/icons-material/Download';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import {
   acceptCandidate,
   fetchCandidates,
@@ -107,12 +109,17 @@ const RegulatoryGraphReview: React.FC = () => {
 
   useEffect(() => { void load(); }, [load]);
 
-  const handleAccept = async (candidate: RelationshipCandidate, overrideType?: RelationshipType) => {
+  const handleAccept = async (
+    candidate: RelationshipCandidate,
+    overrideType?: RelationshipType,
+    reviewerNotes?: string,
+  ) => {
     setActioningId(candidate.id);
     setError(null);
     try {
       const resp = await acceptCandidate(candidate.id, {
         relationship_type: overrideType || candidate.suggested_relationship_type,
+        ...(reviewerNotes ? { reviewer_notes: reviewerNotes } : {}),
       });
       if (resp.error) {
         setError(extractErrorMessage(resp.error));
@@ -141,6 +148,33 @@ const RegulatoryGraphReview: React.FC = () => {
   const closeReject = () => {
     setRejectId(null);
     setRejectNotes('');
+  };
+
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadPending = async () => {
+    setDownloading(true);
+    setError(null);
+    try {
+      const resp = await fetchCandidates({ status: 'pending', limit: 200 });
+      if (resp.error) {
+        setError(extractErrorMessage(resp.error));
+        return;
+      }
+      if (!resp.data) return;
+      const blob = new Blob([JSON.stringify(resp.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const today = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pending-candidates-${today}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const submitReject = async () => {
@@ -179,9 +213,18 @@ const RegulatoryGraphReview: React.FC = () => {
       {/* Header */}
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 0.5 }}>
         <GavelIcon color="primary" />
-        <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700 }}>
+        <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700, flexGrow: 1 }}>
           Regulatory Graph Review
         </Typography>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={downloading ? <CircularProgress size={14} /> : <DownloadIcon />}
+          onClick={handleDownloadPending}
+          disabled={downloading}
+        >
+          Download pending (JSON)
+        </Button>
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Review proposed relationship edges between regulatory artifacts. Every accepted edge
@@ -237,7 +280,7 @@ const RegulatoryGraphReview: React.FC = () => {
               key={c.id}
               candidate={c}
               busy={actioningId === c.id}
-              onAccept={(type) => handleAccept(c, type)}
+              onAccept={(type, notes) => handleAccept(c, type, notes)}
               onReject={() => openReject(c.id, 'reject')}
               onPark={() => openReject(c.id, 'park')}
             />
@@ -291,7 +334,7 @@ const RegulatoryGraphReview: React.FC = () => {
 const CandidateCard: React.FC<{
   candidate: RelationshipCandidate;
   busy: boolean;
-  onAccept: (overrideType?: RelationshipType) => void;
+  onAccept: (overrideType?: RelationshipType, reviewerNotes?: string) => void;
   onReject: () => void;
   onPark: () => void;
 }> = ({ candidate, busy, onAccept, onReject, onPark }) => {
@@ -300,6 +343,29 @@ const CandidateCard: React.FC<{
   const isPending = candidate.status === 'pending';
   const sourceColor = artifactTypeColor(candidate.source.artifact_type);
   const targetColor = artifactTypeColor(candidate.target.artifact_type);
+
+  // AI proposal — backend may populate auto_proposed_* via the bulk-propose endpoint.
+  // The proposed_type is a string from the BE; only treat it as a valid RelationshipType
+  // if it's in our known list (otherwise we fall through to suggested_relationship_type).
+  const proposedType = candidate.auto_proposed_type;
+  const proposedTypeIsKnown = proposedType
+    ? (RELATIONSHIP_TYPES as readonly string[]).includes(proposedType)
+    : false;
+  const proposedConfidence = candidate.auto_proposed_confidence;
+  const proposedBy = candidate.auto_proposed_by;
+  const proposedNotes = candidate.auto_proposed_notes;
+  const hasProposal = Boolean(proposedType);
+
+  const handleAcceptProposal = () => {
+    if (proposedTypeIsKnown && proposedType) {
+      // Pre-fill the existing form's relationship-type dropdown, then trigger accept.
+      setTypeOverride(proposedType as RelationshipType);
+      onAccept(proposedType as RelationshipType, proposedNotes || undefined);
+    } else {
+      // Fall back to whatever's currently selected if the proposed_type is unknown.
+      onAccept(typeOverride, proposedNotes || undefined);
+    }
+  };
 
   return (
     <Card variant="outlined">
@@ -431,6 +497,48 @@ const CandidateCard: React.FC<{
             </Typography>
             {candidate.reviewer_notes}
           </Alert>
+        )}
+
+        {/* AI proposal — inline, only visible when an automated reviewer has weighed in */}
+        {hasProposal && (
+          <Box
+            sx={{
+              bgcolor: 'info.50',
+              border: '1px dashed',
+              borderColor: 'info.main',
+              borderRadius: 1,
+              p: 1.5,
+              mt: 1,
+            }}
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <AutoAwesomeIcon fontSize="small" color="info" />
+              <Typography variant="caption">
+                AI proposes: <code>{proposedType}</code>
+                {typeof proposedConfidence === 'number' && (
+                  <> ({Math.round(proposedConfidence * 100)}% confidence)</>
+                )}
+                {proposedBy && <> — {proposedBy}</>}
+              </Typography>
+            </Stack>
+            {proposedNotes && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                {proposedNotes}
+              </Typography>
+            )}
+            {isPending && (
+              <Button
+                size="small"
+                variant="contained"
+                color="info"
+                onClick={handleAcceptProposal}
+                disabled={busy}
+                sx={{ mt: 1 }}
+              >
+                Accept proposal
+              </Button>
+            )}
+          </Box>
         )}
 
         {/* Action buttons — only on pending */}
