@@ -376,14 +376,26 @@ const POAM: React.FC = () => {
   // ── Export ───────────────────────────────────────────────────────────────
   const handleExportCsv = () => {
     if (items.length === 0) return;
+    // G-01: add objective_identifier, auto_created, ready_for_closure,
+    //       created_at columns. The objective identifier was previously
+    //       only embedded inside the weakness text; auditors need it as
+    //       its own column for filtering / pivot analysis. Auto / Ready
+    //       flags surface posture-story signal the FE shows as chips.
+    // G-04: stable order — sort by identified_at ASC (with created_at
+    //       ASC as tiebreaker) so item numbers don't reshuffle each
+    //       export when new rows land.
     const header = [
       'Item #',
       'Linked control',
+      'Objective',
       'Weakness',
       'Description',
       'Risk level',
       'Status',
+      'Auto-created',
+      'Ready to close',
       'Responsible party',
+      'Created at',
       'Identified',
       'Scheduled completion',
       'Completed',
@@ -391,18 +403,30 @@ const POAM: React.FC = () => {
       'Milestones',
     ];
     const rows: string[][] = [header];
-    items.forEach((it, idx) => {
+    const sortedItems = [...items].sort((a, b) => {
+      const aIdent = a.identifiedAt ?? '';
+      const bIdent = b.identifiedAt ?? '';
+      const byIdent = aIdent.localeCompare(bIdent);
+      if (byIdent !== 0) return byIdent;
+      // Tiebreaker — createdAt is always populated.
+      return (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
+    });
+    sortedItems.forEach((it, idx) => {
       const milestones = it.milestones
         .map(ms => `[${milestoneStatusLabel(ms.status)}${ms.targetDate ? `, target ${csvDate(ms.targetDate)}` : ''}] ${ms.description}`)
         .join(' | ');
       rows.push([
         String(idx + 1),
         it.controlIdentifier ?? '',
+        it.objectiveIdentifier ?? '',
         it.weakness,
         it.description ?? '',
         riskLabel(it.riskLevel),
         itemStatusLabel(it.status),
+        it.autoCreated ? 'Yes' : '',
+        it.readyForClosure ? 'Yes' : '',
         it.responsibleParty ?? '',
+        csvDate(it.createdAt),
         csvDate(it.identifiedAt),
         csvDate(it.scheduledCompletion),
         csvDate(it.completedAt),
