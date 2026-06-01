@@ -37,6 +37,7 @@ import {
   type RegulatoryArtifactRef,
 } from '../services/clauseService';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { safeHref } from '../utils/safeHref';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
@@ -329,17 +330,21 @@ const ClauseDetail: React.FC = () => {
               <Typography variant="caption" color="text.secondary">
                 {graph.artifact.source_authority}
               </Typography>
-              {graph.artifact.source_url && (
-                <Link
-                  href={graph.artifact.source_url}
-                  target="_blank"
-                  rel="noopener"
-                  variant="caption"
-                  sx={{ ml: 1 }}
-                >
-                  Authoritative source ↗
-                </Link>
-              )}
+              {(() => {
+                const safeUrl = safeHref(graph.artifact.source_url);
+                if (!safeUrl) return null;
+                return (
+                  <Link
+                    href={safeUrl}
+                    target="_blank"
+                    rel="noopener"
+                    variant="caption"
+                    sx={{ ml: 1 }}
+                  >
+                    Authoritative source ↗
+                  </Link>
+                );
+              })()}
             </Stack>
           )}
         </Box>

@@ -8,6 +8,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import LinkIcon from '@mui/icons-material/Link';
 import LaunchIcon from '@mui/icons-material/Launch';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import { safeHref } from '../utils/safeHref';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import CloseIcon from '@mui/icons-material/Close';
 import { useNavigate } from 'react-router-dom';
@@ -398,44 +399,50 @@ export const ClauseCard = ({ clause, onBookmarkToggle, onClose, sx, compact = fa
                 </Box>
               </Box>
 
-              {/* Reference URL */}
-              {clause.referenceUrl && (
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 1,
-                  gridColumn: 'span 2'
-                }}>
-                  <LinkIcon sx={{ color: 'primary.main', fontSize: 20 }} />
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Reference
-                    </Typography>
-                    <Box sx={{ mt: 0.5 }}>
-                      <Button
-                        href={clause.referenceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          fontSize: '0.75rem',
-                          textTransform: 'none',
-                          color: 'primary.main',
-                          borderColor: 'rgba(0,184,217,0.3)',
-                          bgcolor: 'rgba(0,184,217,0.05)',
-                          '&:hover': {
-                            bgcolor: 'rgba(0,184,217,0.1)',
-                            borderColor: 'rgba(0,184,217,0.5)',
-                          },
-                        }}
-                      >
-                        View Full Text
-                      </Button>
+              {/* Reference URL — filtered through safeHref so any non-http(s)/
+                  mailto URL is suppressed (defense-in-depth before the
+                  regulatory-graph import path lands). V2-H-08. */}
+              {(() => {
+                const safeUrl = safeHref(clause.referenceUrl);
+                if (!safeUrl) return null;
+                return (
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    gridColumn: 'span 2'
+                  }}>
+                    <LinkIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Reference
+                      </Typography>
+                      <Box sx={{ mt: 0.5 }}>
+                        <Button
+                          href={safeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            fontSize: '0.75rem',
+                            textTransform: 'none',
+                            color: 'primary.main',
+                            borderColor: 'rgba(0,184,217,0.3)',
+                            bgcolor: 'rgba(0,184,217,0.05)',
+                            '&:hover': {
+                              bgcolor: 'rgba(0,184,217,0.1)',
+                              borderColor: 'rgba(0,184,217,0.5)',
+                            },
+                          }}
+                        >
+                          View Full Text
+                        </Button>
+                      </Box>
                     </Box>
                   </Box>
-                </Box>
-              )}
+                );
+              })()}
             </Box>
           </Stack>
         </Paper>
