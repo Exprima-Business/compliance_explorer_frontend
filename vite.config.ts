@@ -96,7 +96,15 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-      chunkSizeWarningLimit: 600,
+      // Vite's default is 500 KB. This repo was at 1000 prior to the
+      // bundle-size optimization. After optimization, the largest eagerly-
+      // loaded chunk is mui-core at ~360 KB unminified / ~107 KB gz.
+      // exceljs is the only chunk over 600 (939 KB unminified, 271 KB gz)
+      // and it's intentionally click-loaded via dynamic import — the
+      // warning was firing on the artifact we explicitly defended against.
+      // 1000 KB still catches a real regression (e.g. exceljs becoming
+      // eager again would push the entry chunk past 1000 instantly).
+      chunkSizeWarningLimit: 1000,
     }
   }
 })
