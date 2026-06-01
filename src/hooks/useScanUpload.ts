@@ -163,11 +163,32 @@ export function useScanUpload(initialScanId?: string): ScanUploadResult {
     async (id: string) => {
       closeSSE();
       try {
+        // Per BE security audit 2026-06 (M-04): fetch a short-lived single-
+        // use SSE ticket and pass that in the URL instead of the full JWT.
+        // The JWT goes only in the Authorization header on the ticket-mint
+        // request, never in the URL where it would persist in logs / history.
         const token = await getAuthToken();
+        const ticketRes = await fetch(`${environment.api.url}/api/auth/sse-ticket`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token ?? ''}`,
+          },
+          credentials: 'include',
+        });
+        if (!ticketRes.ok) {
+          throw new Error(`Failed to mint SSE ticket: ${ticketRes.status}`);
+        }
+        const ticketJson = await ticketRes.json();
+        const ticket: string | undefined = ticketJson?.data?.ticket;
+        if (!ticket) {
+          throw new Error('SSE ticket response missing ticket value');
+        }
+
         const orgId = localStorage.getItem('orgId') ?? '';
         const projectId = localStorage.getItem('projectId') ?? '';
 
-        let url = `${environment.api.url}/api/scans/${id}/stream?token=${encodeURIComponent(token ?? '')}`;
+        let url = `${environment.api.url}/api/scans/${id}/stream?ticket=${encodeURIComponent(ticket)}`;
         if (orgId) url += `&orgId=${encodeURIComponent(orgId)}`;
         if (projectId) url += `&projectId=${encodeURIComponent(projectId)}`;
 
