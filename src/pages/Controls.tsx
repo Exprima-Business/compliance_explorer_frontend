@@ -48,6 +48,8 @@ import CrossFrameworkCreditPanel from '../components/CrossFrameworkCreditPanel';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
 import { useAuth } from '../hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
+import { keys } from '../queryClient';
 import {
   fetchFrameworks,
   fetchFrameworkWithStatus,
@@ -1211,6 +1213,7 @@ const Controls: React.FC = () => {
   const navigate = useNavigate();
   const { currentProject } = useProject();
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const qc = useQueryClient();
 
   // State
   const [frameworks, setFrameworks] = useState<ControlFramework[]>([]);
@@ -1526,6 +1529,12 @@ const Controls: React.FC = () => {
 
     try {
       await updateControlStatus(controlId, newStatus);
+      // React Query invalidation — control status flips change the shared
+      // project summary (Dashboard + Matrix heatmap) and the matrix activation
+      // counts. Fire-and-forget; the page's own state was already updated
+      // optimistically above, so we don't need to await the refetches.
+      qc.invalidateQueries({ queryKey: keys.projectSummary(undefined, currentProject?.id) });
+      qc.invalidateQueries({ queryKey: keys.matrix(undefined, currentProject?.id) });
       const visuals = resolveStatusVisuals(
         findStatusOption(activeFramework?.status_config, newStatus),
         newStatus,
@@ -1552,6 +1561,11 @@ const Controls: React.FC = () => {
   const handleObjectiveStatusChange = useCallback(async (objectiveId: string, newStatus: ControlStatus) => {
     try {
       await updateObjectiveStatus(objectiveId, newStatus);
+      // Objective flips roll up to a control status on the BE and trigger
+      // auto-POA&M creation/closure. The shared project summary and any
+      // POA&M views need to refetch — invalidate the matching keys.
+      qc.invalidateQueries({ queryKey: keys.projectSummary(undefined, currentProject?.id) });
+      qc.invalidateQueries({ queryKey: keys.matrix(undefined, currentProject?.id) });
 
       // Optimistic update in local state
       setObjectiveStatuses(prev => {

@@ -50,12 +50,20 @@ export const queryClient = new QueryClient({
  * Add new key roots here as more services adopt React Query.
  */
 export const keys = {
-  // Dashboard
+  // Shared compliance roll-up — `/api/controls/project-summary`. Used by
+  // BOTH Dashboard and Matrix; one fetch, shared cache. Invalidate this
+  // key after any status flip (control or objective) — it's the only
+  // read that feeds the high-level posture views.
+  projectSummary: (orgId?: string, projectId?: string) =>
+    ['project-summary', orgId, projectId] as const,
+  // Dashboard-only reads (anything beyond the shared summary)
   dashboard: (orgId?: string, projectId?: string) =>
     ['dashboard', orgId, projectId] as const,
-  // Matrix
+  // Matrix-only reads (heatmap clause-detection overlay)
   matrix: (orgId?: string, projectId?: string) =>
     ['matrix', orgId, projectId] as const,
+  matrixData: (projectId?: string) =>
+    ['matrix-data', projectId] as const,
   // Controls / objective statuses
   controls: (orgId?: string, projectId?: string) =>
     ['controls', orgId, projectId] as const,

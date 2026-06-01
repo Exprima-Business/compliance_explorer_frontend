@@ -19,6 +19,9 @@ import {
   activateFramework, type FrameworkRecommendation, type ControlFramework
 } from '../services/controlService';
 import { apiCall } from '../services/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keys } from '../queryClient';
+import { useProjectSummary } from '../hooks/useProjectSummary';
 
 // Heatmap types
 interface FamilyHeatmapData {
@@ -69,21 +72,11 @@ const Matrix: React.FC = () => {
   const { bookmarks, loading: bookmarkLoading } = useBookmarks();
   const { currentProject } = useProject();
   const { projectId } = useParams<{ projectId?: string }>();
+  const qc = useQueryClient();
 
   // Framework activation state
-  const [recommendations, setRecommendations] = useState<FrameworkRecommendation[]>([]);
-  const [activatedFrameworks, setActivatedFrameworks] = useState<ControlFramework[]>([]);
   const [activating, setActivating] = useState<string | null>(null);
   const [snackMsg, setSnackMsg] = useState<string | null>(null);
-  const [heatmapData, setHeatmapData] = useState<FrameworkHeatmapData[]>([]);
-  const [scanDetectedClauses, setScanDetectedClauses] = useState<Array<{
-    id: string;
-    clauseCode: string;
-    title: string;
-    description: string;
-    confidence: number;
-    status: string;
-  }>>([]);
 
   // If the URL contains a projectId, persist it to localStorage so that
   // ProjectContext picks it up on its next refresh cycle. This allows
@@ -94,86 +87,95 @@ const Matrix: React.FC = () => {
     }
   }, [projectId]);
 
-  // Load framework recommendations and activation status
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [recs, activated] = await Promise.all([
-          fetchRecommendedFrameworks(),
-          fetchActivatedFrameworks(),
-        ]);
-        if (!cancelled) {
-          setRecommendations(recs);
-          setActivatedFrameworks(activated);
-        }
-      } catch {
-        // Non-fatal — banner just won't show
-      }
+  // Framework recommendations + activated frameworks — single React Query
+  // entry so an activation mutation can invalidate one key. The query is
+  // disabled until the project is loaded, avoiding the spinner flash.
+  const { data: frameworksData } = useQuery({
+    queryKey: keys.matrix(undefined, currentProject?.id),
+    queryFn: async () => {
+      const [recs, activated] = await Promise.all([
+        fetchRecommendedFrameworks(),
+        fetchActivatedFrameworks(),
+      ]);
+      return { recommendations: recs, activatedFrameworks: activated };
+    },
+    enabled: !!currentProject?.id,
+  });
+  const recommendations: FrameworkRecommendation[] = frameworksData?.recommendations ?? [];
+  const activatedFrameworks: ControlFramework[] = frameworksData?.activatedFrameworks ?? [];
 
-      // Fetch heatmap data from project-summary
-      try {
-        const res = await apiCall<{
-          frameworks: FrameworkHeatmapData[];
-        }>('/api/controls/project-summary', { requireAuth: true });
-        if (!cancelled && res.data?.frameworks) {
-          setHeatmapData(res.data.frameworks);
-        }
-      } catch {
-        // Non-fatal
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [currentProject?.id]);
+  // Heatmap data — SHARED with Dashboard via the projectSummary key. Back-
+  // nav between Dashboard and Matrix is a cache hit. Status flips invalidate
+  // this key (see Controls.tsx handleStatusChange + handleObjectiveStatusChange).
+  const { data: projectSummary } = useProjectSummary();
+  // useProjectSummary returns the canonical shape; cast members the Matrix
+  // page expects (FrameworkHeatmapData) onto it — they're structurally
+  // compatible (FamilySummary ↔ FamilyHeatmapData).
+  const heatmapData: FrameworkHeatmapData[] = useMemo(
+    () => (projectSummary?.frameworks ?? []).map(fw => ({
+      id: fw.id,
+      name: fw.name,
+      families: (fw.families ?? []) as FamilyHeatmapData[],
+      completionPct: fw.completionPct,
+      applicableControls: fw.applicableControls,
+      notApplicable: fw.notApplicable,
+    })),
+    [projectSummary],
+  );
 
-  // Fetch scan-detected clauses from project_matrix_data
-  useEffect(() => {
-    if (!currentProject?.id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiCall<{
-          clauses: Array<{
-            id: string;
-            clauseId: string;
-            clauseCode?: string;
-            sourceType?: string;
-            title: string;
-            description: string;
-            confidence: number;
-            status: string;
-          }>;
-        }>(`/api/projects/${currentProject.id}/matrix-data?limit=500`, { requireAuth: true });
-
-        if (!cancelled && res.data?.clauses) {
-          const detected = res.data.clauses
-            .filter(c => c.sourceType === 'scan-detected')
-            .map(c => ({
-              id: c.id,
-              clauseCode: c.clauseCode || c.clauseId || 'Unknown',
-              title: c.title,
-              description: c.description || '',
-              confidence: c.confidence,
-              status: c.status,
-            }));
-          setScanDetectedClauses(detected);
-        }
-      } catch {
-        // Non-fatal
+  // Scan-detected clauses from project_matrix_data — separate key so it
+  // doesn't get invalidated by status flips.
+  const { data: matrixData } = useQuery({
+    queryKey: keys.matrixData(currentProject?.id),
+    queryFn: async () => {
+      const res = await apiCall<{
+        clauses: Array<{
+          id: string;
+          clauseId: string;
+          clauseCode?: string;
+          sourceType?: string;
+          title: string;
+          description: string;
+          confidence: number;
+          status: string;
+        }>;
+      }>(`/api/projects/${currentProject!.id}/matrix-data?limit=500`, { requireAuth: true });
+      if (!res.data) {
+        const msg = typeof res.error === 'string' ? res.error : res.error?.message;
+        throw new Error(msg || 'Failed to load matrix data');
       }
-    })();
-    return () => { cancelled = true; };
-  }, [currentProject?.id]);
+      return res.data;
+    },
+    enabled: !!currentProject?.id,
+    // Matrix data is a heavyweight project_matrix_data scan; cache it
+    // longer than the default since scans happen on demand, not on every flip.
+    staleTime: 5 * 60_000,
+  });
+  const scanDetectedClauses = useMemo(
+    () => (matrixData?.clauses ?? [])
+      .filter(c => c.sourceType === 'scan-detected')
+      .map(c => ({
+        id: c.id,
+        clauseCode: c.clauseCode || c.clauseId || 'Unknown',
+        title: c.title,
+        description: c.description || '',
+        confidence: c.confidence,
+        status: c.status,
+      })),
+    [matrixData],
+  );
 
   const handleActivateFramework = useCallback(async (frameworkId: string) => {
     setActivating(frameworkId);
     try {
       await activateFramework(frameworkId);
-      const activated = await fetchActivatedFrameworks();
-      setActivatedFrameworks(activated);
-      setRecommendations(prev => prev.map(r =>
-        r.framework.id === frameworkId ? { ...r, activated: true } : r
-      ));
+      // Activation changes both the matrix activation set AND the shared
+      // project summary (the new framework appears in the heatmap). Invalidate
+      // both — refetches happen in parallel.
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: keys.matrix(undefined, currentProject?.id) }),
+        qc.invalidateQueries({ queryKey: keys.projectSummary(undefined, currentProject?.id) }),
+      ]);
       setSnackMsg('Framework activated! View controls to begin compliance tracking.');
     } catch {
       setSnackMsg('Failed to activate framework. Please try again.');

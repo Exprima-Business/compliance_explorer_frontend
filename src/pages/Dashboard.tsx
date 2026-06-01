@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Typography,
@@ -41,36 +41,13 @@ import { useNavigate } from 'react-router-dom';
 import { FloatingPanel } from '../components/FloatingPanel';
 import ObligationsDueWidget from '../components/ObligationsDueWidget';
 import type { Clause, RiskClassification, ClauseFamilyGroup } from '../types/clause';
-import { apiCall } from '../services/api';
+import { useProjectSummary } from '../hooks/useProjectSummary';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend,
 } from 'recharts';
 
-// Compliance summary types
-interface FrameworkSummary {
-  id: string;
-  name: string;
-  version: string;
-  totalControls: number;
-  implemented: number;
-  inProgress: number;
-  notStarted: number;
-  completionPct: number;
-  objectives?: { fullyMet: number; partiallyMet: number; notMet: number; total: number };
-}
-
-interface ReciprocitySummary {
-  clauseCode: string;
-  clauseTitle: string;
-  implementedPct: number;
-  total: number;
-  implemented: number;
-}
-
-interface ComplianceSummary {
-  frameworks: FrameworkSummary[];
-  reciprocity: ReciprocitySummary[];
-}
+// Compliance summary types live in the shared `useProjectSummary` hook now —
+// imported above so Dashboard, Matrix, and any future consumer agree on shape.
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -104,21 +81,12 @@ const Dashboard: React.FC = () => {
 
   const [expandedFamily, setExpandedFamily] = useState<string | null>(null);
   const [selectedClause, setSelectedClause] = useState<Clause | null>(null);
-  const [complianceSummary, setComplianceSummary] = useState<ComplianceSummary | null>(null);
 
-  // Fetch compliance progress summary for activated frameworks
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiCall<ComplianceSummary>('/api/controls/project-summary', { requireAuth: true });
-        if (!cancelled && res.data) setComplianceSummary(res.data);
-      } catch {
-        // Non-fatal — section just won't show
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [currentProject?.id]);
+  // Compliance progress summary — React Query. Shared with Matrix.tsx via
+  // the same projectSummary key, so back-navigation between the two views
+  // is cache-instant. Invalidated by control / objective status flips and
+  // POA&M mutations.
+  const { data: complianceSummary = null } = useProjectSummary();
 
   // Valid families for the filter dropdown
   const validFamilies = useMemo(() =>
