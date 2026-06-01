@@ -181,6 +181,22 @@ const POAM: React.FC = () => {
   const [itemForm, setItemForm] = useState<ItemForm | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Filter + group state — multiple filters compose with AND; "all" disables.
+  // Persisted only in component state (not URL) since they're cheap to set.
+  type FilterKey = 'ready_to_close' | 'overdue' | 'auto' | 'manual' | 'high_or_critical';
+  const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
+  const [groupBy, setGroupBy] = useState<'none' | 'control'>('none');
+
+  const toggleFilter = (key: FilterKey) => {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+  const clearFilters = () => setActiveFilters(new Set());
   // Tracks whether the user has manually overridden the auto-computed
   // scheduled completion. While false, changing the risk level recomputes
   // scheduled = identified + days_for(risk). Flips to true the moment the
@@ -281,6 +297,73 @@ const POAM: React.FC = () => {
     return c;
   }, [items]);
 
+  // ── Filtered + grouped view ──────────────────────────────────────────────
+  // Filters compose with AND. `groupBy === 'control'` groups by the
+  // controlIdentifier (rows without a control_id collect under "Unscoped").
+  // The same rows render in either layout — only the grouping changes.
+  const filteredItems = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (activeFilters.size === 0) return items;
+    // Materialize the Set to an Array — older TS targets don't iterate Sets natively.
+    const filters = Array.from(activeFilters);
+    return items.filter(it => {
+      for (const key of filters) {
+        switch (key) {
+          case 'ready_to_close':
+            if (!it.readyForClosure) return false;
+            break;
+          case 'overdue':
+            if (
+              !(
+                it.scheduledCompletion &&
+                it.scheduledCompletion < today &&
+                it.status !== 'completed' &&
+                it.status !== 'risk_accepted'
+              )
+            ) return false;
+            break;
+          case 'auto':
+            if (!it.autoCreated) return false;
+            break;
+          case 'manual':
+            if (it.autoCreated) return false;
+            break;
+          case 'high_or_critical':
+            if (it.riskLevel !== 'high' && it.riskLevel !== 'critical') return false;
+            break;
+        }
+      }
+      return true;
+    });
+  }, [items, activeFilters]);
+
+  /**
+   * When `groupBy === 'control'`, organize filtered items into groups keyed by
+   * `controlIdentifier`. Rows without a controlId end up under "Unscoped".
+   * Groups sorted alphabetically by identifier (Unscoped last).
+   */
+  const grouped = useMemo(() => {
+    if (groupBy !== 'control') return null;
+    const map = new Map<string, PoamItem[]>();
+    for (const it of filteredItems) {
+      const key = it.controlIdentifier || '__unscoped__';
+      const arr = map.get(key) ?? [];
+      arr.push(it);
+      map.set(key, arr);
+    }
+    return Array.from(map.entries())
+      .map(([key, rows]) => ({
+        key,
+        label: key === '__unscoped__' ? 'Unscoped (no control linked)' : `Control ${key}`,
+        rows,
+      }))
+      .sort((a, b) => {
+        if (a.key === '__unscoped__') return 1;
+        if (b.key === '__unscoped__') return -1;
+        return a.key.localeCompare(b.key, undefined, { numeric: true });
+      });
+  }, [filteredItems, groupBy]);
+
   // ── Expansion ────────────────────────────────────────────────────────────
   const toggleExpanded = (id: string) => {
     setExpanded(prev => {
@@ -330,6 +413,59 @@ const POAM: React.FC = () => {
     const slug = (currentProject?.name || 'program').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const today = new Date().toISOString().slice(0, 10);
     downloadCsv(`poam-${slug}-${today}.csv`, rows);
+  };
+
+  // ── OSCAL POA&M export ───────────────────────────────────────────────────
+  /**
+   * Hits the BE endpoint GET /api/oscal/poam/:programId which streams OSCAL
+   * v1.1.2 JSON with an `attachment` Content-Disposition. Tenant scoping is
+   * done on the BE — the FE doesn't have to filter anything.
+   */
+  const [oscalExporting, setOscalExporting] = useState(false);
+  const handleExportOscal = async (includeClosed: boolean) => {
+    if (!programId) return;
+    setOscalExporting(true);
+    setError(null);
+    try {
+      // Use the same apiCall flow as the rest of the service layer so the
+      // Authorization header is attached. Then trigger a save-as in the
+      // browser via a blob URL — we need to preserve the JSON formatting
+      // the BE emits, so just stringify the response data.
+      const url = `/api/oscal/poam/${encodeURIComponent(programId)}${includeClosed ? '?include_closed=true' : ''}`;
+      const token = await (await import('../lib/supabase')).supabase.auth.getSession()
+        .then(s => s.data.session?.access_token);
+      if (!token) {
+        setError('Authentication required to export OSCAL POA&M.');
+        return;
+      }
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL ?? ''}${url}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        },
+      );
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`OSCAL export failed (${resp.status}): ${text.slice(0, 200)}`);
+      }
+      const json = await resp.text();
+      const blob = new Blob([json], { type: 'application/json' });
+      const blobUrl = URL.createObjectURL(blob);
+      const slug = (currentProject?.name || 'program').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const today = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `poam-${slug}-${today}_oscal.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
+      setError(err?.message ?? 'OSCAL export failed');
+    } finally {
+      setOscalExporting(false);
+    }
   };
 
   // ── Item CRUD ────────────────────────────────────────────────────────────
@@ -573,25 +709,117 @@ const POAM: React.FC = () => {
         <SummaryCard label="Overdue" value={counts.overdue} tone={counts.overdue > 0 ? 'error' : 'default'} />
       </Box>
 
-      {/* Actions */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
-        <Button
-          variant="outlined"
-          startIcon={<DownloadIcon />}
-          onClick={handleExportCsv}
-          disabled={items.length === 0}
-        >
-          Export CSV
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={openCreateItem}
-          disabled={!programId}
-        >
-          New POA&amp;M item
-        </Button>
+      {/* Filters + view toggle + actions */}
+      <Box sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 1,
+        mb: 2,
+      }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+            Filter:
+          </Typography>
+          <Chip
+            size="small"
+            label="All"
+            variant={activeFilters.size === 0 ? 'filled' : 'outlined'}
+            color={activeFilters.size === 0 ? 'primary' : 'default'}
+            onClick={clearFilters}
+          />
+          <Chip
+            size="small"
+            label="Ready to close"
+            variant={activeFilters.has('ready_to_close') ? 'filled' : 'outlined'}
+            color={activeFilters.has('ready_to_close') ? 'success' : 'default'}
+            onClick={() => toggleFilter('ready_to_close')}
+          />
+          <Chip
+            size="small"
+            label="Overdue"
+            variant={activeFilters.has('overdue') ? 'filled' : 'outlined'}
+            color={activeFilters.has('overdue') ? 'error' : 'default'}
+            onClick={() => toggleFilter('overdue')}
+          />
+          <Chip
+            size="small"
+            label="High / Critical"
+            variant={activeFilters.has('high_or_critical') ? 'filled' : 'outlined'}
+            color={activeFilters.has('high_or_critical') ? 'error' : 'default'}
+            onClick={() => toggleFilter('high_or_critical')}
+          />
+          <Chip
+            size="small"
+            label="Auto"
+            variant={activeFilters.has('auto') ? 'filled' : 'outlined'}
+            color={activeFilters.has('auto') ? 'info' : 'default'}
+            onClick={() => toggleFilter('auto')}
+          />
+          <Chip
+            size="small"
+            label="Manual"
+            variant={activeFilters.has('manual') ? 'filled' : 'outlined'}
+            color={activeFilters.has('manual') ? 'info' : 'default'}
+            onClick={() => toggleFilter('manual')}
+          />
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+          <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+            View:
+          </Typography>
+          <Chip
+            size="small"
+            label="Flat"
+            variant={groupBy === 'none' ? 'filled' : 'outlined'}
+            color={groupBy === 'none' ? 'primary' : 'default'}
+            onClick={() => setGroupBy('none')}
+          />
+          <Chip
+            size="small"
+            label="Group by control"
+            variant={groupBy === 'control' ? 'filled' : 'outlined'}
+            color={groupBy === 'control' ? 'primary' : 'default'}
+            onClick={() => setGroupBy('control')}
+          />
+        </Stack>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleExportCsv}
+            disabled={items.length === 0}
+          >
+            Export CSV
+          </Button>
+          <Tooltip title="Open + in-progress items only. Hold Shift to include closed.">
+            <span>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={(e) => handleExportOscal(e.shiftKey)}
+                disabled={items.length === 0 || oscalExporting}
+              >
+                {oscalExporting ? 'Exporting…' : 'OSCAL POA&M'}
+              </Button>
+            </span>
+          </Tooltip>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={openCreateItem}
+            disabled={!programId}
+          >
+            New POA&amp;M item
+          </Button>
+        </Stack>
       </Box>
+      {activeFilters.size > 0 && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+          Showing {filteredItems.length} of {items.length} items
+          {filteredItems.length !== items.length && ' (filtered)'}
+        </Typography>
+      )}
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -611,6 +839,15 @@ const POAM: React.FC = () => {
             </Typography>
           </CardContent>
         </Card>
+      ) : filteredItems.length === 0 ? (
+        <Card variant="outlined">
+          <CardContent sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              No items match the active filters.
+            </Typography>
+            <Button size="small" onClick={clearFilters}>Clear filters</Button>
+          </CardContent>
+        </Card>
       ) : (
         <TableContainer component={Card} variant="outlined">
           <Table size="small">
@@ -626,7 +863,10 @@ const POAM: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map(it => {
+              {(() => {
+                // Either render a single flat list or render one section per
+                // controlIdentifier with a header row separating groups.
+                const renderRows = (rows: PoamItem[]) => rows.map(it => {
                 const isOpen = expanded.has(it.id);
                 const today = new Date().toISOString().slice(0, 10);
                 const overdue =
@@ -746,7 +986,30 @@ const POAM: React.FC = () => {
                     )}
                   </React.Fragment>
                 );
-              })}
+                });
+
+                if (groupBy === 'control' && grouped) {
+                  return grouped.flatMap(group => [
+                    // Section-header row — sticky-ish heading per group.
+                    <TableRow key={`__header__${group.key}`} sx={{ bgcolor: 'action.selected' }}>
+                      <TableCell colSpan={7} sx={{ py: 1 }}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            {group.label}
+                          </Typography>
+                          <Chip
+                            size="small"
+                            label={`${group.rows.length} item${group.rows.length === 1 ? '' : 's'}`}
+                            variant="outlined"
+                          />
+                        </Stack>
+                      </TableCell>
+                    </TableRow>,
+                    ...renderRows(group.rows),
+                  ]);
+                }
+                return renderRows(filteredItems);
+              })()}
             </TableBody>
           </Table>
         </TableContainer>
