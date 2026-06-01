@@ -310,7 +310,13 @@ const POAM: React.FC = () => {
       for (const key of filters) {
         switch (key) {
           case 'ready_to_close':
-            if (!it.readyForClosure) return false;
+            // B-01 defensive skip — "Ready to close" filter is meant to
+            // surface items pending the reviewer's close action, NOT
+            // already-closed rows that happen to still carry the flag
+            // (pre-fix legacy DB state cleaned by migration 070).
+            if (!it.readyForClosure
+              || it.status === 'completed'
+              || it.status === 'risk_accepted') return false;
             break;
           case 'overdue':
             if (
@@ -424,7 +430,10 @@ const POAM: React.FC = () => {
         riskLabel(it.riskLevel),
         itemStatusLabel(it.status),
         it.autoCreated ? 'Yes' : '',
-        it.readyForClosure ? 'Yes' : '',
+        // B-01 defensive skip — `ready_for_closure` is meaningless once
+        // status is closed. Matches the same guard in the OSCAL exporter
+        // so the two export paths agree on already-closed rows.
+        (it.readyForClosure && it.status !== 'completed' && it.status !== 'risk_accepted') ? 'Yes' : '',
         it.responsibleParty ?? '',
         csvDate(it.createdAt),
         csvDate(it.identifiedAt),
@@ -937,7 +946,9 @@ const POAM: React.FC = () => {
                               title="Created automatically by the auto-POA&M workflow on a control or objective status change"
                             />
                           )}
-                          {it.readyForClosure && (
+                          {it.readyForClosure
+                            && it.status !== 'completed'
+                            && it.status !== 'risk_accepted' && (
                             <Chip
                               size="small"
                               label="Ready to close"
