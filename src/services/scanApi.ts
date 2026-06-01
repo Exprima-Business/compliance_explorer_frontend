@@ -121,21 +121,9 @@ export const scanApi = {
     return apiCall<ScanSession[]>('/api/scans', { requireAuth: true });
   },
 
-  /** Retry a failed scan */
-  retryScan: async (
-    scanId: string,
-  ): Promise<ApiResponse<{ scanId: string; status: string }>> => {
-    return apiCall<{ scanId: string; status: string }>(`/api/scans/${scanId}/retry`, {
-      method: 'POST',
-      requireAuth: true,
-    });
-  },
-
-  /** Delete a scan */
-  deleteScan: async (scanId: string): Promise<ApiResponse<void>> => {
-    return apiCall<void>(`/api/scans/${scanId}`, {
-      method: 'DELETE',
-      requireAuth: true,
-    });
-  },
+  // retryScan + deleteScan wrappers removed (BE security audit V2-L-06):
+  // the BE stub endpoints they targeted returned "success" without
+  // performing the action, AND no UI component called these wrappers.
+  // When real retry / delete features are implemented on the BE,
+  // re-add explicit service methods that match the new endpoint shape.
 };
