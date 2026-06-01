@@ -4,10 +4,22 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
+# Environment variables — secrets audit 2026-06 v2 hardening.
+# `.env.*` catches .env.production, .env.staging, etc. that the prior
+# narrow patterns didn't cover.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials/
+
+# Claude Code worktrees — never commit local agent workspace.
+# One discovered .claude/worktrees/*/.env.txt was carrying a (retired)
+# real JWT during the audit; .claude/ being unignored = one git-add
+# away from a real commit-time leak.
+.claude/
 
 # Build output
 dist/
