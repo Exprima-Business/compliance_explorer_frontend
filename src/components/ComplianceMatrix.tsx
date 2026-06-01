@@ -27,9 +27,10 @@ import InfoIcon from '@mui/icons-material/Info';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import ExcelJS from 'exceljs';
+// jsPDF, jspdf-autotable, and exceljs are dynamically imported inside the
+// export handlers below. Each library is large (~200 KB gz combined) and
+// only runs when the user clicks Export — no reason to ship them in the
+// page chunk. Per bundle-size optimization (Vercel >1 MB warning).
 import { saveAs } from 'file-saver';
 import type { Clause, MatrixRow, ClauseFamily } from '../types/clause';
 import { DataGrid } from '@mui/x-data-grid';
@@ -228,7 +229,13 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows, scanDe
     setExportDialogOpen(false);
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
+    // Dynamic imports — these libs are ~150 KB gz combined and only matter
+    // on click. Cached after first export.
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]);
     const doc = new jsPDF('l', 'mm', 'a4');
     const exportRows = getExportRows();
     const tableColumn = columns.map(col => col.headerName);
@@ -257,6 +264,8 @@ export const ComplianceMatrix: React.FC<ComplianceMatrixProps> = ({ rows, scanDe
 
   const exportToXLSX = async () => {
     try {
+      // Dynamic import — exceljs is ~150 KB gz, click-only.
+      const { default: ExcelJS } = await import('exceljs');
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Compliance Matrix');
       const exportRows = getExportRows();

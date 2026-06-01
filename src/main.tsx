@@ -7,6 +7,7 @@ import { DEBUG_LOG } from './config/debug'
 import { DebugErrorBoundary } from './components/DebugErrorBoundary'
 import './utils/setupDebug'
 import { supabase } from './lib/supabase';
+import { OrganizationValidationService } from './services/organizationValidationService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Auth debugging blocks below are gated on DEBUG_LOG (per security audit
@@ -104,10 +105,15 @@ if (DEBUG_LOG) {
   }
 
   // --- Organization Validation debugging utility ---
+  //
+  // Previously these used `await import(...)` for OrganizationValidationService
+  // and supabase. Vite warned ("dynamic import will not move module into another
+  // chunk") because those modules are statically imported elsewhere in the app
+  // — the dynamic import was theater that didn't actually code-split, and the
+  // mix triggers the Vercel build warning. Use the static imports.
   if (typeof window !== 'undefined') {
     (window as any).debugOrganizationValidation = async () => {
       try {
-        const { OrganizationValidationService } = await import('./services/organizationValidationService');
         const userOrgs = await OrganizationValidationService.getUserOrganizations();
         console.log('[ORGANIZATION VALIDATION DEBUG]', { userOrganizations: userOrgs });
       } catch (e) {
@@ -117,10 +123,8 @@ if (DEBUG_LOG) {
 
     (window as any).debugRawOrganizationValidation = async () => {
       try {
-        const { OrganizationValidationService } = await import('./services/organizationValidationService');
         const result = await OrganizationValidationService.validateOrganization();
-        const { supabase: sb } = await import('./lib/supabase');
-        const { data: { session } } = await sb.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         console.log('[RAW ORGANIZATION VALIDATION DEBUG]', {
           result,
           hasSession: !!session,

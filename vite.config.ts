@@ -53,23 +53,50 @@ export default defineConfig(({ mode }) => {
       assetsDir: 'assets',
       rollupOptions: {
         output: {
-          manualChunks: {
-            'vendor': [
-              'react',
-              'react-dom',
-              'react-router-dom',
-              '@supabase/supabase-js'
-            ],
-            'ui': [
-              '@mui/material',
-              '@mui/icons-material',
-              '@emotion/react',
-              '@emotion/styled'
-            ]
-          }
-        }
+          // Bundle-size optimization (target: 626 KB gz → ~250 KB gz initial
+          // load). Strategy:
+          //
+          //   - Split high-traffic vendor libraries into stable chunks so the
+          //     browser caches them across deploys (any app-code change
+          //     doesn't invalidate the vendor cache).
+          //   - Pull @mui/icons-material into its own chunk — 67 files import
+          //     from it, so without an explicit split it lands in the main
+          //     chunk and bloats first-paint by ~150 KB.
+          //   - Split @mui/x-data-grid — used by a handful of pages, weighs
+          //     enough to deserve its own chunk.
+          //   - Page-specific heavy libs (jspdf, html2canvas, recharts, d3,
+          //     exceljs) are NOT split here — they auto-chunk with the lazy-
+          //     loaded page that uses them (per MainApp.tsx React.lazy).
+          //
+          // Function form (not object) so we can pattern-match paths.
+          manualChunks: (id: string) => {
+            // App-code stays in default chunks (entry chunk or lazy page
+            // chunks, depending on what imports it).
+            if (!id.includes('node_modules')) return undefined;
+            // Order matters: most-specific first.
+            if (id.includes('@mui/icons-material')) return 'mui-icons';
+            if (id.includes('@mui/x-data-grid')) return 'mui-data-grid';
+            if (id.includes('@mui/material') || id.includes('@emotion/react') || id.includes('@emotion/styled')) {
+              return 'mui-core';
+            }
+            if (id.includes('@supabase')) return 'supabase';
+            if (id.includes('@tanstack')) return 'tanstack';
+            if (id.includes('react-router')) return 'router';
+            // react-dom is huge; isolate so app-code changes don't invalidate it.
+            if (id.includes('node_modules/react-dom/') || id.includes('node_modules/scheduler/')) {
+              return 'react-dom';
+            }
+            if (id.includes('node_modules/react/')) return 'react';
+            // For unmatched node_modules — let Rollup's default chunker
+            // decide. It correctly co-locates page-specific libs (recharts
+            // for Dashboard, d3 for Regulations, etc.) into the lazy
+            // page's chunk rather than forcing them into a global vendor
+            // chunk that loads on every visit.
+            return undefined;
+          },
+        },
       },
-      chunkSizeWarningLimit: 1000
+      chunkSizeWarningLimit: 600,
     }
   }
 })
