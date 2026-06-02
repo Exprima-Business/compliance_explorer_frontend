@@ -29,6 +29,7 @@ import {
   Logout as LogoutIcon,
   RestartAlt as ResetIcon,
   Speed as DemoIcon,
+  Shield as ShieldIcon,
 } from '@mui/icons-material';
 import { AppBar } from './AppBar';
 import { Settings } from './Settings';
@@ -278,6 +279,12 @@ export default function Layout({ children }: LayoutProps) {
             <ListItemButton onClick={() => { setDrawerOpen(false); setSettingsOpen(true); }}>
               <ListItemIcon><SettingsIcon /></ListItemIcon>
               <ListItemText primary="Settings" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton onClick={() => { setDrawerOpen(false); navigateTo('/settings/security'); }}>
+              <ListItemIcon><ShieldIcon /></ListItemIcon>
+              <ListItemText primary="Security (2FA)" />
             </ListItemButton>
           </ListItem>
           <ListItem disablePadding>
