@@ -15,12 +15,15 @@ import {
   useTheme,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import QuizIcon from '@mui/icons-material/Quiz';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import {
   onboardingService,
   type ApplyBundleResult,
   type CuratedBundle,
 } from '../services/onboardingService';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { FrameworkQuestionnaire } from './FrameworkQuestionnaire';
 
 interface BundlePickerProps {
   /** Called after a bundle is successfully applied so the parent can reload. */
@@ -35,6 +38,23 @@ export const BundlePicker: React.FC<BundlePickerProps> = ({ onApplied }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [applyingId, setApplyingId] = useState<string | null>(null);
+  // Mode toggle — quiz is the default (most SMB users don't know which
+  // bundle applies); browse is the power-user fallback. Persist user choice
+  // in localStorage so a returning user who switched to browse doesn't get
+  // bounced back into the quiz on each visit.
+  const [mode, setMode] = useState<'quiz' | 'browse'>(() => {
+    if (typeof window === 'undefined') return 'quiz';
+    return (localStorage.getItem('bundlePickerMode') as 'quiz' | 'browse') || 'quiz';
+  });
+
+  const switchMode = (next: 'quiz' | 'browse') => {
+    setMode(next);
+    try {
+      localStorage.setItem('bundlePickerMode', next);
+    } catch {
+      // localStorage may be unavailable (private mode etc.) — fail soft.
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -80,12 +100,48 @@ export const BundlePicker: React.FC<BundlePickerProps> = ({ onApplied }) => {
     return <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>;
   }
 
+  // Quiz mode: surface the guided FrameworkQuestionnaire. Browse mode:
+  // fall through to the existing bundle-card grid below.
+  if (mode === 'quiz') {
+    return (
+      <Box>
+        <Box sx={{ textAlign: 'center', mb: 3 }}>
+          <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700, mb: 1 }}>
+            Find your federal compliance starting point
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 720, mx: 'auto' }}>
+            Six quick questions about your federal contracting profile. We'll
+            recommend a bundle of authoritative control frameworks (NIST, HHS,
+            GSA) and activate them for you. Takes about a minute.
+          </Typography>
+        </Box>
+        <FrameworkQuestionnaire
+          bundles={bundles}
+          applying={!!applyingId}
+          onPickBundle={handlePick}
+          onSwitchToBrowse={() => switchMode('browse')}
+        />
+      </Box>
+    );
+  }
+
+  // Browse mode — the original bundle-card grid.
   return (
     <Box>
       <Box sx={{ textAlign: 'center', mb: 3 }}>
-        <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700, mb: 1 }}>
-          Tell us about your federal contracting profile
-        </Typography>
+        <Stack direction="row" justifyContent="center" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+          <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700 }}>
+            Browse all bundles
+          </Typography>
+          <Button
+            size="small"
+            startIcon={<QuizIcon />}
+            onClick={() => switchMode('quiz')}
+            sx={{ textTransform: 'none' }}
+          >
+            Take the quiz instead
+          </Button>
+        </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 720, mx: 'auto' }}>
           Pick the profile that best matches your business. We&apos;ll activate the
           right control frameworks for your program — you can always add more
