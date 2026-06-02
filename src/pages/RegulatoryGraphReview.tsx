@@ -10,6 +10,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   Divider,
   MenuItem,
@@ -30,6 +31,7 @@ import {
   fetchCandidates,
   parkCandidate,
   rejectCandidate,
+  runAiProposals,
   RELATIONSHIP_TYPES,
   type CandidateStatus,
   type ExtractionMethod,
@@ -151,6 +153,40 @@ const RegulatoryGraphReview: React.FC = () => {
   };
 
   const [downloading, setDownloading] = useState(false);
+  // AI proposer state — dialog + in-flight + last-result for the success toast
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiLimit, setAiLimit] = useState(50);
+  const [aiRunning, setAiRunning] = useState(false);
+  const [aiResult, setAiResult] = useState<{
+    fetched: number;
+    proposed: number;
+    failed: number;
+  } | null>(null);
+
+  const handleRunAiProposals = async () => {
+    setAiRunning(true);
+    setError(null);
+    try {
+      const clampedLimit = Math.max(1, Math.min(aiLimit || 50, 50));
+      const resp = await runAiProposals({ limit: clampedLimit });
+      if (resp.error) {
+        setError(extractErrorMessage(resp.error));
+        return;
+      }
+      const data = resp.data;
+      if (!data) return;
+      setAiResult({ fetched: data.fetched, proposed: data.proposed, failed: data.failed });
+      setAiDialogOpen(false);
+      // Refetch candidates so the new auto_proposed_* fields show up inline
+      // on each card (the existing AI-proposal display block renders them
+      // automatically when truthy).
+      await load();
+    } catch (err: any) {
+      setError(extractErrorMessage(err?.message ?? 'AI run failed'));
+    } finally {
+      setAiRunning(false);
+    }
+  };
 
   const handleDownloadPending = async () => {
     setDownloading(true);
@@ -217,6 +253,16 @@ const RegulatoryGraphReview: React.FC = () => {
           Regulatory Graph Review
         </Typography>
         <Button
+          variant="contained"
+          size="small"
+          color="info"
+          startIcon={aiRunning ? <CircularProgress size={14} color="inherit" /> : <AutoAwesomeIcon />}
+          onClick={() => setAiDialogOpen(true)}
+          disabled={aiRunning}
+        >
+          {aiRunning ? 'Analyzing…' : 'Analyze with AI'}
+        </Button>
+        <Button
           variant="outlined"
           size="small"
           startIcon={downloading ? <CircularProgress size={14} /> : <DownloadIcon />}
@@ -226,6 +272,67 @@ const RegulatoryGraphReview: React.FC = () => {
           Download pending (JSON)
         </Button>
       </Stack>
+
+      {/* AI proposer confirmation dialog */}
+      <Dialog open={aiDialogOpen} onClose={() => !aiRunning && setAiDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <AutoAwesomeIcon color="info" />
+            <span>Analyze pending candidates with AI</span>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Sends up to N oldest pending candidates to OpenAI (gpt-4o-mini),
+            grounded in <code>RELATIONSHIP_TYPE_GLOSSARY.md</code>. Each
+            candidate gets a proposed relationship type, a glossary-cited
+            rationale, and a confidence score written to the
+            <code>auto_proposed_*</code> columns.
+          </DialogContentText>
+          <DialogContentText sx={{ mb: 2 }}>
+            <strong>Proposals are advisory only.</strong> You still click
+            Accept (or change the type) on each card. Estimated cost:
+            ~$0.0003 per candidate (so 50 ≈ $0.015).
+          </DialogContentText>
+          <TextField
+            label="How many candidates to analyze"
+            type="number"
+            size="small"
+            fullWidth
+            value={aiLimit}
+            onChange={(e) => setAiLimit(parseInt(e.target.value, 10) || 50)}
+            inputProps={{ min: 1, max: 50 }}
+            helperText="Max 50 per batch. Run again for the next batch."
+            disabled={aiRunning}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAiDialogOpen(false)} disabled={aiRunning}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="info"
+            onClick={handleRunAiProposals}
+            disabled={aiRunning}
+            startIcon={aiRunning ? <CircularProgress size={14} color="inherit" /> : <AutoAwesomeIcon />}
+          >
+            {aiRunning ? 'Analyzing…' : 'Run AI analysis'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* AI run result toast */}
+      {aiResult && (
+        <Alert
+          severity={aiResult.failed > 0 ? 'warning' : 'success'}
+          onClose={() => setAiResult(null)}
+          sx={{ mb: 2 }}
+        >
+          AI analysis complete — {aiResult.proposed} of {aiResult.fetched} candidates received proposals
+          {aiResult.failed > 0 && ` (${aiResult.failed} failed)`}. Scroll
+          down to see the inline AI-proposes blocks; click <em>Accept proposal</em>
+          to apply.
+        </Alert>
+      )}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Review proposed relationship edges between regulatory artifacts. Every accepted edge
         carries its source paragraph as audit evidence. Reject candidates whose source paragraph

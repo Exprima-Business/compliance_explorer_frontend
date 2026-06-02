@@ -134,3 +134,27 @@ export async function bulkSetProposals(
     requireAuth: true,
   });
 }
+
+/**
+ * Trigger the in-app AI proposer (server-side OpenAI call grounded in
+ * RELATIONSHIP_TYPE_GLOSSARY.md). Processes up to `limit` oldest pending
+ * candidates (or the explicit `candidateIds` if provided). Reviewer-gated.
+ *
+ * Cost note: ~$0.0003 per candidate at gpt-4o-mini, so a full 50-batch is
+ * ~$0.015. The BE caps limit at 50 per call.
+ */
+export async function runAiProposals(
+  body: { limit?: number; candidate_ids?: string[] } = {},
+): Promise<ApiResponse<{
+  fetched: number;
+  proposed: number;
+  failed: number;
+  skipped: string[];
+  errors: Array<{ candidateId: string; message: string }>;
+}>> {
+  return apiCall(`/api/regulatory-review/candidates/run-ai-proposals`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    requireAuth: true,
+  });
+}
