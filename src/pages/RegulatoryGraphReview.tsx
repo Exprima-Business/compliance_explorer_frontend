@@ -606,30 +606,80 @@ const CandidateCard: React.FC<{
           </Alert>
         )}
 
-        {/* AI proposal — inline, only visible when an automated reviewer has weighed in */}
+        {/* AI proposal — inline, only visible when an automated reviewer has weighed in.
+            Visual prominence: solid (not dashed) accent border, bold/large proposed type,
+            confidence as a color-coded chip (green ≥85% / amber 60-84% / red <60%) so the
+            reviewer can scan the list and prioritize high-confidence rows. */}
         {hasProposal && (
           <Box
             sx={{
               bgcolor: 'info.50',
-              border: '1px dashed',
+              border: '2px solid',
               borderColor: 'info.main',
               borderRadius: 1,
-              p: 1.5,
-              mt: 1,
+              p: 2,
+              mt: 1.5,
+              boxShadow: 1,
             }}
           >
-            <Stack direction="row" spacing={1} alignItems="center">
-              <AutoAwesomeIcon fontSize="small" color="info" />
-              <Typography variant="caption">
-                AI proposes: <code>{proposedType}</code>
-                {typeof proposedConfidence === 'number' && (
-                  <> ({Math.round(proposedConfidence * 100)}% confidence)</>
-                )}
-                {proposedBy && <> — {proposedBy}</>}
-              </Typography>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              flexWrap="wrap"
+              useFlexGap
+              sx={{ mb: proposedNotes ? 1 : 0 }}
+            >
+              <Stack direction="row" spacing={1} alignItems="center">
+                <AutoAwesomeIcon fontSize="small" color="info" />
+                <Typography variant="body2" sx={{ fontWeight: 700, color: 'info.dark' }}>
+                  AI proposes:
+                </Typography>
+              </Stack>
+              <Chip
+                size="small"
+                label={proposedType}
+                color="info"
+                sx={{
+                  fontWeight: 700,
+                  fontFamily: 'monospace',
+                  fontSize: '0.85rem',
+                  height: 26,
+                }}
+              />
+              {typeof proposedConfidence === 'number' && (
+                <Chip
+                  size="small"
+                  label={`${Math.round(proposedConfidence * 100)}% confidence`}
+                  color={
+                    proposedConfidence >= 0.85 ? 'success'
+                      : proposedConfidence >= 0.6 ? 'warning'
+                        : 'error'
+                  }
+                  sx={{ fontWeight: 700, height: 26 }}
+                />
+              )}
+              {proposedBy && (
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                  by {proposedBy}
+                </Typography>
+              )}
             </Stack>
             {proposedNotes && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  display: 'block',
+                  color: 'text.primary',
+                  fontStyle: 'italic',
+                  borderLeft: '3px solid',
+                  borderColor: 'info.light',
+                  pl: 1.5,
+                  py: 0.5,
+                  bgcolor: 'background.paper',
+                  borderRadius: '0 4px 4px 0',
+                }}
+              >
                 {proposedNotes}
               </Typography>
             )}
@@ -640,7 +690,8 @@ const CandidateCard: React.FC<{
                 color="info"
                 onClick={handleAcceptProposal}
                 disabled={busy}
-                sx={{ mt: 1 }}
+                startIcon={<AutoAwesomeIcon />}
+                sx={{ mt: 1.5, fontWeight: 600 }}
               >
                 Accept proposal
               </Button>
