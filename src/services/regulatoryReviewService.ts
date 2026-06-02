@@ -152,9 +152,16 @@ export async function runAiProposals(
   skipped: string[];
   errors: Array<{ candidateId: string; message: string }>;
 }>> {
+  // Override apiCall's 30s default. A full 50-candidate batch takes ~15-20s
+  // after we bumped OpenAI parallelism from 5→10 (BE-side). The 30s default
+  // was tripping a 499 before the BE could finish writing the results, even
+  // though the BE completed successfully — the work just wasn't reaching
+  // the user via the response. 120s gives comfortable headroom without
+  // letting a truly stuck request hang forever.
   return apiCall(`/api/regulatory-review/candidates/run-ai-proposals`, {
     method: 'POST',
     body: JSON.stringify(body),
     requireAuth: true,
+    timeout: 120_000,
   });
 }
