@@ -445,7 +445,16 @@ const CandidateCard: React.FC<{
   onReject: () => void;
   onPark: () => void;
 }> = ({ candidate, busy, onAccept, onReject, onPark }) => {
-  const [typeOverride, setTypeOverride] = useState<RelationshipType>(candidate.suggested_relationship_type);
+  // Default to the AI's proposal when present; the regex/DITA extractor's
+  // suggested_relationship_type is almost always 'cites' and would produce
+  // a no-signal graph if the reviewer accepts without changing the dropdown.
+  // The AI proposal has already been validated against the canonical 11-type
+  // vocabulary at write time (auto_proposed_type CHECK in migration 072),
+  // but cast through the union here because the type comes back as `string`.
+  const [typeOverride, setTypeOverride] = useState<RelationshipType>(
+    (candidate.auto_proposed_type as RelationshipType | undefined) ||
+      candidate.suggested_relationship_type,
+  );
 
   const isPending = candidate.status === 'pending';
   const sourceColor = artifactTypeColor(candidate.source.artifact_type);
