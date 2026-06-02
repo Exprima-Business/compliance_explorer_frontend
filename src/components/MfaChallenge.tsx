@@ -134,12 +134,19 @@ export const MfaChallenge: React.FC<MfaChallengeProps> = ({ onVerified }) => {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        // Full-viewport overlay — covers any parent layout constraints so the
+        // challenge card centers regardless of where AuthGate is rendered in
+        // the component tree. `position: fixed` + inset:0 is the bulletproof
+        // pattern; minHeight alone leaves width up to the parent and on some
+        // viewports the card ends up pinned left.
+        position: 'fixed',
+        inset: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         bgcolor: 'background.default',
         px: 2,
+        zIndex: (theme) => theme.zIndex.modal,
       }}
     >
       <Card variant="outlined" sx={{ maxWidth: 480, width: '100%' }}>
