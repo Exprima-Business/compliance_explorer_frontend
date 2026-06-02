@@ -169,6 +169,7 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
         >
           <MenuItem disabled>{user?.email}</MenuItem>
           <MenuItem onClick={() => setProfileOpen(true)}>My Profile</MenuItem>
+          <MenuItem onClick={() => navigate('/settings/security')}>Security &amp; 2FA</MenuItem>
           <MenuItem onClick={() => setLogoutOpen(true)}>Logout</MenuItem>
         </Menu>
         {/* Logout Dialog */}
@@ -229,10 +230,19 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+          <Button
+            onClick={() => {
+              setProfileOpen(false);
+              navigate('/settings/security');
+            }}
+            variant="outlined"
+          >
+            Manage Two-Factor Authentication
+          </Button>
           <Button onClick={() => setProfileOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </>
   );
-}; 
+};
