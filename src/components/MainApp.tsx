@@ -36,6 +36,7 @@ const ClauseDetail = lazy(() => import('../pages/ClauseDetail'));
 const Regulations = lazy(() => import('../pages/Regulations'));
 const RegulatoryGraphReview = lazy(() => import('../pages/RegulatoryGraphReview'));
 const SecuritySettings = lazy(() => import('../pages/SecuritySettings'));
+const Notifications = lazy(() => import('../pages/Notifications'));
 // DocumentScanner is a named export, not default — wrap it.
 const DocumentScanner = lazy(() =>
   import('./DocumentScanner').then(m => ({ default: m.DocumentScanner })),
@@ -85,6 +86,7 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
                       <Route path="/regulations" element={<Regulations />} />
                       <Route path="/admin/regulatory-graph-review" element={<RegulatoryGraphReview />} />
                       <Route path="/settings/security" element={<SecuritySettings />} />
+                      <Route path="/notifications" element={<Notifications />} />
                       {enableScanner && (
                         <Route path="/document-scanner/:scanId?" element={
                           <ErrorBoundary fallbackMessage="The document scanner encountered an error. Click below to try again.">

@@ -19,7 +19,6 @@ import {
 } from '@mui/material';
 import {
   Help as HelpIcon,
-  Notifications as NotificationsIcon,
   Settings as SettingsIcon,
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -34,6 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import ProjectSelector from './ProjectSelector';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import ConnectionStatus from './ConnectionStatus';
+import NotificationBell from './NotificationBell';
 
 interface CustomAppBarProps {
   activeTab: number;
@@ -121,6 +121,7 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
             <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, gap: 1 }}>
               <ProjectSelector />
               <ConnectionStatus status={connectionStatus} showLabel={false} size="small" />
+              {user && <NotificationBell />}
               <Tooltip title="Settings">
                 <IconButton color="inherit" onClick={onSettingsClick}>
                   <SettingsIcon />

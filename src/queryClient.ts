@@ -86,4 +86,11 @@ export const keys = {
   // W2 — cross-framework control credit
   crossFwCredit: (controlId: string) =>
     ['cross-fw-credit', controlId] as const,
+  // Notifications — bell badge + inbox + dropdown share this root so any
+  // mutation (markRead / dismiss / markAllRead) can invalidate both the
+  // unread count and the visible list in one call.
+  notifications: (status?: string) =>
+    ['notifications', status ?? 'unread'] as const,
+  notificationsCount: () =>
+    ['notifications', 'count'] as const,
 };
