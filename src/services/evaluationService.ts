@@ -35,18 +35,41 @@ export interface EvaluationClause {
  * A framework the evaluation's detected clauses imply, with the program's
  * live completion against it. A non-activated framework still appears (0%) —
  * it remains a requirement the solicitation introduces.
+ *
+ * Phase B-2 added doc-scoped fields. The user wants to see BOTH:
+ *   - "100% Section 508 (3 of 3 implicated controls implemented)" → doc-scoped
+ *   - "Overall: 100% (3 of 3)" → framework-wide context
  */
 export interface RequiredFramework {
   id: string;
   name: string;
   version: string;
   activated: boolean;
+  // Framework-wide stats
   totalControls: number;
   /** Controls explicitly marked IMPLEMENTED */
   implementedControls: number;
   /** Additional controls satisfied only via a cross-framework crosswalk */
   crosswalkCredited: number;
   completionPct: number;
+  // Doc-scoped stats (controls implicated by THIS evaluation's clauses)
+  controlsImplicatedByDoc: number;
+  controlsImplementedFromImplicated: number;
+  docScopedCompletionPct: number;
+}
+
+/**
+ * One control implicated by an evaluation clause, with its current
+ * implementation state in the program.
+ */
+export interface ImplicatedControl {
+  id: string;
+  identifier: string;
+  name: string | null;
+  frameworkId: string;
+  frameworkName: string;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'IMPLEMENTED' | 'NOT_APPLICABLE' | null;
+  satisfiedViaCrosswalk: boolean;
 }
 
 export interface SolicitationEvaluation {
@@ -69,6 +92,12 @@ export interface EvaluationDetail {
   clauses: EvaluationClause[];
   /** Frameworks the detected clauses imply, with live completion. */
   frameworks: RequiredFramework[];
+  /**
+   * Per-clause control roster: keyed by EvaluationClause.clauseId (the
+   * matched-clause UUID). Unmatched clauses (clauseId === null) have no
+   * entry. May be {} when the eval has no program scope.
+   */
+  controlsByClauseId: Record<string, ImplicatedControl[]>;
 }
 
 export interface CreateEvaluationRequest {

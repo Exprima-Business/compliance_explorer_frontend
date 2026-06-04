@@ -1,15 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
+  Accordion, AccordionDetails, AccordionSummary,
   Box, Typography, Card, CardContent, CircularProgress, Alert, Chip, Button,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox,
   Snackbar, Link, LinearProgress, useTheme, useMediaQuery,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import PendingIcon from '@mui/icons-material/Pending';
+import BlockIcon from '@mui/icons-material/Block';
+import LinkIcon from '@mui/icons-material/Link';
 import {
   evaluationService,
   type EvaluationDetail as EvaluationDetailData,
   type RequiredFramework,
+  type ImplicatedControl,
   type CoverageStatus,
 } from '../services/evaluationService';
 import { useProject } from '../contexts/ProjectContext';
@@ -70,8 +78,12 @@ function computeVerdict(
   const activated = frameworks.filter(f => f.activated);
   const notActivated = frameworks.filter(f => !f.activated);
 
+  // Phase B-2: verdict now uses doc-SCOPED completion — the percentage of
+  // controls THIS document implicates that are implemented. Framework-wide
+  // posture is informative but the verdict's job is "are you ready for
+  // THIS solicitation," which depends on the implicated subset.
   const minActivatedPct = activated.length > 0
-    ? Math.min(...activated.map(f => f.completionPct))
+    ? Math.min(...activated.map(f => f.docScopedCompletionPct))
     : null;
 
   const newClauseCount = coverage.gaps;
@@ -87,7 +99,7 @@ function computeVerdict(
 
   if (activated.length > 0) {
     rationale.push(
-      `Activated framework completion ranges from ${Math.min(...activated.map(f => f.completionPct))}% to ${Math.max(...activated.map(f => f.completionPct))}%.`
+      `For the controls this document implicates, completion ranges from ${Math.min(...activated.map(f => f.docScopedCompletionPct))}% to ${Math.max(...activated.map(f => f.docScopedCompletionPct))}%.`
     );
   }
 
@@ -143,43 +155,175 @@ const VERDICT_PALETTE: Record<Verdict, { color: string; bg: string; label: strin
 };
 
 /**
- * Per-framework completion panel — the honest "am I compliant?" view for the
- * evaluation. Each framework the detected clauses require, with the program's
- * implemented-control percentage. A framework not yet activated reads 0%.
+ * Renderer for an implicated control's implementation state — icon + chip
+ * combo that the per-framework breakdown uses to surface "control 3 not
+ * addressed" affordances.
  */
-const FrameworkPanel: React.FC<{ frameworks: RequiredFramework[] }> = ({ frameworks }) => {
+const STATUS_ICON: Record<NonNullable<ImplicatedControl['status']> | 'NULL', React.ReactNode> = {
+  IMPLEMENTED: <CheckCircleIcon fontSize="small" sx={{ color: 'success.main' }} />,
+  IN_PROGRESS: <PendingIcon fontSize="small" sx={{ color: 'warning.main' }} />,
+  NOT_STARTED: <RadioButtonUncheckedIcon fontSize="small" sx={{ color: 'error.main' }} />,
+  NOT_APPLICABLE: <BlockIcon fontSize="small" sx={{ color: 'text.disabled' }} />,
+  NULL: <RadioButtonUncheckedIcon fontSize="small" sx={{ color: 'error.main' }} />,
+};
+
+const STATUS_LABEL: Record<NonNullable<ImplicatedControl['status']> | 'NULL', string> = {
+  IMPLEMENTED: 'Implemented',
+  IN_PROGRESS: 'In progress',
+  NOT_STARTED: 'Not started',
+  NOT_APPLICABLE: 'N/A',
+  NULL: 'Not addressed',
+};
+
+const ControlRow: React.FC<{ ctl: ImplicatedControl }> = ({ ctl }) => {
+  const key = (ctl.status ?? 'NULL') as keyof typeof STATUS_ICON;
+  // Crosswalk-satisfied controls render as "Implemented" with a distinct
+  // chip so the user can see the credit chain.
+  const effectiveKey = ctl.satisfiedViaCrosswalk ? 'IMPLEMENTED' : key;
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.5 }}>
+      {STATUS_ICON[effectiveKey]}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+          {ctl.identifier}
+          {ctl.name && (
+            <Typography component="span" variant="body2" color="text.secondary" sx={{ fontWeight: 400, ml: 1 }}>
+              {ctl.name}
+            </Typography>
+          )}
+        </Typography>
+      </Box>
+      <Chip
+        size="small"
+        label={STATUS_LABEL[effectiveKey]}
+        color={effectiveKey === 'IMPLEMENTED' ? 'success' : effectiveKey === 'IN_PROGRESS' ? 'warning' : effectiveKey === 'NOT_APPLICABLE' ? 'default' : 'error'}
+        sx={{ height: 20, fontSize: 11 }}
+      />
+      {ctl.satisfiedViaCrosswalk && (
+        <Chip
+          size="small"
+          icon={<LinkIcon sx={{ fontSize: 14 }} />}
+          label="crosswalk"
+          variant="outlined"
+          sx={{ height: 20, fontSize: 11 }}
+          title="Satisfied because every cross-framework derived-from target is implemented"
+        />
+      )}
+    </Box>
+  );
+};
+
+/**
+ * Compliance breakdown — the headline answer to "am I ready for this
+ * document?" One card per framework the document implicates. Each card
+ * shows:
+ *   - DOC-SCOPED percentage as the headline (controls THIS document
+ *     requires that are implemented). The user's question is "ready
+ *     for this doc?", not "ready overall?"
+ *   - Framework-wide percentage as small secondary context.
+ *   - Expandable list of implicated controls + their status so the user
+ *     can drill into "control 3 not addressed" specifics.
+ *
+ * Frameworks are sorted: not-activated first (the biggest gaps), then by
+ * doc-scoped completion ascending (lowest first — the work to do).
+ */
+const ComplianceBreakdown: React.FC<{
+  frameworks: RequiredFramework[];
+  controlsByClauseId: Record<string, ImplicatedControl[]>;
+}> = ({ frameworks, controlsByClauseId }) => {
   if (frameworks.length === 0) return null;
+
+  // Build per-framework control roster by flattening + deduping across clauses
+  // — a control may be implicated by more than one clause; we show it once.
+  const controlsByFwId = new Map<string, ImplicatedControl[]>();
+  const seen = new Set<string>();
+  for (const list of Object.values(controlsByClauseId)) {
+    for (const ic of list) {
+      const key = `${ic.frameworkId}|${ic.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const arr = controlsByFwId.get(ic.frameworkId) ?? [];
+      arr.push(ic);
+      controlsByFwId.set(ic.frameworkId, arr);
+    }
+  }
+
+  const sorted = [...frameworks].sort((a, b) => {
+    // Not-activated frameworks first
+    if (a.activated !== b.activated) return a.activated ? 1 : -1;
+    // Then lowest doc-scoped completion first (more work to do)
+    return a.docScopedCompletionPct - b.docScopedCompletionPct;
+  });
+
   return (
     <Card sx={{ mb: 2 }}>
       <CardContent>
-        <Typography variant="subtitle2">Frameworks this solicitation requires</Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-          Completion is your program's progress against each framework — implemented
-          controls out of total. A framework you have not activated reads 0%.
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
+          Compliance against this document
         </Typography>
-        {frameworks.map(fw => (
-          <Box key={fw.id} sx={{ mb: 1.5, '&:last-child': { mb: 0 } }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {fw.name} {fw.version}
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: `${pctColor(fw.completionPct)}.main` }}>
-                {fw.completionPct}%
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={fw.completionPct}
-              color={pctColor(fw.completionPct)}
-              sx={{ height: 8, borderRadius: 4, my: 0.5 }}
-            />
-            <Typography variant="caption" color="text.secondary">
-              {fw.implementedControls}/{fw.totalControls} controls implemented
-              {fw.crosswalkCredited > 0 && ` · +${fw.crosswalkCredited} satisfied via crosswalk`}
-              {!fw.activated && ' · not yet activated'}
-            </Typography>
-          </Box>
-        ))}
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+          Each framework this document implicates, scored against the controls THIS
+          document requires (not the framework as a whole). Expand a framework to see
+          the specific implicated controls and their current status.
+        </Typography>
+
+        {sorted.map(fw => {
+          const fwControls = (controlsByFwId.get(fw.id) ?? []).sort((a, b) =>
+            a.identifier.localeCompare(b.identifier),
+          );
+          const docPct = fw.docScopedCompletionPct;
+          return (
+            <Accordion key={fw.id} disableGutters sx={{ mb: 1, '&:before': { display: 'none' } }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                      {fw.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {fw.version}
+                    </Typography>
+                    {!fw.activated && (
+                      <Chip size="small" label="Not activated" color="warning" variant="outlined" sx={{ height: 18, fontSize: 11 }} />
+                    )}
+                    <Box sx={{ flex: 1 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: `${pctColor(docPct)}.main` }}>
+                      {docPct}%
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={docPct}
+                    color={pctColor(docPct)}
+                    sx={{ height: 8, borderRadius: 4 }}
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5, gap: 2, flexWrap: 'wrap' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {fw.controlsImplementedFromImplicated} of {fw.controlsImplicatedByDoc} implicated controls implemented
+                    </Typography>
+                    <Typography variant="caption" color="text.disabled">
+                      Overall framework: {fw.completionPct}% ({fw.implementedControls}/{fw.totalControls})
+                      {fw.crosswalkCredited > 0 && ` · +${fw.crosswalkCredited} via crosswalk`}
+                    </Typography>
+                  </Box>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0 }}>
+                {fwControls.length === 0 ? (
+                  <Typography variant="caption" color="text.secondary">
+                    No specific implicated controls were resolved for this framework.
+                    The clauses may match the framework as a whole rather than specific
+                    controls (e.g., "NIST SP 800-171" cited without a control number).
+                  </Typography>
+                ) : (
+                  <Box>
+                    {fwControls.map(c => <ControlRow key={c.id} ctl={c} />)}
+                  </Box>
+                )}
+              </AccordionDetails>
+            </Accordion>
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -387,7 +531,10 @@ const EvaluationDetail: React.FC = () => {
       </Box>
 
       {/* Per-framework completion — the compliance headline */}
-      <FrameworkPanel frameworks={detail!.frameworks} />
+      <ComplianceBreakdown
+        frameworks={detail!.frameworks}
+        controlsByClauseId={detail!.controlsByClauseId ?? {}}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
