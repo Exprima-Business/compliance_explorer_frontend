@@ -141,7 +141,7 @@ function computeVerdict(
 
   if (newClauseCount > 0) {
     rationale.push(
-      `${newClauseCount} new requirement${newClauseCount === 1 ? '' : 's'} the solicitation introduces beyond your current program scope.`
+      `${newClauseCount} new requirement${newClauseCount === 1 ? '' : 's'} the document introduces beyond your current program scope.`
     );
   }
 
@@ -156,10 +156,10 @@ function computeVerdict(
   // "EVALUATE" so the user is forced to look at the detail.
   if (frameworks.length === 0) {
     verdict = 'EVALUATE';
-    headline = 'Solicitation detected no tracked compliance frameworks';
+    headline = 'Document detected no tracked compliance frameworks';
   } else if (notActivated.length > 0 && newClauseCount > 0) {
     verdict = 'NO_GO';
-    headline = 'You have not activated required frameworks for this solicitation';
+    headline = 'You have not activated required frameworks for this document';
   } else if (minActivatedPct !== null && minActivatedPct < 40) {
     verdict = 'NO_GO';
     headline = 'A required framework is less than 40% implemented';
@@ -168,7 +168,7 @@ function computeVerdict(
     headline = 'Required frameworks are partially implemented — review the gaps';
   } else if (minActivatedPct !== null && minActivatedPct >= 80) {
     verdict = 'GO';
-    headline = 'Your program substantially covers this solicitation';
+    headline = 'Your program substantially covers this document';
   } else {
     verdict = 'EVALUATE';
     headline = 'Review required before bidding';
@@ -567,7 +567,7 @@ const EvaluationDetail: React.FC = () => {
               )}
               <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1.5, fontStyle: 'italic' }}>
                 Decision support only — verdict is derived from your current compliance posture
-                vs. the clauses this solicitation detects. Not a compliance attestation.
+                vs. the clauses this document detects. Not a compliance attestation.
               </Typography>
             </Box>
           </CardContent>

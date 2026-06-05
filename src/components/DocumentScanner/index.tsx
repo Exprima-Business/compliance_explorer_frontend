@@ -148,7 +148,7 @@ export const DocumentScanner: React.FC = () => {
               onClick={() => setShowEvalDialog(true)}
               fullWidth={isMobile}
             >
-              Save as Solicitation Evaluation
+              Save as Evaluation
             </Button>
           </Box>
 

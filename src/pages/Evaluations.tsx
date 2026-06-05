@@ -59,11 +59,12 @@ const Evaluations: React.FC = () => {
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <Typography variant={isMobile ? 'h5' : 'h4'} gutterBottom>
-        Solicitation Evaluations
+        Document Evaluations
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Pre-bid evaluations — each one records what a scanned solicitation
-        requires and how it compares to your compliance program.
+        Each evaluation records what a scanned compliance document — solicitation,
+        BAA, SSP, supplier flow-down, agency policy memo — requires and how it
+        compares to your compliance program.
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -72,10 +73,10 @@ const Evaluations: React.FC = () => {
         <Card>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
             <FactCheckIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-            <Typography variant="h6" gutterBottom>No solicitation evaluations yet</Typography>
+            <Typography variant="h6" gutterBottom>No evaluations yet</Typography>
             <Typography variant="body2" color="text.secondary">
-              Scan a solicitation in the Document Scanner, then choose
-              &ldquo;Save as Solicitation Evaluation&rdquo; to create one.
+              Scan a compliance document in the Document Scanner, then choose
+              &ldquo;Save as Evaluation&rdquo; to create one.
             </Typography>
           </CardContent>
         </Card>
@@ -85,7 +86,7 @@ const Evaluations: React.FC = () => {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Solicitation</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Document</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Agency</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Coverage</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>

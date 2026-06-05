@@ -122,20 +122,20 @@ const SaveAsEvaluationDialog: React.FC<SaveAsEvaluationDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
-      <DialogTitle>Save as Solicitation Evaluation</DialogTitle>
+      <DialogTitle>Save as Evaluation</DialogTitle>
 
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Saves this scan as a pre-bid evaluation — a record of what the
-          solicitation requires and how it compares to your compliance program.
-          It does not change your program; you can apply clauses into the
-          program afterward from the evaluation page.
+          Saves this scan as an evaluation — a record of what the document
+          requires and how it compares to your compliance program. It does
+          not change your program; you can apply clauses into the program
+          afterward from the evaluation page.
         </Typography>
 
         <TextField
           autoFocus
           fullWidth
-          label="Solicitation Title"
+          label="Document Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           disabled={loading}
@@ -143,7 +143,7 @@ const SaveAsEvaluationDialog: React.FC<SaveAsEvaluationDialogProps> = ({
         />
         <TextField
           fullWidth
-          label="Solicitation Number (optional)"
+          label="Document Number (optional)"
           value={solicitationNumber}
           onChange={(e) => setSolicitationNumber(e.target.value)}
           disabled={loading}

@@ -56,7 +56,7 @@ const SECTIONS: NavSection[] = [
     label: 'INTAKE',
     items: [
       { route: '/document-scanner', label: 'Document Scanner', icon: <DocumentScannerIcon />, prefixMatch: true },
-      { route: '/evaluations', label: 'Solicitations', icon: <FactCheckIcon />, prefixMatch: true },
+      { route: '/evaluations', label: 'Evaluations', icon: <FactCheckIcon />, prefixMatch: true },
     ],
   },
   {

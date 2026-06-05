@@ -479,9 +479,10 @@ const Matrix: React.FC = () => {
               />
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              The scanner found these regulations in a solicitation and you chose to include them, but they
-              aren't yet in our curated database — so they're tracked here with limited data (no framework
-              controls or implementation guidance). They may require manual review or addition to the database.
+              The scanner found these regulations in a compliance document and you chose to include them, but
+              they aren't yet in our curated database — so they're tracked here with limited data (no
+              framework controls or implementation guidance). They may require manual review or addition
+              to the database.
             </Typography>
             <TableContainer>
               <Table size="small">
