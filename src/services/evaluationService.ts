@@ -8,6 +8,15 @@ import type { ApiResponse } from '../types/api';
 export type CoverageStatus = 'covered' | 'gap' | 'unknown';
 export type EvaluationStatus = 'evaluated' | 'go' | 'no_go' | 'archived';
 
+/**
+ * Phase B-1.5: intent classification of a detected clause. AI-assigned then
+ * deterministically overridden by clauseCategoryOverride on the BE for
+ * known-compliance families/patterns. NULL on pre-B-1.5 rows; the FE
+ * treats NULL as 'compliance' so legacy data is never silently hidden
+ * from the default sort.
+ */
+export type ClauseCategory = 'compliance' | 'procurement' | 'informational';
+
 export interface CoverageSummary {
   detected: number;
   covered: number;
@@ -29,6 +38,10 @@ export interface EvaluationClause {
    * null when it maps to no tracked framework / is not in our catalog.
    */
   completionPct: number | null;
+  /** Phase B-1.5 — see ClauseCategory. NULL = treat as 'compliance' on display. */
+  category: ClauseCategory | null;
+  /** Phase B-1.5 — verbatim 50-300 char excerpt from the source document. */
+  supportingContext: string | null;
 }
 
 /**
@@ -122,7 +135,19 @@ export interface ApplyResult {
 // ---------------------------------------------------------------------------
 
 export const evaluationService = {
-  /** Create a saved solicitation evaluation from a completed scan. */
+  /**
+   * Create a saved solicitation evaluation from a completed scan.
+   *
+   * Phase B-1.5 timeout bump: this endpoint runs clause-by-clause
+   * normalized matching against the catalog for every detected clause —
+   * the Autoimmune RFP smoke test measured 30-50 s wall-clock for 147
+   * clauses, well over the apiCall default 30 s. Bump matches the
+   * AI-proposer (which has the same long-tail BE work) and is well
+   * under the Vercel edge function ceiling. If a future test consistently
+   * exceeds 120 s, batch the validation in `scanValidationService` rather
+   * than bump further — UX-wise 120s is already the upper bound for a
+   * "saving…" spinner.
+   */
   create: async (
     request: CreateEvaluationRequest,
   ): Promise<ApiResponse<EvaluationDetail>> => {
@@ -130,6 +155,7 @@ export const evaluationService = {
       method: 'POST',
       body: JSON.stringify(request),
       requireAuth: true,
+      timeout: 120_000,
     });
   },
 

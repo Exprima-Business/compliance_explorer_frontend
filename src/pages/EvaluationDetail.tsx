@@ -16,9 +16,11 @@ import LinkIcon from '@mui/icons-material/Link';
 import {
   evaluationService,
   type EvaluationDetail as EvaluationDetailData,
+  type EvaluationClause,
   type RequiredFramework,
   type ImplicatedControl,
   type CoverageStatus,
+  type ClauseCategory,
 } from '../services/evaluationService';
 import { useProject } from '../contexts/ProjectContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
@@ -36,6 +38,40 @@ const SCOPE_LABEL: Record<CoverageStatus, string> = {
   gap: 'New requirement',
   unknown: 'Not in catalog',
 };
+
+/**
+ * Phase B-1.5: category badge palette. Compliance gets the strongest color
+ * (success/green) because that's the headline view; procurement and
+ * informational are muted so they don't compete for attention. NULL is
+ * treated as compliance so legacy rows never disappear from the default
+ * sort.
+ */
+const CATEGORY_BADGE: Record<ClauseCategory, { color: 'success' | 'default' | 'warning'; label: string }> = {
+  compliance: { color: 'success', label: 'Compliance' },
+  procurement: { color: 'default', label: 'Procurement' },
+  informational: { color: 'default', label: 'Informational' },
+};
+
+/** Sort weight per category — compliance first, then procurement, then informational. */
+const CATEGORY_ORDER: Record<ClauseCategory, number> = {
+  compliance: 0,
+  procurement: 1,
+  informational: 2,
+};
+
+/**
+ * Treat a missing category as 'compliance' on display.
+ *
+ * This is the FE half of the silent-hide defense: legacy rows (pre-B-1.5
+ * mig 077) have category = null in the DB; rather than sort them last
+ * or hide them in a separate group, we surface them in the compliance
+ * bucket where the user can see them by default. Combined with the BE's
+ * deterministic family allowlist override (clauseCategoryOverride), the
+ * worst-case for a misclassified compliance clause is that it appears
+ * exactly where the user would look.
+ */
+const effectiveCategory = (c: EvaluationClause): ClauseCategory =>
+  (c.category ?? 'compliance') as ClauseCategory;
 
 /** MUI palette key for a completion percentage. */
 const pctColor = (pct: number): 'success' | 'warning' | 'error' =>
@@ -378,7 +414,23 @@ const EvaluationDetail: React.FC = () => {
     return () => { cancelled = true; };
   }, [id]);
 
-  const clauses = detail?.clauses ?? [];
+  /**
+   * Phase B-1.5: sort by category (compliance → procurement → informational)
+   * so the headline compliance set is at the top of the table without
+   * hiding the others. Stable inside each category — preserves the BE
+   * scan order so identical citations don't reshuffle on re-render.
+   *
+   * NOTE: we sort, we DO NOT filter. The three-layer defense
+   * (BE family override + prompt bias + don't-hide UX) only holds if
+   * this stays a sort. Adding a category filter here would re-open
+   * the silent-hide risk we designed against.
+   */
+  const clauses = useMemo(() => {
+    const raw = detail?.clauses ?? [];
+    return [...raw].sort((a, b) =>
+      CATEGORY_ORDER[effectiveCategory(a)] - CATEGORY_ORDER[effectiveCategory(b)],
+    );
+  }, [detail?.clauses]);
   const allSelected = clauses.length > 0 && selected.size === clauses.length;
 
   const toggle = (clauseRowId: string) => {
@@ -562,9 +614,15 @@ const EvaluationDetail: React.FC = () => {
 
       {/* Clause list */}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-        Scope marks whether each detected clause is already in your program or a new
-        requirement. Completion is the live progress of the framework that clause
-        belongs to — a dash means the clause maps to no tracked framework.
+        Category groups citations as <strong>Compliance</strong> (the headline
+        set — clauses that obligate a control or program activity),{' '}
+        <strong>Procurement</strong> (contract-mechanics like cost accounting,
+        invoicing, FAR 52.215-1), or <strong>Informational</strong> (reference
+        material, defined terms). Compliance rows surface first; procurement
+        and informational remain in the table for context. Scope marks whether
+        each detected clause is already in your program or a new requirement.
+        Completion is the live progress of the framework that clause belongs
+        to — a dash means the clause maps to no tracked framework.
       </Typography>
       <Card>
         <TableContainer>
@@ -578,6 +636,7 @@ const EvaluationDetail: React.FC = () => {
                     onChange={toggleAll}
                   />
                 </TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Clause</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Confidence</TableCell>
@@ -586,10 +645,21 @@ const EvaluationDetail: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {clauses.map(c => (
+              {clauses.map(c => {
+                const cat = effectiveCategory(c);
+                const badge = CATEGORY_BADGE[cat];
+                return (
                 <TableRow key={c.id} hover selected={selected.has(c.id)}>
                   <TableCell padding="checkbox">
                     <Checkbox checked={selected.has(c.id)} onChange={() => toggle(c.id)} />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={badge.label}
+                      color={badge.color}
+                      variant={cat === 'compliance' ? 'filled' : 'outlined'}
+                    />
                   </TableCell>
                   <TableCell>
                     {c.clauseCode ? (
@@ -618,8 +688,25 @@ const EvaluationDetail: React.FC = () => {
                       <Typography variant="body2" color="text.secondary">—</Typography>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ maxWidth: 480 }}>
                     <Typography variant="body2">{c.title || '—'}</Typography>
+                    {c.supportingContext && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                          display: 'block',
+                          mt: 0.5,
+                          fontStyle: 'italic',
+                          lineHeight: 1.4,
+                          // Source-text excerpt; wrap freely so the user can read
+                          // what the citation actually obligates.
+                          whiteSpace: 'normal',
+                        }}
+                      >
+                        “{c.supportingContext}”
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     {c.confidence != null ? `${Math.round(c.confidence * 100)}%` : '—'}
@@ -644,7 +731,8 @@ const EvaluationDetail: React.FC = () => {
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
