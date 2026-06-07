@@ -51,6 +51,14 @@ export interface PoamItem {
   /** True when the underlying control/objective is now closed; needs reviewer confirmation. */
   readyForClosure: boolean;
   readyForClosureAt: string | null;
+  /**
+   * Phase B-3 — source evaluation_clause FK for POA&Ms created from eval gaps.
+   * Drives the "From eval: <title>" badge with click-through to the eval page.
+   * Null for status-change auto-POA&Ms and manually-created rows.
+   */
+  sourceEvaluationClauseId: string | null;
+  sourceEvaluationId: string | null;
+  sourceEvaluationTitle: string | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;

@@ -5,6 +5,7 @@ import {
   Box, Typography, Card, CardContent, CircularProgress, Alert, Chip, Button,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox,
   Snackbar, Link, LinearProgress, useTheme, useMediaQuery,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -390,6 +391,10 @@ const EvaluationDetail: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
   const [snack, setSnack] = useState<string | null>(null);
+  // Phase B-3 — bulk POA&M from gaps state. Confirm dialog gate prevents
+  // accidental mass creation (a 100-gap eval would spawn 100 POA&Ms).
+  const [poamDialogOpen, setPoamDialogOpen] = useState(false);
+  const [creatingPoams, setCreatingPoams] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -466,6 +471,36 @@ const EvaluationDetail: React.FC = () => {
     await refreshBookmarks();
     setApplying(false);
     setTimeout(() => navigate('/matrix'), 1800);
+  };
+
+  /**
+   * Phase B-3 — bulk create POA&Ms from gap clauses. The confirm dialog
+   * shows the gap count before we commit so the user knows what they're
+   * about to spawn. Per-clause dedup on the BE means re-running is safe.
+   */
+  const handleCreatePoams = async () => {
+    if (!id || !program) return;
+    setCreatingPoams(true);
+    setError(null);
+    const resp = await evaluationService.createPoamsFromGaps(id, program.id);
+    if (resp.error) {
+      setCreatingPoams(false);
+      setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
+      setPoamDialogOpen(false);
+      return;
+    }
+    const r = resp.data;
+    setSnack(
+      `Created ${r?.created ?? 0} POA&M${r?.created === 1 ? '' : 's'} from gaps` +
+      (r?.skipped_duplicate ? `, skipped ${r.skipped_duplicate} already tracked` : '') +
+      (r?.failed ? `, ${r.failed} failed` : '') +
+      '. Opening POA&M page…',
+    );
+    setCreatingPoams(false);
+    setPoamDialogOpen(false);
+    // 1.8s matches handleApply's snack-then-navigate delay so the success
+    // message is readable before we route away.
+    setTimeout(() => navigate('/poam'), 1800);
   };
 
   const summary = useMemo(
@@ -611,6 +646,79 @@ const EvaluationDetail: React.FC = () => {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Create-POA&Ms-from-gaps bar (Phase B-3) — appears only when there are
+          gaps to track AND a program is available. Parallel structure to Apply
+          bar so the two bulk actions read as siblings: Apply = adds clauses to
+          program tracking; Create POA&Ms = opens remediation items for the new
+          requirements. Re-running is safe (per-clause dedup on the BE). */}
+      {summary.gaps > 0 && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ flex: 1, minWidth: 220 }}>
+              <Typography variant="subtitle2">
+                Track gaps as POA&amp;Ms
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {program
+                  ? `Creates one POA&M per gap clause in "${program.name}". Each row links back to this evaluation. Already-tracked gaps are skipped.`
+                  : 'No compliance program found — POA&M creation is unavailable.'}
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              disabled={!program || creatingPoams}
+              startIcon={creatingPoams ? <CircularProgress size={18} /> : <PendingIcon />}
+              onClick={() => setPoamDialogOpen(true)}
+            >
+              {creatingPoams ? 'Creating…' : `Create ${summary.gaps} POA&M${summary.gaps === 1 ? '' : 's'} from gaps`}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Confirm dialog for bulk POA&M creation. Gate prevents accidental
+          mass creation; the dedup safety net on the BE makes re-running a
+          no-op, but a 100-gap eval still deserves a "you sure?" beat. */}
+      <Dialog open={poamDialogOpen} onClose={() => !creatingPoams && setPoamDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create POA&amp;Ms from gaps</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will create one POA&amp;M in <strong>{program?.name ?? 'your program'}</strong>{' '}
+            for each of the <strong>{summary.gaps}</strong> gap clause{summary.gaps === 1 ? '' : 's'} in
+            this evaluation. Each POA&amp;M will:
+          </DialogContentText>
+          <Box component="ul" sx={{ pl: 3, my: 1.5 }}>
+            <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+              Carry a link back to the source clause for traceability.
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+              Start in <em>Open</em> status with a default remediation timeline
+              based on the clause's risk level (LOW=60d, MEDIUM=30d, HIGH=14d).
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+              Need a remediation plan filled in before progressing.
+            </Typography>
+          </Box>
+          <DialogContentText sx={{ fontSize: '0.85rem' }} color="text.secondary">
+            Re-running for this evaluation is safe — gaps that already have a
+            POA&amp;M are skipped, so no duplicates will be created.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPoamDialogOpen(false)} disabled={creatingPoams}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCreatePoams}
+            disabled={creatingPoams}
+            startIcon={creatingPoams ? <CircularProgress size={18} /> : undefined}
+          >
+            {creatingPoams ? 'Creating…' : 'Create POA&Ms'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Clause list */}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>

@@ -34,7 +34,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import FlagIcon from '@mui/icons-material/Flag';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
 import { useProject } from '../contexts/ProjectContext';
 import {
   ITEM_STATUSES,
@@ -168,6 +169,7 @@ const POAM: React.FC = () => {
   const { currentProject } = useProject();
   const programId = currentProject?.id ?? null;
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [items, setItems] = useState<PoamItem[]>([]);
   const [controlOptions, setControlOptions] = useState<ControlOption[]>([]);
@@ -891,6 +893,11 @@ const POAM: React.FC = () => {
                 <TableCell>Risk</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Owner</TableCell>
+                {/* Phase B-3: Source column shows the originating evaluation
+                    for POA&Ms created via the bulk-from-gaps workflow. Manual
+                    and status-change auto-POA&Ms show "—". Click-through
+                    navigates to the eval detail page. */}
+                <TableCell>Source</TableCell>
                 <TableCell>Scheduled</TableCell>
                 <TableCell sx={{ width: 120, textAlign: 'right' }}>Actions</TableCell>
               </TableRow>
@@ -987,6 +994,36 @@ const POAM: React.FC = () => {
                         <Typography variant="body2">{it.responsibleParty || '—'}</Typography>
                       </TableCell>
                       <TableCell>
+                        {it.sourceEvaluationId ? (
+                          <Chip
+                            size="small"
+                            icon={<FactCheckIcon sx={{ fontSize: 14 }} />}
+                            label={it.sourceEvaluationTitle ?? 'Evaluation'}
+                            variant="outlined"
+                            color="primary"
+                            onClick={(e) => {
+                              // Row also has hover/expand interactions, so we stop
+                              // propagation here to keep the click scoped to the
+                              // navigation intent. Same pattern as the clauseCode
+                              // pill on EvaluationDetail.
+                              e.stopPropagation();
+                              navigate(`/evaluations/${it.sourceEvaluationId}`);
+                            }}
+                            sx={{
+                              cursor: 'pointer',
+                              maxWidth: 200,
+                              '& .MuiChip-label': {
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              },
+                            }}
+                            title={`From evaluation: ${it.sourceEvaluationTitle ?? '(untitled)'} — click to open`}
+                          />
+                        ) : (
+                          <Typography variant="body2" color="text.disabled">—</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Stack direction="row" alignItems="center" spacing={0.5}>
                           <Typography variant="body2">{fmtDate(it.scheduledCompletion)}</Typography>
                           {overdue && (
@@ -1009,7 +1046,7 @@ const POAM: React.FC = () => {
                     </TableRow>
                     {isOpen && (
                       <TableRow>
-                        <TableCell colSpan={7} sx={{ bgcolor: 'action.hover', py: 2 }}>
+                        <TableCell colSpan={8} sx={{ bgcolor: 'action.hover', py: 2 }}>
                           <ItemDetail
                             item={it}
                             onAddMilestone={() => openCreateMilestone(it.id)}
@@ -1027,7 +1064,7 @@ const POAM: React.FC = () => {
                   return grouped.flatMap(group => [
                     // Section-header row — sticky-ish heading per group.
                     <TableRow key={`__header__${group.key}`} sx={{ bgcolor: 'action.selected' }}>
-                      <TableCell colSpan={7} sx={{ py: 1 }}>
+                      <TableCell colSpan={8} sx={{ py: 1 }}>
                         <Stack direction="row" alignItems="center" spacing={1}>
                           <Typography variant="body2" sx={{ fontWeight: 700 }}>
                             {group.label}

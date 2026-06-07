@@ -130,6 +130,24 @@ export interface ApplyResult {
   bookmarksCreated: number;
 }
 
+/**
+ * Phase B-3 — result of the bulk POA&M creation workflow.
+ *   created          — POA&Ms inserted this call
+ *   skipped_duplicate— gaps whose source_evaluation_clause_id already had a
+ *                      POA&M (re-running is a no-op)
+ *   failed           — individual rows that errored on insert (rest of batch
+ *                      continued)
+ *   total_gaps       — gap clauses considered (created + skipped + failed)
+ *   poam_ids         — UUIDs of the newly created rows for UI navigation
+ */
+export interface CreatePoamsFromGapsResult {
+  created: number;
+  skipped_duplicate: number;
+  failed: number;
+  total_gaps: number;
+  poam_ids: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Service — wraps the /api/solicitation-evaluations endpoints (036e)
 // ---------------------------------------------------------------------------
@@ -188,5 +206,31 @@ export const evaluationService = {
       body: JSON.stringify({ programId, evaluationClauseIds }),
       requireAuth: true,
     });
+  },
+
+  /**
+   * Phase B-3 — bulk-create POA&M items for every gap clause in this
+   * evaluation. Idempotent: re-running for the same evaluation creates
+   * nothing new (each row deduped via source_evaluation_clause_id).
+   *
+   * Timeout matches `create` — bulk insert + per-row audit log can be slow
+   * on evals with many gaps (Autoimmune RFP had 126 unknowns; a similarly-
+   * sized gap set would be on the same order). 120 s is the same upper
+   * bound rationale as the eval-create endpoint.
+   */
+  createPoamsFromGaps: async (
+    evaluationId: string,
+    programId: string,
+    frameworkId?: string | null,
+  ): Promise<ApiResponse<CreatePoamsFromGapsResult>> => {
+    return apiCall<CreatePoamsFromGapsResult>(
+      `/api/solicitation-evaluations/${evaluationId}/create-poams-from-gaps`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ programId, frameworkId: frameworkId ?? null }),
+        requireAuth: true,
+        timeout: 120_000,
+      },
+    );
   },
 };
