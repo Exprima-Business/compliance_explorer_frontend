@@ -42,6 +42,7 @@ import { useNavigate } from 'react-router-dom';
 import { FloatingPanel } from '../components/FloatingPanel';
 import ObligationsDueWidget from '../components/ObligationsDueWidget';
 import RecentEvaluationsWidget from '../components/RecentEvaluationsWidget';
+import ProgramReadinessWidget from '../components/ProgramReadinessWidget';
 import type { Clause, RiskClassification, ClauseFamilyGroup } from '../types/clause';
 import { useProjectSummary } from '../hooks/useProjectSummary';
 import {
@@ -314,6 +315,9 @@ const Dashboard: React.FC = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* ── Program Readiness — north-star "ready to bid?" view (D-2.1+2.2) ─ */}
+      <ProgramReadinessWidget />
 
       {/* ── Obligations widget (W3 Phase 4) ─────────────────────── */}
       <ObligationsDueWidget />
