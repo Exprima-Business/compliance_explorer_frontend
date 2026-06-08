@@ -39,6 +39,8 @@ export interface SatisfactionMethodStatus {
   validUntil: string | null;
   nextDueAt: string | null;
   notes: string | null;
+  /** D-1.4 — per-mechanism JSONB payload (e.g. {name, email, phone}). */
+  structuredEvidence?: Record<string, string | number | boolean | null> | null;
   updatedAt: string;
   updatedBy: string | null;
 }
@@ -67,7 +69,21 @@ export interface SatisfactionMethod {
   sortOrder: number;
   /** Per-program status when queried with programId; null otherwise. */
   status: SatisfactionMethodStatus | null;
+  /**
+   * D-1.2 — TRUE when the method's status is computed by the BE from the
+   * linked framework control's status (i.e. user must update the framework
+   * control directly, not the method). FE disables status + evidence inputs
+   * for these rows.
+   */
+  computed?: boolean;
 }
+
+/**
+ * Free-form structured evidence payload. The BE stores this as JSONB; the
+ * FE shape varies per mechanism_type (see SatisfactionMethodsPanel for the
+ * per-mechanism input forms).
+ */
+export type StructuredEvidence = Record<string, string | number | boolean | null>;
 
 export interface UpsertStatusRequest {
   programId: string;
@@ -76,6 +92,8 @@ export interface UpsertStatusRequest {
   evidenceNotes?: string | null;
   acknowledgmentText?: string | null;
   notes?: string | null;
+  /** D-1.4 — per-mechanism structured evidence (JSONB on the BE). */
+  structuredEvidence?: StructuredEvidence | null;
 }
 
 // ---------------------------------------------------------------------------

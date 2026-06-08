@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Card, CardContent, Chip, CircularProgress, Divider,
-  FormControl, IconButton, InputLabel, Link, MenuItem, Select,
+  Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Divider,
+  FormControl, InputLabel, Link, MenuItem, Select,
   Stack, TextField, Tooltip, Typography,
 } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -13,11 +13,16 @@ import GavelIcon from '@mui/icons-material/Gavel';
 import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import AlarmOnIcon from '@mui/icons-material/AlarmOn';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import SaveIcon from '@mui/icons-material/Save';
+import LockIcon from '@mui/icons-material/Lock';
 import {
   satisfactionService,
   type SatisfactionMethod,
+  type SatisfactionMethodStatus,
   type SatisfactionStatus,
   type PatternType,
+  type StructuredEvidence,
+  type UpsertStatusRequest,
 } from '../services/satisfactionService';
 
 /**
@@ -122,6 +127,459 @@ function formatInterval(raw: string | null): string | null {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Mechanism-specific evidence form (D-1.4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Per-mechanism evidence form payload. Mirrors UpsertStatusRequest's
+ * evidence-shaped fields. Each form below produces a subset of these.
+ */
+interface EvidenceFormPayload {
+  evidenceUrl?: string | null;
+  evidenceNotes?: string | null;
+  acknowledgmentText?: string | null;
+  structuredEvidence?: StructuredEvidence | null;
+}
+
+interface EvidenceFormProps {
+  method: SatisfactionMethod;
+  disabled: boolean;
+  saving: boolean;
+  onSave: (payload: EvidenceFormPayload) => Promise<void>;
+}
+
+/** Pull a string field from existing structuredEvidence (defensive). */
+function readStr(
+  obj: Record<string, string | number | boolean | null> | null | undefined,
+  key: string,
+): string {
+  if (!obj) return '';
+  const v = obj[key];
+  if (v === null || v === undefined) return '';
+  return String(v);
+}
+
+/**
+ * Generic notes + URL evidence form — used by maintain_policy_doc and as
+ * the fallback for any mechanism without a custom form.
+ */
+const NotesAndUrlForm: React.FC<EvidenceFormProps & {
+  urlLabel?: string;
+  notesLabel?: string;
+}> = ({ method, disabled, saving, onSave, urlLabel = 'Evidence URL', notesLabel = 'Notes' }) => {
+  const [url, setUrl] = useState(method.status?.evidenceUrl ?? '');
+  const [notes, setNotes] = useState(method.status?.evidenceNotes ?? '');
+
+  return (
+    <Stack spacing={1} sx={{ mt: 1 }}>
+      <TextField
+        size="small"
+        label={urlLabel}
+        placeholder="https://..."
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        disabled={disabled || saving}
+        fullWidth
+      />
+      <TextField
+        size="small"
+        label={notesLabel}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        disabled={disabled || saving}
+        multiline
+        minRows={2}
+        fullWidth
+      />
+      <Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<SaveIcon />}
+          disabled={disabled || saving || (!url && !notes)}
+          onClick={() => onSave({ evidenceUrl: url || null, evidenceNotes: notes || null })}
+        >
+          Save evidence
+        </Button>
+      </Box>
+    </Stack>
+  );
+};
+
+/** designated_role → {name, email, phone} */
+const DesignatedRoleForm: React.FC<EvidenceFormProps> = ({ method, disabled, saving, onSave }) => {
+  const existing = method.status?.structuredEvidence ?? null;
+  const [name, setName] = useState(readStr(existing, 'name'));
+  const [email, setEmail] = useState(readStr(existing, 'email'));
+  const [phone, setPhone] = useState(readStr(existing, 'phone'));
+
+  return (
+    <Stack spacing={1} sx={{ mt: 1 }}>
+      <Typography variant="caption" color="text.secondary">
+        Record the person accountable for this obligation.
+      </Typography>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <TextField
+          size="small"
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={disabled || saving}
+          fullWidth
+        />
+        <TextField
+          size="small"
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={disabled || saving}
+          fullWidth
+        />
+        <TextField
+          size="small"
+          label="Phone"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          disabled={disabled || saving}
+          fullWidth
+        />
+      </Stack>
+      <Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<SaveIcon />}
+          disabled={disabled || saving || (!name && !email && !phone)}
+          onClick={() => onSave({
+            structuredEvidence: { name: name || null, email: email || null, phone: phone || null },
+          })}
+        >
+          Save evidence
+        </Button>
+      </Box>
+    </Stack>
+  );
+};
+
+/** self_attestation_form → acknowledgmentText */
+const SelfAttestationForm: React.FC<EvidenceFormProps> = ({ method, disabled, saving, onSave }) => {
+  const [text, setText] = useState(method.status?.acknowledgmentText ?? '');
+
+  return (
+    <Stack spacing={1} sx={{ mt: 1 }}>
+      <Typography variant="caption" color="text.secondary">
+        Type your attestation. Saving records you (the authenticated user) as the signer
+        with a timestamp.
+      </Typography>
+      <TextField
+        size="small"
+        label="Attestation text"
+        placeholder="I acknowledge that..."
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        disabled={disabled || saving}
+        multiline
+        minRows={2}
+        fullWidth
+      />
+      {method.status?.acknowledgedAt && (
+        <Typography variant="caption" color="text.disabled">
+          Signed {new Date(method.status.acknowledgedAt).toLocaleString()}
+          {method.status.acknowledgedBy ? ` by ${method.status.acknowledgedBy}` : ''}
+        </Typography>
+      )}
+      <Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<SaveIcon />}
+          disabled={disabled || saving || !text}
+          onClick={() => onSave({ acknowledgmentText: text })}
+        >
+          Save attestation
+        </Button>
+      </Box>
+    </Stack>
+  );
+};
+
+/** contractual_instrument_with_third_party → {party_name, executed_date, document_url} */
+const ContractualInstrumentForm: React.FC<EvidenceFormProps> = ({ method, disabled, saving, onSave }) => {
+  const existing = method.status?.structuredEvidence ?? null;
+  const [partyName, setPartyName] = useState(readStr(existing, 'party_name'));
+  const [executedDate, setExecutedDate] = useState(readStr(existing, 'executed_date'));
+  const [documentUrl, setDocumentUrl] = useState(readStr(existing, 'document_url'));
+
+  return (
+    <Stack spacing={1} sx={{ mt: 1 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <TextField
+          size="small"
+          label="Party name"
+          value={partyName}
+          onChange={(e) => setPartyName(e.target.value)}
+          disabled={disabled || saving}
+          fullWidth
+        />
+        <TextField
+          size="small"
+          label="Executed date"
+          type="date"
+          value={executedDate}
+          onChange={(e) => setExecutedDate(e.target.value)}
+          disabled={disabled || saving}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+      </Stack>
+      <TextField
+        size="small"
+        label="Document URL"
+        placeholder="https://..."
+        value={documentUrl}
+        onChange={(e) => setDocumentUrl(e.target.value)}
+        disabled={disabled || saving}
+        fullWidth
+      />
+      <Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<SaveIcon />}
+          disabled={disabled || saving || (!partyName && !executedDate && !documentUrl)}
+          onClick={() => onSave({
+            structuredEvidence: {
+              party_name: partyName || null,
+              executed_date: executedDate || null,
+              document_url: documentUrl || null,
+            },
+          })}
+        >
+          Save evidence
+        </Button>
+      </Box>
+    </Stack>
+  );
+};
+
+/** annual_training → {roster_url, completion_date} */
+const AnnualTrainingForm: React.FC<EvidenceFormProps> = ({ method, disabled, saving, onSave }) => {
+  const existing = method.status?.structuredEvidence ?? null;
+  const [rosterUrl, setRosterUrl] = useState(readStr(existing, 'roster_url'));
+  const [completionDate, setCompletionDate] = useState(readStr(existing, 'completion_date'));
+
+  return (
+    <Stack spacing={1} sx={{ mt: 1 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <TextField
+          size="small"
+          label="Roster URL"
+          placeholder="https://..."
+          value={rosterUrl}
+          onChange={(e) => setRosterUrl(e.target.value)}
+          disabled={disabled || saving}
+          fullWidth
+        />
+        <TextField
+          size="small"
+          label="Completion date"
+          type="date"
+          value={completionDate}
+          onChange={(e) => setCompletionDate(e.target.value)}
+          disabled={disabled || saving}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+      </Stack>
+      <Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<SaveIcon />}
+          disabled={disabled || saving || (!rosterUrl && !completionDate)}
+          onClick={() => onSave({
+            structuredEvidence: {
+              roster_url: rosterUrl || null,
+              completion_date: completionDate || null,
+            },
+          })}
+        >
+          Save evidence
+        </Button>
+      </Box>
+    </Stack>
+  );
+};
+
+/** post_to_government_system → {system_url, posted_at, confirmation} */
+const PostToGovernmentSystemForm: React.FC<EvidenceFormProps> = ({ method, disabled, saving, onSave }) => {
+  const existing = method.status?.structuredEvidence ?? null;
+  const [systemUrl, setSystemUrl] = useState(readStr(existing, 'system_url'));
+  const [postedAt, setPostedAt] = useState(readStr(existing, 'posted_at'));
+  const [confirmation, setConfirmation] = useState(readStr(existing, 'confirmation'));
+
+  return (
+    <Stack spacing={1} sx={{ mt: 1 }}>
+      <TextField
+        size="small"
+        label="System URL"
+        placeholder="https://..."
+        value={systemUrl}
+        onChange={(e) => setSystemUrl(e.target.value)}
+        disabled={disabled || saving}
+        fullWidth
+      />
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <TextField
+          size="small"
+          label="Posted at"
+          type="date"
+          value={postedAt}
+          onChange={(e) => setPostedAt(e.target.value)}
+          disabled={disabled || saving}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+        <TextField
+          size="small"
+          label="Confirmation #"
+          value={confirmation}
+          onChange={(e) => setConfirmation(e.target.value)}
+          disabled={disabled || saving}
+          fullWidth
+        />
+      </Stack>
+      <Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<SaveIcon />}
+          disabled={disabled || saving || (!systemUrl && !postedAt && !confirmation)}
+          onClick={() => onSave({
+            structuredEvidence: {
+              system_url: systemUrl || null,
+              posted_at: postedAt || null,
+              confirmation: confirmation || null,
+            },
+          })}
+        >
+          Save evidence
+        </Button>
+      </Box>
+    </Stack>
+  );
+};
+
+/** third_party_assessment → {assessor, cert_date, cert_url} */
+const ThirdPartyAssessmentForm: React.FC<EvidenceFormProps> = ({ method, disabled, saving, onSave }) => {
+  const existing = method.status?.structuredEvidence ?? null;
+  const [assessor, setAssessor] = useState(readStr(existing, 'assessor'));
+  const [certDate, setCertDate] = useState(readStr(existing, 'cert_date'));
+  const [certUrl, setCertUrl] = useState(readStr(existing, 'cert_url'));
+
+  return (
+    <Stack spacing={1} sx={{ mt: 1 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <TextField
+          size="small"
+          label="Assessor name"
+          value={assessor}
+          onChange={(e) => setAssessor(e.target.value)}
+          disabled={disabled || saving}
+          fullWidth
+        />
+        <TextField
+          size="small"
+          label="Certification date"
+          type="date"
+          value={certDate}
+          onChange={(e) => setCertDate(e.target.value)}
+          disabled={disabled || saving}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+      </Stack>
+      <TextField
+        size="small"
+        label="Certification URL"
+        placeholder="https://..."
+        value={certUrl}
+        onChange={(e) => setCertUrl(e.target.value)}
+        disabled={disabled || saving}
+        fullWidth
+      />
+      <Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<SaveIcon />}
+          disabled={disabled || saving || (!assessor && !certDate && !certUrl)}
+          onClick={() => onSave({
+            structuredEvidence: {
+              assessor: assessor || null,
+              cert_date: certDate || null,
+              cert_url: certUrl || null,
+            },
+          })}
+        >
+          Save evidence
+        </Button>
+      </Box>
+    </Stack>
+  );
+};
+
+/** Router that picks the right form per mechanism_type.typeName. */
+const EvidenceForm: React.FC<EvidenceFormProps> = (props) => {
+  const typeName = props.method.mechanismType.typeName;
+  switch (typeName) {
+    case 'designated_role':
+      return <DesignatedRoleForm {...props} />;
+    case 'maintain_policy_doc':
+      return <NotesAndUrlForm {...props} urlLabel="Policy URL" notesLabel="Notes" />;
+    case 'self_attestation_form':
+      return <SelfAttestationForm {...props} />;
+    case 'contractual_instrument_with_third_party':
+      return <ContractualInstrumentForm {...props} />;
+    case 'annual_training':
+      return <AnnualTrainingForm {...props} />;
+    case 'post_to_government_system':
+      return <PostToGovernmentSystemForm {...props} />;
+    case 'third_party_assessment':
+      return <ThirdPartyAssessmentForm {...props} />;
+    default:
+      // Fallback: generic notes + URL covers incident_reporting_on_schedule,
+      // continuous_monitoring, prohibition, evidence_preservation,
+      // vulnerability_remediation_deadline, government_access_rights,
+      // data_residency, marking_and_handling, personnel_security_credential,
+      // use_restriction_on_disclosed_data, authorization_to_operate,
+      // conformance_statement, flowdown_to_subcontractors,
+      // statutory_authority_only.
+      return <NotesAndUrlForm {...props} />;
+  }
+};
+
+/**
+ * TRUE if the given status row has *some* evidence already recorded —
+ * any of url, notes, acknowledgmentText, or structuredEvidence with
+ * at least one non-empty value. Used to gate the "Evidence required
+ * to mark satisfied" warning.
+ */
+function hasAnyEvidence(s: SatisfactionMethodStatus | null | undefined): boolean {
+  if (!s) return false;
+  if (s.evidenceUrl) return true;
+  if (s.evidenceNotes) return true;
+  if (s.acknowledgmentText) return true;
+  if (s.structuredEvidence) {
+    for (const v of Object.values(s.structuredEvidence)) {
+      if (v !== null && v !== undefined && v !== '') return true;
+    }
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Per-method row
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -129,13 +587,20 @@ interface MethodRowProps {
   method: SatisfactionMethod;
   programId: string | null;
   onStatusChange: (methodId: string, newStatus: SatisfactionStatus) => Promise<void>;
+  onEvidenceSave: (methodId: string, payload: EvidenceFormPayload) => Promise<void>;
   saving: boolean;
 }
 
-const MethodRow: React.FC<MethodRowProps> = ({ method, programId, onStatusChange, saving }) => {
+const MethodRow: React.FC<MethodRowProps> = ({
+  method, programId, onStatusChange, onEvidenceSave, saving,
+}) => {
   const currentStatus: SatisfactionStatus = method.status?.status ?? 'not_started';
   const recurrence = formatInterval(method.recurrenceInterval);
   const response = formatInterval(method.responseWindow);
+  const isComputed = method.computed === true;
+  const inputsDisabled = !programId || isComputed;
+  const showEvidenceWarning =
+    currentStatus === 'satisfied' && !hasAnyEvidence(method.status) && !isComputed;
 
   return (
     <Box
@@ -249,10 +714,24 @@ const MethodRow: React.FC<MethodRowProps> = ({ method, programId, onStatusChange
 
       <Divider sx={{ my: 1 }} />
 
+      {/* D-1.2 — computed-status banner. Status + evidence inputs are
+          disabled; user must update the linked framework control instead. */}
+      {isComputed && (
+        <Alert
+          severity="info"
+          icon={<LockIcon fontSize="small" />}
+          sx={{ mb: 1, py: 0.5 }}
+        >
+          Status computed from framework control
+          {method.controlIdentifier ? ` (${method.controlIdentifier})` : ''}.
+          Update the control directly to change this method's status.
+        </Alert>
+      )}
+
       {/* Per-program status control */}
       <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
         <Box sx={{ minWidth: 200 }}>
-          <FormControl size="small" fullWidth disabled={!programId || saving}>
+          <FormControl size="small" fullWidth disabled={inputsDisabled || saving}>
             <InputLabel>Status</InputLabel>
             <Select
               value={currentStatus}
@@ -295,6 +774,25 @@ const MethodRow: React.FC<MethodRowProps> = ({ method, programId, onStatusChange
           </Typography>
         )}
       </Stack>
+
+      {/* D-1.3 — immediate FE warning when user selects "satisfied" with no
+          evidence on record. BE will also reject; this catches it sooner. */}
+      {showEvidenceWarning && (
+        <Alert severity="warning" sx={{ mt: 1, py: 0.5 }}>
+          Evidence required to mark satisfied. Fill in the form below and save.
+        </Alert>
+      )}
+
+      {/* D-1.4 — per-mechanism evidence input form. Only renders when a
+          program is selected (no program → status is read-only anyway). */}
+      {programId && (
+        <EvidenceForm
+          method={method}
+          disabled={inputsDisabled}
+          saving={saving}
+          onSave={(payload) => onEvidenceSave(method.id, payload)}
+        />
+      )}
     </Box>
   );
 };
@@ -359,6 +857,37 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
         : m
     ));
     setSnack(`Status updated to "${STATUS_LABEL[newStatus]}"`);
+    setTimeout(() => setSnack(null), 2400);
+  };
+
+  /**
+   * D-1.4 — save mechanism-specific evidence. Preserves the method's
+   * current status (we are saving evidence, not flipping status), and
+   * merges the new evidence fields onto the upsert payload.
+   */
+  const handleEvidenceSave = async (methodId: string, payload: EvidenceFormPayload) => {
+    if (!programId) return;
+    const method = methods.find((m) => m.id === methodId);
+    if (!method) return;
+    setSavingMethodId(methodId);
+    setError(null);
+    const req: UpsertStatusRequest = {
+      programId,
+      status: method.status?.status ?? 'not_started',
+      ...payload,
+    };
+    const resp = await satisfactionService.upsertStatus(methodId, req);
+    setSavingMethodId(null);
+    if (resp.error) {
+      setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
+      return;
+    }
+    setMethods((prev) => prev.map((m) =>
+      m.id === methodId
+        ? { ...m, status: resp.data ?? m.status }
+        : m
+    ));
+    setSnack('Evidence saved');
     setTimeout(() => setSnack(null), 2400);
   };
 
@@ -435,6 +964,7 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
                   method={m}
                   programId={programId}
                   onStatusChange={handleStatusChange}
+                  onEvidenceSave={handleEvidenceSave}
                   saving={savingMethodId === m.id}
                 />
               ))}
