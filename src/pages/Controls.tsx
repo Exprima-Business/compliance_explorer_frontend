@@ -2660,7 +2660,11 @@ const Controls: React.FC = () => {
                 setActivatedFrameworks(activated);
                 // Switch to the first newly-activated framework so the user
                 // immediately sees the controls they just added.
-                const newId = result.activated[0]?.id ?? null;
+                // ApplyBundleResult.activated[] items are
+                // { frameworkId, name } — not { id, name } (see
+                // onboardingService.ts:28). The inline picker on the
+                // !activeFramework branch uses the same pattern.
+                const newId = result.activated[0]?.frameworkId ?? null;
                 if (newId) {
                   setSelectedFrameworkId(newId);
                   const detail = await fetchFrameworkWithStatus(newId);
