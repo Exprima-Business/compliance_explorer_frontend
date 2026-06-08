@@ -32,6 +32,7 @@ import {
   ExpandLess as ExpandLessIcon,
   Search as SearchIcon,
   Shield as ShieldIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
@@ -808,6 +809,20 @@ const Dashboard: React.FC = () => {
               sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
             >
               Matrix
+            </Button>
+            {/* Re-entry to the BundlePicker flow. Deep-links to /controls with
+                ?addFramework=1, which the Controls page consumes to open the
+                Add-framework dialog. Lets users layer additional frameworks
+                (e.g. HIPAA on top of NIST 800-171) without having to deactivate
+                what they already have. */}
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/controls?addFramework=1')}
+              fullWidth
+              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
+            >
+              Add framework
             </Button>
           </Box>
         </CardContent>

@@ -43,9 +43,10 @@ import {
   Description as DocumentIcon,
   Flag as FlagIcon,
   Hub as HubIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import CrossFrameworkCreditPanel from '../components/CrossFrameworkCreditPanel';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
 import { useAuth } from '../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -1211,9 +1212,27 @@ const Controls: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentProject } = useProject();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const qc = useQueryClient();
+
+  // "Add framework" Dialog — surfaces BundlePicker as a re-entry point after
+  // the user has already activated ≥1 framework. Also opened via `?addFramework=1`
+  // so the Dashboard Quick Action can deep-link straight into the picker.
+  const [addFrameworkDialogOpen, setAddFrameworkDialogOpen] = useState(false);
+
+  // Open the dialog when the URL carries ?addFramework=1 (Dashboard Quick
+  // Action navigates here with that param). Strip the param after consuming so
+  // back/forward + page refresh don't re-open the dialog unexpectedly.
+  useEffect(() => {
+    if (searchParams.get('addFramework') === '1') {
+      setAddFrameworkDialogOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('addFramework');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // State
   const [frameworks, setFrameworks] = useState<ControlFramework[]>([]);
@@ -1940,6 +1959,15 @@ const Controls: React.FC = () => {
             Executive Report
           </Button>
           <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => setAddFrameworkDialogOpen(true)}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Add framework
+          </Button>
+          <Button
             variant="outlined"
             size="small"
             color="error"
@@ -2595,6 +2623,55 @@ const Controls: React.FC = () => {
           onApplied={handleWizardApplied}
         />
       )}
+
+      {/* "Add framework" dialog — BundlePicker re-entry once ≥1 framework is
+          already active. Reuses the exact onApplied flow as the inline picker
+          on the no-active-framework branch (refresh activated list + load the
+          newly activated framework). Also opened from Dashboard via
+          ?addFramework=1 (see useEffect above). */}
+      <Dialog
+        open={addFrameworkDialogOpen}
+        onClose={() => setAddFrameworkDialogOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        fullScreen={isMobile}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <AddIcon sx={{ color: 'primary.main' }} />
+          <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
+            Add a framework
+          </Typography>
+          <Button size="small" onClick={() => setAddFrameworkDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogTitle>
+        <DialogContent dividers>
+          <BundlePicker
+            onApplied={async (result) => {
+              setFeedbackSnack({
+                open: true,
+                message: result.activated.length > 0
+                  ? `Activated ${result.activated.length} framework${result.activated.length === 1 ? '' : 's'}: ${result.activated.map(a => a.name).join(', ')}`
+                  : 'No frameworks activated (none loaded in this environment).',
+                severity: result.activated.length > 0 ? 'success' : 'warning',
+              });
+              if (result.activated.length > 0) {
+                const activated = await fetchActivatedFrameworks();
+                setActivatedFrameworks(activated);
+                // Switch to the first newly-activated framework so the user
+                // immediately sees the controls they just added.
+                const newId = result.activated[0]?.id ?? null;
+                if (newId) {
+                  setSelectedFrameworkId(newId);
+                  const detail = await fetchFrameworkWithStatus(newId);
+                  if (detail) setActiveFramework(detail);
+                }
+                setAddFrameworkDialogOpen(false);
+              }
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };
