@@ -38,6 +38,8 @@ import {
 } from '../services/clauseService';
 import { extractErrorMessage } from '../utils/errorUtils';
 import { safeHref } from '../utils/safeHref';
+import { useProject } from '../contexts/ProjectContext';
+import SatisfactionMethodsPanel from '../components/SatisfactionMethodsPanel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
@@ -188,6 +190,9 @@ const ClauseDetail: React.FC = () => {
   const navigate = useNavigate();
   const { clauseCode: encoded } = useParams<{ clauseCode: string }>();
   const clauseCode = encoded ? decodeURIComponent(encoded) : '';
+  // Phase C-1: pull current program for per-program satisfaction status.
+  // Read-only fallback when no program is selected.
+  const { currentProject } = useProject();
 
   const [data, setData] = useState<ClauseDetailResponse | null>(null);
   const [graph, setGraph] = useState<ClauseGraphResponse | null>(null);
@@ -371,14 +376,17 @@ const ClauseDetail: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Framework checklist sections — only render when we have clause-level data */}
-      {data && !data.hasFrameworkCoverage && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <strong>No control framework directly satisfies this clause yet.</strong>{' '}
-          The clause text above is the authoritative reference. As we add more
-          framework crosswalks (CMMC, HIPAA, Section 508, etc.) this page will
-          show specific controls to implement.
-        </Alert>
+      {/* Phase C-1: Satisfaction methods panel — replaces the prior dead-end
+          message. Renders for every clause; shows curated authoritative
+          methods + per-program status when a project is selected. When the
+          catalog has no curated methods yet for the clause (C-4 backfill
+          territory), the panel renders its own informational empty state. */}
+      {clauseCode && (
+        <SatisfactionMethodsPanel
+          clauseCode={clauseCode}
+          programId={currentProject?.id ?? null}
+          programName={currentProject?.name ?? null}
+        />
       )}
 
       {data && data.activatedFrameworks.length > 0 && (
