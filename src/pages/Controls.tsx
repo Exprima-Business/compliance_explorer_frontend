@@ -396,6 +396,143 @@ const ObjectiveDetailDialog: React.FC<{
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Evidence-required modal (D-1.2 / D-1.3 FE)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Modal that prompts for evidence_notes (+ optional URL) before flipping a
+ * control to a status the BE rejects without evidence. Used for two cases:
+ *
+ *   1. status → IMPLEMENTED (or any framework status with is_completed=true) —
+ *      BE requires evidence_notes OR structured_evidence. Title: "Add evidence
+ *      to mark implemented".
+ *
+ *   2. status → NOT_APPLICABLE — schema CHECK constraint requires a
+ *      justification. Title: "Justify N/A".
+ *
+ * On Save, calls the parent-provided commit callback with (notes, url). If
+ * the BE rejects (e.g. notes too short), the parent surfaces the error via
+ * the `error` prop and the modal stays open. Cancel reverts (the caller
+ * never applied the optimistic update because the modal intercepted the
+ * status change).
+ */
+const EvidenceRequiredDialog: React.FC<{
+  open: boolean;
+  mode: 'implemented' | 'not_applicable';
+  controlIdentifier: string;
+  controlTitle: string | null;
+  newStatusLabel: string;
+  error: string | null;
+  saving: boolean;
+  onCancel: () => void;
+  onSave: (evidenceNotes: string, evidenceUrl: string | null) => void;
+}> = ({ open, mode, controlIdentifier, controlTitle, newStatusLabel, error, saving, onCancel, onSave }) => {
+  const [notes, setNotes] = useState('');
+  const [url, setUrl] = useState('');
+
+  // Reset form whenever the dialog opens for a new control.
+  useEffect(() => {
+    if (open) {
+      setNotes('');
+      setUrl('');
+    }
+  }, [open, controlIdentifier]);
+
+  const minLen = 10;
+  const trimmed = notes.trim();
+  const tooShort = trimmed.length > 0 && trimmed.length < minLen;
+  const canSave = trimmed.length >= minLen && !saving;
+
+  const title = mode === 'implemented'
+    ? 'Add evidence to mark implemented'
+    : 'Justify N/A';
+  const prompt = mode === 'implemented'
+    ? "What's the evidence that this control is in place?"
+    : 'Why is this control not applicable to your program?';
+  const notesLabel = mode === 'implemented'
+    ? 'Evidence notes (required)'
+    : 'Justification (required)';
+
+  return (
+    <Dialog
+      open={open}
+      onClose={saving ? undefined : onCancel}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="evidence-dialog-title"
+    >
+      <DialogTitle id="evidence-dialog-title" sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
+        <Chip
+          label={controlIdentifier}
+          size="small"
+          sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.75rem' }}
+        />
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
+          {title}
+        </Typography>
+      </DialogTitle>
+      <DialogContent dividers>
+        {controlTitle && (
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>
+            {controlTitle}
+          </Typography>
+        )}
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          {prompt} <Typography component="span" variant="caption" sx={{ color: 'text.secondary' }}>
+            (Saving as <strong>{newStatusLabel}</strong>.)
+          </Typography>
+        </Typography>
+
+        <TextField
+          label={notesLabel}
+          multiline
+          minRows={4}
+          fullWidth
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          error={tooShort}
+          helperText={
+            tooShort
+              ? `At least ${minLen} characters — describe the evidence or justification.`
+              : `${trimmed.length} / ${minLen} minimum`
+          }
+          disabled={saving}
+          autoFocus
+          sx={{ mb: 2 }}
+        />
+
+        <TextField
+          label="Evidence URL (optional)"
+          placeholder="https://drive.example.com/path-to-doc-or-screenshot"
+          fullWidth
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          disabled={saving}
+          helperText="Link to a supporting doc, screenshot, or policy."
+        />
+
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel} disabled={saving}>Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={() => onSave(trimmed, url.trim() ? url.trim() : null)}
+          disabled={!canSave}
+          startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 const ObjectivesList: React.FC<{
   objectives: ParsedObjective[];
   objectiveStatuses: ObjectiveStatusEntry[];
@@ -1296,6 +1433,22 @@ const Controls: React.FC = () => {
     open: false, message: '', severity: 'success',
   });
 
+  // Evidence-required modal state (D-1.2 / D-1.3). Holds the pending
+  // status transition until the user supplies evidence / justification.
+  // Modal is shown only for IMPLEMENTED (any is_completed status) and
+  // NOT_APPLICABLE; other transitions pass through directly.
+  const [evidencePrompt, setEvidencePrompt] = useState<{
+    open: boolean;
+    controlId: string;
+    controlIdentifier: string;
+    controlTitle: string | null;
+    newStatus: ControlStatus;
+    newStatusLabel: string;
+    mode: 'implemented' | 'not_applicable';
+    saving: boolean;
+    error: string | null;
+  } | null>(null);
+
   // Track which framework is selected (by ID) so we can switch
   const [selectedFrameworkId, setSelectedFrameworkId] = useState<string | null>(null);
 
@@ -1519,11 +1672,19 @@ const Controls: React.FC = () => {
     }
   }, []);
 
-  // ── Status change handler ────────────────────────────────────────
-  const handleStatusChange = useCallback(async (controlId: string, newStatus: ControlStatus) => {
-    if (!activeFramework) return;
+  // ── Status change handlers ───────────────────────────────────────
+  //
+  // The status flow has two paths:
+  //   1. "Free" transitions (NOT_STARTED, IN_PROGRESS, etc.) — pass through
+  //      directly to commitStatusChange.
+  //   2. "Evidence-required" transitions — IMPLEMENTED (or any framework
+  //      status with is_completed=true) and NOT_APPLICABLE — open the
+  //      EvidenceRequiredDialog first to collect evidence_notes (+ optional
+  //      URL). The BE enforces this; the modal exists so the user sees a
+  //      clean prompt instead of a raw 400.
 
-    // Optimistic update
+  /** Apply the optimistic state update and re-derive per-family counts. */
+  const applyOptimisticStatus = useCallback((controlId: string, newStatus: ControlStatus) => {
     setActiveFramework(prev => {
       if (!prev) return prev;
       const statusConfig = prev.status_config;
@@ -1550,13 +1711,26 @@ const Controls: React.FC = () => {
         })),
       };
     });
+  }, []);
+
+  /**
+   * Commit a status change to the BE. Applies the optimistic update, then
+   * calls updateControlStatus. On BE error, reverts the optimistic update
+   * to the captured previousStatus and throws so the caller (e.g. the
+   * EvidenceRequiredDialog) can surface the error message inline.
+   */
+  const commitStatusChange = useCallback(async (
+    controlId: string,
+    newStatus: ControlStatus,
+    previousStatus: ControlStatus,
+    evidenceNotes: string | null,
+    evidenceUrl: string | null,
+  ) => {
+    applyOptimisticStatus(controlId, newStatus);
 
     try {
-      await updateControlStatus(controlId, newStatus);
-      // React Query invalidation — control status flips change the shared
-      // project summary (Dashboard + Matrix heatmap) and the matrix activation
-      // counts. Fire-and-forget; the page's own state was already updated
-      // optimistically above, so we don't need to await the refetches.
+      await updateControlStatus(controlId, newStatus, evidenceNotes, evidenceUrl);
+
       qc.invalidateQueries({ queryKey: keys.projectSummary(undefined, currentProject?.id) });
       qc.invalidateQueries({ queryKey: keys.matrix(undefined, currentProject?.id) });
       const visuals = resolveStatusVisuals(
@@ -1564,7 +1738,7 @@ const Controls: React.FC = () => {
         newStatus,
       );
       setFeedbackSnack({ open: true, message: `✓ ${visuals.label}`, severity: 'success' });
-      // Refresh reciprocity + SPRS after status change
+
       if (activeFramework) {
         const [recip, sprs, far] = await Promise.all([
           fetchReciprocity(activeFramework.id),
@@ -1576,10 +1750,92 @@ const Controls: React.FC = () => {
         setFarDetail(far);
       }
     } catch (err: any) {
-      // Revert on failure
-      setFeedbackSnack({ open: true, message: 'Failed to save — please retry', severity: 'error' });
+      // Roll back the optimistic update so the toggle group reflects the
+      // server's view of truth.
+      applyOptimisticStatus(controlId, previousStatus);
+      throw err instanceof Error ? err : new Error(String(err));
     }
-  }, [activeFramework]);
+  }, [activeFramework, applyOptimisticStatus, qc, currentProject?.id]);
+
+  const handleStatusChange = useCallback(async (controlId: string, newStatus: ControlStatus) => {
+    if (!activeFramework) return;
+
+    // Locate the control + its current status (for revert + modal context).
+    let target: ControlWithStatus | undefined;
+    for (const fam of activeFramework.families) {
+      target = fam.controls.find(c => c.id === controlId);
+      if (target) break;
+    }
+    if (!target) return;
+    if (target.status === newStatus) return; // no-op
+
+    const statusConfig = activeFramework.status_config;
+    const opt = findStatusOption(statusConfig, newStatus);
+    // Any framework status flagged is_completed (IMPLEMENTED, MET,
+    // ALTERNATIVE_IMPLEMENTED, SUPPORTS, …) requires evidence per the
+    // D-1.3 BE check. NOT_APPLICABLE also requires a justification.
+    const requiresEvidence =
+      (opt?.is_completed ?? newStatus === 'IMPLEMENTED') ||
+      newStatus === 'NOT_APPLICABLE';
+
+    if (requiresEvidence) {
+      setEvidencePrompt({
+        open: true,
+        controlId,
+        controlIdentifier: target.identifier,
+        controlTitle: target.title,
+        newStatus,
+        newStatusLabel: resolveStatusVisuals(opt, newStatus).label,
+        mode: newStatus === 'NOT_APPLICABLE' ? 'not_applicable' : 'implemented',
+        saving: false,
+        error: null,
+      });
+      return;
+    }
+
+    // Free transition — pass through directly. Errors are surfaced via
+    // the snackbar (no modal context to keep open).
+    try {
+      await commitStatusChange(controlId, newStatus, target.status, null, null);
+    } catch (err: any) {
+      setFeedbackSnack({
+        open: true,
+        message: err?.message || 'Failed to save — please retry',
+        severity: 'error',
+      });
+    }
+  }, [activeFramework, commitStatusChange]);
+
+  /** Save handler for the EvidenceRequiredDialog. */
+  const handleEvidenceSave = useCallback(async (evidenceNotes: string, evidenceUrl: string | null) => {
+    if (!evidencePrompt || !activeFramework) return;
+    const { controlId, newStatus } = evidencePrompt;
+    // Look up the current (pre-flip) status — caller hasn't applied the
+    // optimistic update yet because the modal intercepted the flow.
+    let previousStatus: ControlStatus = 'NOT_STARTED';
+    for (const fam of activeFramework.families) {
+      const ctl = fam.controls.find(c => c.id === controlId);
+      if (ctl) { previousStatus = ctl.status; break; }
+    }
+
+    setEvidencePrompt(p => p ? { ...p, saving: true, error: null } : p);
+    try {
+      await commitStatusChange(controlId, newStatus, previousStatus, evidenceNotes, evidenceUrl);
+      setEvidencePrompt(null);
+    } catch (err: any) {
+      // Keep modal open + show the BE message (e.g. EVIDENCE_REQUIRED,
+      // notes-too-short, network error) so the user can correct and retry.
+      setEvidencePrompt(p => p ? {
+        ...p,
+        saving: false,
+        error: err?.message || 'Failed to save — please retry',
+      } : p);
+    }
+  }, [evidencePrompt, activeFramework, commitStatusChange]);
+
+  const handleEvidenceCancel = useCallback(() => {
+    setEvidencePrompt(null);
+  }, []);
 
   // ── Objective status change handler ────────────────────────────
   const handleObjectiveStatusChange = useCallback(async (objectiveId: string, newStatus: ControlStatus) => {
@@ -2709,6 +2965,22 @@ const Controls: React.FC = () => {
         <Alert severity="info" sx={{ mt: 2 }}>
           No control families match your search for &quot;{searchTerm}&quot;
         </Alert>
+      )}
+
+      {/* Evidence-required modal — intercepts IMPLEMENTED / NOT_APPLICABLE
+          status flips before they reach the BE. */}
+      {evidencePrompt && (
+        <EvidenceRequiredDialog
+          open={evidencePrompt.open}
+          mode={evidencePrompt.mode}
+          controlIdentifier={evidencePrompt.controlIdentifier}
+          controlTitle={evidencePrompt.controlTitle}
+          newStatusLabel={evidencePrompt.newStatusLabel}
+          error={evidencePrompt.error}
+          saving={evidencePrompt.saving}
+          onCancel={handleEvidenceCancel}
+          onSave={handleEvidenceSave}
+        />
       )}
 
       {/* Feedback snackbar */}

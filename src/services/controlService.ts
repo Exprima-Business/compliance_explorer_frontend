@@ -145,16 +145,41 @@ export async function fetchFrameworkWithStatus(
   return res.data ?? null;
 }
 
+/**
+ * Updates a control's status. The BE (control.ts updateControlStatus) rejects
+ * status='IMPLEMENTED' without evidence_notes OR structured_evidence with a
+ * 400 EVIDENCE_REQUIRED error, and requires justification (evidence_notes)
+ * for NOT_APPLICABLE. The FE wraps these flows in the EvidenceModal in
+ * Controls.tsx so the user never sees a raw 400.
+ *
+ * `evidenceUrl` is an optional URL pointing to supporting evidence (doc,
+ * screenshot, etc.) — the BE persists it alongside the notes.
+ *
+ * Throws on any BE error so callers can render the message inline.
+ */
 export async function updateControlStatus(
   controlId: string,
   status: ControlStatus,
-  evidenceNotes?: string | null
+  evidenceNotes?: string | null,
+  evidenceUrl?: string | null,
 ): Promise<void> {
-  await apiCall(`/api/controls/${controlId}/status`, {
+  const res = await apiCall(`/api/controls/${controlId}/status`, {
     method: 'PUT',
-    body: JSON.stringify({ status, evidenceNotes: evidenceNotes ?? null }),
+    body: JSON.stringify({
+      status,
+      evidenceNotes: evidenceNotes ?? null,
+      evidenceUrl: evidenceUrl ?? null,
+    }),
     requireAuth: true,
   });
+  if (res.error) {
+    // ApiResponse.error is `ApiError | string | null` — coerce both shapes
+    // into a clean message string for callers (mainly the EvidenceModal).
+    const message = typeof res.error === 'string'
+      ? res.error
+      : res.error.message || 'Failed to update control status';
+    throw new Error(message);
+  }
 }
 
 export async function fetchReciprocity(
