@@ -44,6 +44,7 @@ import {
   Flag as FlagIcon,
   Hub as HubIcon,
   Add as AddIcon,
+  LightbulbOutlined as LightbulbIcon,
 } from '@mui/icons-material';
 import CrossFrameworkCreditPanel from '../components/CrossFrameworkCreditPanel';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -704,6 +705,10 @@ const ControlRow: React.FC<{
 
   return (
     <Box
+      // Stable DOM id so the "Recommended starting controls" callout (on the
+      // freshly-activated empty state) can scroll the user directly to a
+      // specific control row.
+      id={`control-row-${control.id}`}
       sx={{
         p: isMobile ? 1.5 : 2,
         borderBottom: '1px solid',
@@ -1701,6 +1706,74 @@ const Controls: React.FC = () => {
     };
   }, [activeFramework]);
 
+  // ── Empty-state guidance (Phase D-0.3) ───────────────────────────
+  // After framework activation, program_control_status is auto-populated
+  // with NOT_STARTED rows for every control (mig 087). A brand-new user
+  // staring at hundreds of NOT_STARTED rows doesn't know where to begin.
+  // This derives a curated "first 5" list — the policy/procedure
+  // foundation controls (AC-1, CM-1, IR-1, RA-1, SI-1 for NIST; first 5
+  // sort_order rows for any other framework). The callout auto-hides as
+  // soon as the user changes any control's status.
+  const allNotStarted = useMemo(() => {
+    if (!activeFramework) return false;
+    const active = activeFramework.families
+      .flatMap(f => f.controls)
+      .filter(c => !c.is_withdrawn && c.status !== 'NOT_APPLICABLE');
+    if (active.length === 0) return false;
+    return active.every(c => c.status === 'NOT_STARTED');
+  }, [activeFramework]);
+
+  const recommendedStarters = useMemo(() => {
+    if (!activeFramework || !allNotStarted) return [];
+    // Flatten all active controls, sort by family.sort_order then
+    // control.sort_order (natural framework order). For NIST families
+    // this naturally surfaces the "-1" policy controls first since
+    // they're sort_order 1 within each family. Take 5 distinct families
+    // when possible so we cover breadth (AC, CM, IR, RA, SI) rather
+    // than 5 controls from the same family.
+    const candidates = activeFramework.families
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .flatMap(fam =>
+        fam.controls
+          .filter(c => !c.is_withdrawn && c.status !== 'NOT_APPLICABLE')
+          .slice()
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map(c => ({ control: c, family: fam })),
+      );
+    // Prefer one per family (breadth-first), then fall back to extras.
+    const seenFamilies = new Set<string>();
+    const breadthFirst = candidates.filter(({ family }) => {
+      if (seenFamilies.has(family.id)) return false;
+      seenFamilies.add(family.id);
+      return true;
+    });
+    const picks = breadthFirst.slice(0, 5);
+    if (picks.length < 5) {
+      // Top up from remaining candidates if framework has <5 families.
+      const remaining = candidates.filter(c => !picks.includes(c));
+      picks.push(...remaining.slice(0, 5 - picks.length));
+    }
+    return picks;
+  }, [activeFramework, allNotStarted]);
+
+  const scrollToControl = useCallback((familyId: string, controlId: string) => {
+    setExpandedFamilies(prev => {
+      const next = new Set(prev);
+      next.add(familyId);
+      return next;
+    });
+    // Wait for the accordion expand transition to mount the row, then
+    // scroll. requestAnimationFrame twice gives the MUI Collapse one
+    // paint to start animating before we measure.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`control-row-${controlId}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+  }, []);
+
   // ── Loading / error states ───────────────────────────────────────
   if (authLoading || loading) {
     return (
@@ -2472,6 +2545,48 @@ const Controls: React.FC = () => {
       )}
 
       <Divider sx={{ mb: 3 }} />
+
+      {/* Empty-state guidance (Phase D-0.3) — recommend a starting point
+          when every visible control is still NOT_STARTED. The card
+          disappears the instant the user changes any control status,
+          so power users aren't nagged. */}
+      {allNotStarted && recommendedStarters.length > 0 && (
+        <Card
+          variant="outlined"
+          sx={{
+            mb: 3,
+            borderColor: 'primary.light',
+            bgcolor: 'rgba(33, 150, 243, 0.04)',
+          }}
+        >
+          <CardContent sx={{ pb: '16px !important' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              <LightbulbIcon fontSize="small" sx={{ color: 'primary.main' }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Recommended starting controls
+              </Typography>
+            </Box>
+            <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1.5 }}>
+              Every framework starts with the policy and procedure controls.
+              These {recommendedStarters.length} set the foundation everything else builds on.
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {recommendedStarters.map(({ control, family }) => (
+                <Chip
+                  key={control.id}
+                  label={`${control.identifier}${control.title ? ` — ${control.title}` : ''}`}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  clickable
+                  onClick={() => scrollToControl(family.id, control.id)}
+                  sx={{ fontWeight: 500, maxWidth: '100%' }}
+                />
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Breadcrumb navigation — shows expanded families */}
       {expandedFamilies.size > 0 && (
