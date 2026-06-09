@@ -47,6 +47,8 @@ import {
   LightbulbOutlined as LightbulbIcon,
 } from '@mui/icons-material';
 import CrossFrameworkCreditPanel from '../components/CrossFrameworkCreditPanel';
+import { EvidenceFileUpload } from '../components/EvidenceFileUpload';
+import { attachToControl as attachEvidenceToControl } from '../services/evidenceService';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
 import { useAuth } from '../hooks/useAuth';
@@ -397,6 +399,32 @@ const ObjectiveDetailDialog: React.FC<{
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Framework → umbrella clause_code resolver
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Map an active framework name to its umbrella `clause_code` so the user can
+ * jump from the evidence modal into the per-clause SatisfactionMethodsPanel
+ * (Agent G's structured per-mechanism forms live on /clauses/[code]).
+ *
+ * Returns null when no clean mapping is known — the calling button is
+ * hidden in that case rather than rendered dead. Add cases here as new
+ * frameworks land seeded umbrella clauses.
+ */
+function resolveFrameworkClauseCode(
+  frameworkName: string | undefined | null,
+): { clauseCode: string; shortName: string } | null {
+  if (!frameworkName) return null;
+  const n = frameworkName;
+  // Order matters — match more-specific first ("800-171" before generic "NIST").
+  if (/800-171/i.test(n)) return { clauseCode: 'NIST SP 800-171', shortName: 'NIST 800-171' };
+  if (/800-53/i.test(n)) return { clauseCode: 'NIST SP 800-53', shortName: 'NIST 800-53' };
+  if (/HIPAA/i.test(n)) return { clauseCode: 'HIPAA', shortName: 'HIPAA' };
+  if (/Section 508/i.test(n)) return { clauseCode: 'Section 508', shortName: 'Section 508' };
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Evidence-required modal (D-1.2 / D-1.3 FE)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -417,32 +445,53 @@ const ObjectiveDetailDialog: React.FC<{
  * never applied the optimistic update because the modal intercepted the
  * status change).
  */
+interface AttachedArtifact {
+  id: string;
+  file_name: string;
+  artifact_type: string;
+}
+
 const EvidenceRequiredDialog: React.FC<{
   open: boolean;
   mode: 'implemented' | 'not_applicable';
+  controlId: string;
   controlIdentifier: string;
   controlTitle: string | null;
   newStatusLabel: string;
+  frameworkName: string | null;
   error: string | null;
   saving: boolean;
   onCancel: () => void;
   onSave: (evidenceNotes: string, evidenceUrl: string | null) => void;
-}> = ({ open, mode, controlIdentifier, controlTitle, newStatusLabel, error, saving, onCancel, onSave }) => {
+}> = ({
+  open, mode, controlId, controlIdentifier, controlTitle, newStatusLabel,
+  frameworkName, error, saving, onCancel, onSave,
+}) => {
+  const navigate = useNavigate();
   const [notes, setNotes] = useState('');
   const [url, setUrl] = useState('');
+  const [attached, setAttached] = useState<AttachedArtifact[]>([]);
+  // Tracks an in-flight upload so the Save button can wait it out. The
+  // EvidenceFileUpload component reports completion via onUploaded — we
+  // flip this in the wrapper handlers below.
+  const [uploadInFlight, setUploadInFlight] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
 
   // Reset form whenever the dialog opens for a new control.
   useEffect(() => {
     if (open) {
       setNotes('');
       setUrl('');
+      setAttached([]);
+      setUploadInFlight(false);
+      setAttachError(null);
     }
   }, [open, controlIdentifier]);
 
   const minLen = 10;
   const trimmed = notes.trim();
   const tooShort = trimmed.length > 0 && trimmed.length < minLen;
-  const canSave = trimmed.length >= minLen && !saving;
+  const canSave = trimmed.length >= minLen && !saving && !uploadInFlight;
 
   const title = mode === 'implemented'
     ? 'Add evidence to mark implemented'
@@ -454,10 +503,41 @@ const EvidenceRequiredDialog: React.FC<{
     ? 'Evidence notes (required)'
     : 'Justification (required)';
 
+  const clauseTarget = resolveFrameworkClauseCode(frameworkName);
+
+  // When the EvidenceFileUpload component signals a successful upload, link
+  // the artifact to the current control and add it to the attached list. The
+  // attached-files block below renders so the user sees evidence they already
+  // uploaded if they reopen the dialog mid-session.
+  const handleUploaded = useCallback(async (artifact: {
+    id: string;
+    file_name: string;
+    artifact_type: string;
+    signed_url?: string | null;
+  }) => {
+    setAttachError(null);
+    try {
+      await attachEvidenceToControl(artifact.id, controlId);
+      setAttached(prev => [
+        ...prev,
+        { id: artifact.id, file_name: artifact.file_name, artifact_type: artifact.artifact_type },
+      ]);
+      // Append an artifact marker to the notes so the BE persists a stable
+      // pointer alongside the human text. The marker survives reopens.
+      const marker = `[evidence:${artifact.id}]`;
+      setNotes(prev => prev.includes(marker) ? prev : (prev ? `${prev}\n${marker}` : marker));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to attach file to control.';
+      setAttachError(msg);
+    } finally {
+      setUploadInFlight(false);
+    }
+  }, [controlId]);
+
   return (
     <Dialog
       open={open}
-      onClose={saving ? undefined : onCancel}
+      onClose={saving || uploadInFlight ? undefined : onCancel}
       maxWidth="sm"
       fullWidth
       aria-labelledby="evidence-dialog-title"
@@ -471,6 +551,18 @@ const EvidenceRequiredDialog: React.FC<{
         <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
           {title}
         </Typography>
+        {clauseTarget && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<LinkIcon fontSize="small" />}
+            onClick={() => navigate(`/clauses/${encodeURIComponent(clauseTarget.clauseCode)}`)}
+            disabled={saving || uploadInFlight}
+            sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.75rem' }}
+          >
+            Open in {clauseTarget.shortName} clause
+          </Button>
+        )}
       </DialogTitle>
       <DialogContent dividers>
         {controlTitle && (
@@ -510,7 +602,51 @@ const EvidenceRequiredDialog: React.FC<{
           onChange={(e) => setUrl(e.target.value)}
           disabled={saving}
           helperText="Link to a supporting doc, screenshot, or policy."
+          sx={{ mb: 2 }}
         />
+
+        {/* File upload section — Agent J's component. On successful upload we
+            link the artifact to this control via evidenceService.attachToControl
+            and append a stable [evidence:<id>] marker to the notes so reopens
+            can show what was already attached. */}
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+            Or attach a supporting file
+          </Typography>
+          <EvidenceFileUpload
+            disabled={saving}
+            onUploaded={handleUploaded}
+            defaultArtifactType="document"
+            showSuccessMessage
+          />
+        </Box>
+
+        {attached.length > 0 && (
+          <Box sx={{ mb: 1, p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+              Attached files ({attached.length})
+            </Typography>
+            {attached.map(a => (
+              <Box key={a.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
+                <DocumentIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', flex: 1 }}>
+                  {a.file_name}
+                </Typography>
+                <Chip
+                  label={a.artifact_type}
+                  size="small"
+                  sx={{ fontSize: '0.6rem', height: 18 }}
+                />
+              </Box>
+            ))}
+          </Box>
+        )}
+
+        {attachError && (
+          <Alert severity="warning" sx={{ mt: 1 }} onClose={() => setAttachError(null)}>
+            {attachError}
+          </Alert>
+        )}
 
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
@@ -519,14 +655,14 @@ const EvidenceRequiredDialog: React.FC<{
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel} disabled={saving}>Cancel</Button>
+        <Button onClick={onCancel} disabled={saving || uploadInFlight}>Cancel</Button>
         <Button
           variant="contained"
           onClick={() => onSave(trimmed, url.trim() ? url.trim() : null)}
           disabled={!canSave}
-          startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
+          startIcon={saving || uploadInFlight ? <CircularProgress size={16} /> : <SaveIcon />}
         >
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? 'Saving...' : (uploadInFlight ? 'Uploading...' : 'Save')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -2973,9 +3109,11 @@ const Controls: React.FC = () => {
         <EvidenceRequiredDialog
           open={evidencePrompt.open}
           mode={evidencePrompt.mode}
+          controlId={evidencePrompt.controlId}
           controlIdentifier={evidencePrompt.controlIdentifier}
           controlTitle={evidencePrompt.controlTitle}
           newStatusLabel={evidencePrompt.newStatusLabel}
+          frameworkName={activeFramework?.name ?? null}
           error={evidencePrompt.error}
           saving={evidencePrompt.saving}
           onCancel={handleEvidenceCancel}
