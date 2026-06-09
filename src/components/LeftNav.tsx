@@ -62,7 +62,7 @@ const SECTIONS: NavSection[] = [
   {
     label: 'REGULATORY LIBRARY',
     items: [
-      { route: '/regulations', label: 'Regulations', icon: <AccountBalanceIcon />, prefixMatch: false },
+      { route: '/regulations', label: 'Clauses & Regulations', icon: <AccountBalanceIcon />, prefixMatch: false },
     ],
   },
 ];

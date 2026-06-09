@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Autocomplete,
   Box,
   Typography,
   Card,
@@ -46,6 +47,10 @@ import ProgramReadinessWidget from '../components/ProgramReadinessWidget';
 import type { Clause, RiskClassification, ClauseFamilyGroup } from '../types/clause';
 import { useProjectSummary } from '../hooks/useProjectSummary';
 import {
+  fetchRegulatoryArtifacts,
+  type RegulatoryArtifactListItem,
+} from '../services/regulatoryArtifactsService';
+import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend,
 } from 'recharts';
 
@@ -84,6 +89,42 @@ const Dashboard: React.FC = () => {
 
   const [expandedFamily, setExpandedFamily] = useState<string | null>(null);
   const [selectedClause, setSelectedClause] = useState<Clause | null>(null);
+
+  // ── Catalog jump-search ───────────────────────────────────────
+  // Separate from `searchQuery` (which filters the in-project clause list).
+  // This one hits the full regulatory-artifacts catalog via /api/regulatory-
+  // artifacts?q=... and navigates to /clauses/[identifier] on pick — the same
+  // detail route the Regulations page uses, so users can leap directly to any
+  // clause's detail page from the dashboard without paging through the catalog.
+  const [catalogInput, setCatalogInput] = useState('');
+  const [catalogOptions, setCatalogOptions] = useState<RegulatoryArtifactListItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  // Track the request that owns the current input so out-of-order responses
+  // can't overwrite a fresher search's results.
+  const catalogReqIdRef = useRef(0);
+
+  useEffect(() => {
+    const term = catalogInput.trim();
+    if (term.length < 2) {
+      setCatalogOptions([]);
+      setCatalogLoading(false);
+      return;
+    }
+    const reqId = ++catalogReqIdRef.current;
+    setCatalogLoading(true);
+    const timer = setTimeout(async () => {
+      const resp = await fetchRegulatoryArtifacts({ q: term, limit: 5 });
+      if (reqId !== catalogReqIdRef.current) return; // stale
+      if (resp.data?.items) setCatalogOptions(resp.data.items);
+      else setCatalogOptions([]);
+      setCatalogLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [catalogInput]);
+
+  const openClauseDetail = (identifier: string) => {
+    navigate(`/clauses/${encodeURIComponent(identifier)}`);
+  };
 
   // Compliance progress summary — React Query. Shared with Matrix.tsx via
   // the same projectSummary key, so back-navigation between the two views
@@ -198,7 +239,76 @@ const Dashboard: React.FC = () => {
         )}
       </Box>
 
-      {/* ── Search & Filter Bar ─────────────────────────────────── */}
+      {/* ── Catalog jump-search ────────────────────────────────────
+          Jumps to any clause's detail page from the full regulatory catalog.
+          Distinct from the in-program filter below (which narrows the list of
+          clauses already bookmarked into this program). */}
+      <Box sx={{ mb: { xs: 1.5, md: 2 } }}>
+        <Autocomplete<RegulatoryArtifactListItem, false, false, true>
+          freeSolo
+          size="small"
+          options={catalogOptions}
+          loading={catalogLoading}
+          filterOptions={(x) => x /* server-side filtering */}
+          inputValue={catalogInput}
+          onInputChange={(_, value) => setCatalogInput(value)}
+          getOptionLabel={(opt) =>
+            typeof opt === 'string' ? opt : `${opt.identifier} — ${opt.title}`
+          }
+          onChange={(_, value) => {
+            if (!value || typeof value === 'string') return;
+            openClauseDetail(value.identifier);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && catalogOptions.length > 0) {
+              const first = catalogOptions[0];
+              // Defer to next tick so Autocomplete doesn't swallow the navigation.
+              e.preventDefault();
+              openClauseDetail(first.identifier);
+            }
+          }}
+          renderOption={(props, opt) => (
+            <li {...props} key={opt.id}>
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Typography
+                  variant="body2"
+                  sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'primary.main' }}
+                >
+                  {opt.identifier}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" noWrap>
+                  {opt.title}
+                </Typography>
+              </Box>
+            </li>
+          )}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="Find any clause — e.g. DFARS 7012, FAR 52.204-21, NIST SP 800-171"
+              helperText="Searches the full regulatory catalog and opens the clause's detail page."
+              InputProps={{
+                ...params.InputProps,
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <>
+                    {catalogLoading ? <CircularProgress size={16} /> : null}
+                    {params.InputProps.endAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
+        />
+      </Box>
+
+      {/* ── Search & Filter Bar ───────────────────────────────────
+          Narrows the in-project clause list below (bookmarked into your
+          program). Different surface than the catalog jump-search above. */}
       <Box
         sx={{
           display: 'flex',
@@ -210,7 +320,7 @@ const Dashboard: React.FC = () => {
       >
         <TextField
           size="small"
-          placeholder="Search clauses..."
+          placeholder="Filter clauses in this program..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           InputProps={{
