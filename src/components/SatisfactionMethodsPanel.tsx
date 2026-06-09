@@ -15,6 +15,7 @@ import AlarmOnIcon from '@mui/icons-material/AlarmOn';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SaveIcon from '@mui/icons-material/Save';
 import LockIcon from '@mui/icons-material/Lock';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import {
   satisfactionService,
   type SatisfactionMethod,
@@ -24,6 +25,8 @@ import {
   type StructuredEvidence,
   type UpsertStatusRequest,
 } from '../services/satisfactionService';
+import EvidenceFileUpload from './EvidenceFileUpload';
+import { evidenceService } from '../services/evidenceService';
 
 /**
  * SatisfactionMethodsPanel — Phase C-1
@@ -530,6 +533,126 @@ const ThirdPartyAssessmentForm: React.FC<EvidenceFormProps> = ({ method, disable
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Uploaded-files section (Phase D Batch 4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * One uploaded-file record stored inside structuredEvidence.uploaded_files.
+ * Persisted server-side as JSONB on satisfaction_method_status.
+ */
+interface UploadedFileEntry {
+  artifact_id: string;
+  file_name: string;
+  uploaded_at: string; // ISO timestamp
+}
+
+/**
+ * Defensive read: `structuredEvidence.uploaded_files` may be missing, may
+ * be of legacy shape, or may carry rogue keys. The wider FE type
+ * (`Record<string, string|number|boolean|null>`) does not model arrays, so
+ * we cast at the read boundary and validate each entry's shape before
+ * trusting it. No `as any` — narrow casts only.
+ */
+function readUploadedFiles(
+  structured: SatisfactionMethodStatus['structuredEvidence'] | undefined,
+): UploadedFileEntry[] {
+  if (!structured) return [];
+  // Cast through unknown — the BE column is JSONB so it can hold arrays
+  // under specific keys even though the FE type narrows to scalars.
+  const raw = (structured as unknown as Record<string, unknown>)['uploaded_files'];
+  if (!Array.isArray(raw)) return [];
+  const out: UploadedFileEntry[] = [];
+  for (const entry of raw) {
+    if (
+      entry &&
+      typeof entry === 'object' &&
+      typeof (entry as Record<string, unknown>).artifact_id === 'string' &&
+      typeof (entry as Record<string, unknown>).file_name === 'string' &&
+      typeof (entry as Record<string, unknown>).uploaded_at === 'string'
+    ) {
+      out.push({
+        artifact_id: (entry as Record<string, unknown>).artifact_id as string,
+        file_name: (entry as Record<string, unknown>).file_name as string,
+        uploaded_at: (entry as Record<string, unknown>).uploaded_at as string,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Merge a new uploaded-file entry into the existing structuredEvidence.
+ * Preserves all other keys (party_name, executed_date, etc.) so the
+ * mechanism-specific evidence is not nuked by an upload.
+ */
+function appendUploadedFile(
+  existing: SatisfactionMethodStatus['structuredEvidence'] | undefined,
+  entry: UploadedFileEntry,
+): StructuredEvidence {
+  const base: Record<string, unknown> = existing
+    ? { ...(existing as unknown as Record<string, unknown>) }
+    : {};
+  const prior = readUploadedFiles(existing);
+  // Dedupe by artifact_id in case the user re-uploads the same file.
+  const next = [...prior.filter((p) => p.artifact_id !== entry.artifact_id), entry];
+  base['uploaded_files'] = next;
+  // The wider JSONB shape is safe at the BE — narrow cast at the boundary.
+  return base as unknown as StructuredEvidence;
+}
+
+interface UploadedFilesListProps {
+  files: UploadedFileEntry[];
+}
+
+/** Renders the existing uploaded-files list as clickable links to signed URLs. */
+const UploadedFilesList: React.FC<UploadedFilesListProps> = ({ files }) => {
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const handleOpen = async (artifactId: string) => {
+    setBusyId(artifactId);
+    try {
+      const resp = await evidenceService.getArtifact(artifactId);
+      const url = resp.data?.signedUrl ?? null;
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (files.length === 0) return null;
+
+  return (
+    <Box sx={{ mt: 1, mb: 0.5 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+        Uploaded files
+      </Typography>
+      <Stack spacing={0.5}>
+        {files.map((f) => (
+          <Stack key={f.artifact_id} direction="row" spacing={1} alignItems="center">
+            <AttachFileIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+            <Link
+              component="button"
+              type="button"
+              underline="hover"
+              sx={{ fontSize: '0.8rem', textAlign: 'left' }}
+              disabled={busyId === f.artifact_id}
+              onClick={() => handleOpen(f.artifact_id)}
+            >
+              {f.file_name}
+            </Link>
+            <Typography variant="caption" color="text.disabled">
+              {new Date(f.uploaded_at).toLocaleDateString()}
+            </Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
+  );
+};
+
 /** Router that picks the right form per mechanism_type.typeName. */
 const EvidenceForm: React.FC<EvidenceFormProps> = (props) => {
   const typeName = props.method.mechanismType.typeName;
@@ -571,8 +694,11 @@ function hasAnyEvidence(s: SatisfactionMethodStatus | null | undefined): boolean
   if (s.evidenceUrl) return true;
   if (s.evidenceNotes) return true;
   if (s.acknowledgmentText) return true;
+  // Uploaded files count as evidence even if no other structured fields are set.
+  if (readUploadedFiles(s.structuredEvidence).length > 0) return true;
   if (s.structuredEvidence) {
-    for (const v of Object.values(s.structuredEvidence)) {
+    for (const [k, v] of Object.entries(s.structuredEvidence)) {
+      if (k === 'uploaded_files') continue; // handled above
       if (v !== null && v !== undefined && v !== '') return true;
     }
   }
@@ -786,12 +912,29 @@ const MethodRow: React.FC<MethodRowProps> = ({
       {/* D-1.4 — per-mechanism evidence input form. Only renders when a
           program is selected (no program → status is read-only anyway). */}
       {programId && (
-        <EvidenceForm
-          method={method}
-          disabled={inputsDisabled}
-          saving={saving}
-          onSave={(payload) => onEvidenceSave(method.id, payload)}
-        />
+        <>
+          {/* Phase D Batch 4 — uploaded files list + uploader. Renders for
+              every mechanism type as an additional evidence channel; the
+              per-mechanism form below still accepts URL/notes/structured. */}
+          <UploadedFilesList files={readUploadedFiles(method.status?.structuredEvidence)} />
+          <EvidenceFileUpload
+            disabled={inputsDisabled || saving}
+            onUploaded={async ({ id, file_name }) => {
+              const merged = appendUploadedFile(method.status?.structuredEvidence, {
+                artifact_id: id,
+                file_name,
+                uploaded_at: new Date().toISOString(),
+              });
+              await onEvidenceSave(method.id, { structuredEvidence: merged });
+            }}
+          />
+          <EvidenceForm
+            method={method}
+            disabled={inputsDisabled}
+            saving={saving}
+            onSave={(payload) => onEvidenceSave(method.id, payload)}
+          />
+        </>
       )}
     </Box>
   );
@@ -871,10 +1014,32 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
     if (!method) return;
     setSavingMethodId(methodId);
     setError(null);
+
+    // Preserve any previously uploaded files when a per-mechanism form
+    // submits its own structuredEvidence (which would otherwise overwrite
+    // the whole JSONB column on the BE). The upload path already includes
+    // its own merge, so this only fires for mechanism-form saves.
+    let nextPayload = payload;
+    if (
+      payload.structuredEvidence !== undefined &&
+      payload.structuredEvidence !== null
+    ) {
+      const incoming = payload.structuredEvidence as unknown as Record<string, unknown>;
+      const incomingHasUploads = Array.isArray(incoming['uploaded_files']);
+      const priorUploads = readUploadedFiles(method.status?.structuredEvidence);
+      if (!incomingHasUploads && priorUploads.length > 0) {
+        const merged: Record<string, unknown> = { ...incoming, uploaded_files: priorUploads };
+        nextPayload = {
+          ...payload,
+          structuredEvidence: merged as unknown as StructuredEvidence,
+        };
+      }
+    }
+
     const req: UpsertStatusRequest = {
       programId,
       status: method.status?.status ?? 'not_started',
-      ...payload,
+      ...nextPayload,
     };
     const resp = await satisfactionService.upsertStatus(methodId, req);
     setSavingMethodId(null);
