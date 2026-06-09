@@ -27,7 +27,6 @@
     "@types/d3": "^7.4.3",
     "@types/file-saver": "^2.0.7",
     "@types/react-dropzone": "^4.2.2",
-    "@types/uuid": "^10.0.0",
     "d3": "^7.9.0",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
@@ -36,9 +35,11 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.8",
-    "react-router-dom": "^6.30.2",
-    "recharts": "^3.8.0",
-    "uuid": "^9.0.1"
+    "react-router-dom": "^6.30.4",
+    "recharts": "^3.8.0"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
@@ -60,6 +61,6 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "vite": "^6.4.1",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.6"
   }
 }
