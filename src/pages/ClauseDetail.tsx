@@ -396,7 +396,12 @@ const ClauseDetail: React.FC = () => {
           methods + per-program status when a project is selected. When the
           catalog has no curated methods yet for the clause (C-4 backfill
           territory), the panel renders its own informational empty state. */}
-      {clauseCode && (
+      {/* Mig 095: reference-only clauses (is_obligation=false) never have
+          satisfaction methods by definition — they're citation targets, not
+          obligations. Hide the panel entirely so the "coming soon" empty
+          state doesn't misleadingly suggest methods are pending. The
+          Reference badge below the title already explains the distinction. */}
+      {clauseCode && data?.clause.isObligation !== false && (
         <SatisfactionMethodsPanel
           clauseCode={clauseCode}
           programId={currentProject?.id ?? null}
