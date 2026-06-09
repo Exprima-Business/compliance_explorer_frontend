@@ -24,6 +24,14 @@ export interface Clause {
   status: string;
   /** Backend column: clause_category. Renamed at the boundary. */
   clauseCategory: string;
+  /**
+   * Backend column: is_obligation (mig 095). When FALSE, the clause is a
+   * reference-only meta-clause that exists for citation matching but is
+   * not a user-facing compliance obligation. UI should show a "Reference"
+   * badge instead of the obligation-status widgets when this is FALSE.
+   * Defaults TRUE if the backend omits the field (older responses).
+   */
+  isObligation: boolean;
   family: ClauseFamily | null;
   familyId: string;
   conditions: string;

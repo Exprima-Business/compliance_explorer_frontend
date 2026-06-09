@@ -323,6 +323,21 @@ const ClauseDetail: React.FC = () => {
               {headerSubtitle}
             </Typography>
           )}
+          {/* Mig 095: reference-only meta-clauses (FAR 52.202-1, 52.252-2,
+              52.212-4) exist in the catalog for citation matching but are not
+              user-facing compliance obligations. Surface that distinction at
+              the top of the page so reviewers know not to expect satisfaction
+              status / methods on it. */}
+          {data?.clause.isObligation === false && (
+            <Chip
+              size="small"
+              label="Reference clause — not a compliance obligation"
+              variant="outlined"
+              color="default"
+              sx={{ mt: 0.75, fontSize: '0.7rem', height: 22 }}
+              title="This clause exists in the catalog as a citation/reference target (e.g. a definitions or incorporation-by-reference clause). It does not carry substantive compliance obligations itself, so the platform does not surface implementation status or satisfaction methods for it."
+            />
+          )}
           {/* Artifact-only view: show source authority + link when we don't have a clause record */}
           {!data && graph?.artifact && (
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
