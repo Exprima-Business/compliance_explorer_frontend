@@ -56,6 +56,7 @@ import {
   type PoamRiskLevel,
 } from '../services/poamService';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { fetchCrossFrameworkCounts } from '../services/crossFrameworkCreditService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -189,6 +190,15 @@ const POAM: React.FC = () => {
   type FilterKey = 'ready_to_close' | 'overdue' | 'auto' | 'manual' | 'high_or_critical';
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
   const [groupBy, setGroupBy] = useState<'none' | 'control'>('none');
+  // Phase B-5: framework filter (single-select). 'all' = no filter.
+  // Resolves a control's framework via controlOptions; items without a
+  // linked control match only the 'all' selection.
+  const [frameworkFilter, setFrameworkFilter] = useState<string>('all');
+  // Phase B-5: cross-framework credit counts per controlId. Populated once
+  // on items load via a single batch endpoint — no N+1. The chip renders
+  // a count badge ("Satisfies +2"); click navigates to the Control Detail
+  // panel that already shows the labeled edges (W2 / task #41).
+  const [xfwCounts, setXfwCounts] = useState<Record<string, { satisfies: number; satisfied_by: number }>>({});
 
   const toggleFilter = (key: FilterKey) => {
     setActiveFilters(prev => {
@@ -198,7 +208,10 @@ const POAM: React.FC = () => {
       return next;
     });
   };
-  const clearFilters = () => setActiveFilters(new Set());
+  const clearFilters = () => {
+    setActiveFilters(new Set());
+    setFrameworkFilter('all');
+  };
   // Tracks whether the user has manually overridden the auto-computed
   // scheduled completion. While false, changing the risk level recomputes
   // scheduled = identified + days_for(risk). Flips to true the moment the
@@ -241,6 +254,51 @@ const POAM: React.FC = () => {
     }
     setLoading(false);
   }, [programId]);
+
+  // Phase B-5: control id → ControlOption lookup. Used by:
+  //   - framework filter (controlOptions[item.controlId].frameworkId)
+  //   - framework dropdown options (unique frameworks across activated set)
+  const controlOptionById = useMemo(() => {
+    const m = new Map<string, ControlOption>();
+    for (const co of controlOptions) m.set(co.id, co);
+    return m;
+  }, [controlOptions]);
+
+  // Phase B-5: unique framework list for the dropdown. Sorted alphabetically
+  // by name. An item with no linked control still appears under 'all'.
+  const frameworkChoices = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const co of controlOptions) {
+      if (!seen.has(co.frameworkId)) seen.set(co.frameworkId, co.frameworkName);
+    }
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [controlOptions]);
+
+  // Phase B-5: fetch cross-framework credit counts in one batch call whenever
+  // the items list changes. Drives the "Satisfies +N" badge. Soft-fails — if
+  // the endpoint errors, the badge simply doesn't render.
+  useEffect(() => {
+    const ids = items.map(it => it.controlId).filter((id): id is string => Boolean(id));
+    if (ids.length === 0) {
+      setXfwCounts({});
+      return;
+    }
+    // De-dupe to minimize payload.
+    const uniqueIds = Array.from(new Set(ids));
+    let cancelled = false;
+    void (async () => {
+      const resp = await fetchCrossFrameworkCounts(uniqueIds);
+      if (cancelled) return;
+      if (resp.error || !resp.data) {
+        setXfwCounts({});
+        return;
+      }
+      setXfwCounts(resp.data);
+    })();
+    return () => { cancelled = true; };
+  }, [items]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -305,10 +363,18 @@ const POAM: React.FC = () => {
   // The same rows render in either layout — only the grouping changes.
   const filteredItems = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    if (activeFilters.size === 0) return items;
     // Materialize the Set to an Array — older TS targets don't iterate Sets natively.
     const filters = Array.from(activeFilters);
+    const fwActive = frameworkFilter !== 'all';
+    if (filters.length === 0 && !fwActive) return items;
     return items.filter(it => {
+      // Phase B-5: framework filter — applied first. Items without a linked
+      // control are excluded whenever a specific framework is selected.
+      if (fwActive) {
+        if (!it.controlId) return false;
+        const co = controlOptionById.get(it.controlId);
+        if (!co || co.frameworkId !== frameworkFilter) return false;
+      }
       for (const key of filters) {
         switch (key) {
           case 'ready_to_close':
@@ -343,7 +409,7 @@ const POAM: React.FC = () => {
       }
       return true;
     });
-  }, [items, activeFilters]);
+  }, [items, activeFilters, frameworkFilter, controlOptionById]);
 
   /**
    * When `groupBy === 'control'`, organize filtered items into groups keyed by
@@ -760,8 +826,8 @@ const POAM: React.FC = () => {
           <Chip
             size="small"
             label="All"
-            variant={activeFilters.size === 0 ? 'filled' : 'outlined'}
-            color={activeFilters.size === 0 ? 'primary' : 'default'}
+            variant={activeFilters.size === 0 && frameworkFilter === 'all' ? 'filled' : 'outlined'}
+            color={activeFilters.size === 0 && frameworkFilter === 'all' ? 'primary' : 'default'}
             onClick={clearFilters}
           />
           <Chip
@@ -799,6 +865,27 @@ const POAM: React.FC = () => {
             color={activeFilters.has('manual') ? 'info' : 'default'}
             onClick={() => toggleFilter('manual')}
           />
+          {frameworkChoices.length > 1 && (
+            <>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+                Framework:
+              </Typography>
+              <TextField
+                select
+                size="small"
+                value={frameworkFilter}
+                onChange={(e) => setFrameworkFilter(e.target.value)}
+                SelectProps={{ displayEmpty: true }}
+                sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { py: 0 } }}
+              >
+                <MenuItem value="all">All frameworks</MenuItem>
+                {frameworkChoices.map(fw => (
+                  <MenuItem key={fw.id} value={fw.id}>{fw.name}</MenuItem>
+                ))}
+              </TextField>
+            </>
+          )}
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
           <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
             View:
@@ -931,6 +1018,25 @@ const POAM: React.FC = () => {
                               variant="outlined"
                               color="primary"
                               sx={{ fontFamily: 'monospace', fontWeight: 600 }}
+                            />
+                          )}
+                          {/* Phase B-5: cross-framework satisfies badge.
+                              Renders only when the linked control has at least one
+                              outgoing satisfies edge. Click navigates to the Control
+                              Detail panel that already shows the labeled edges
+                              (W2 / task #41) — keeps this row compact. */}
+                          {it.controlId && (xfwCounts[it.controlId]?.satisfies ?? 0) > 0 && (
+                            <Chip
+                              size="small"
+                              label={`Satisfies +${xfwCounts[it.controlId].satisfies}`}
+                              variant="outlined"
+                              color="success"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/controls?focus=${encodeURIComponent(it.controlId!)}`);
+                              }}
+                              sx={{ cursor: 'pointer', fontSize: '0.7rem' }}
+                              title={`This control credits ${xfwCounts[it.controlId].satisfies} control(s) in other framework(s). Click to view the cross-framework credit panel.`}
                             />
                           )}
                           {/* Objective-grain chip — tells reviewers this row tracks one
