@@ -55,6 +55,13 @@ export interface ControlWithStatus {
   title: string | null;
   requirement_text: string | null;
   discussion_text: string | null;
+  /**
+   * Mig 105. Verbatim "Examine [SELECT FROM: ...]" assessment-object list
+   * from the control's official assessment publication (SP 800-171A r3,
+   * CMMC Assessment Guides). Semicolon-separated evidence items. NULL when
+   * no authoritative Examine list is loaded for this control.
+   */
+  assessment_examine?: string | null;
   requirement_type: 'basic' | 'derived' | 'active' | 'withdrawn';
   is_withdrawn: boolean;
   sort_order: number;

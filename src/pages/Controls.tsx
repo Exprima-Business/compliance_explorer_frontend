@@ -947,6 +947,16 @@ const ControlRow: React.FC<{
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(control.evidence_notes || '');
   const [objectivesOpen, setObjectivesOpen] = useState(false);
+  // Mig 105: "Suggested evidence to collect" — verbatim Examine list from
+  // the control's official assessment publication. Collapsed by default.
+  const [examineOpen, setExamineOpen] = useState(false);
+  const examineItems = useMemo(() => {
+    if (!control.assessment_examine) return [];
+    return control.assessment_examine
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 1);
+  }, [control.assessment_examine]);
   const [detailObj, setDetailObj] = useState<ParsedObjective | null>(null);
   const [detailStatus, setDetailStatus] = useState<ObjectiveStatusEntry | null>(null);
   const [crossFwOpen, setCrossFwOpen] = useState(false);
@@ -1202,6 +1212,60 @@ const ControlRow: React.FC<{
           isMobile={isMobile}
           onObjectiveClick={(obj, st) => { setDetailObj(obj); setDetailStatus(st); }}
         />
+      </Collapse>
+
+      {/* Mig 105 / Phase D-3: suggested evidence — the verbatim "Examine"
+          assessment-object list from the control's official assessment
+          publication (SP 800-171A r3 / CMMC Assessment Guides). Tells the
+          user exactly what artifacts an assessor would ask for, which is
+          what they should attach via the evidence upload. */}
+      {examineItems.length > 0 && !control.is_withdrawn && (
+        <Box
+          onClick={() => setExamineOpen(prev => !prev)}
+          sx={{
+            mt: 1,
+            ml: objectives.length > 0 ? 1 : 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.75,
+            cursor: 'pointer',
+            px: 1.5,
+            py: 0.75,
+            borderRadius: 1,
+            border: '1px solid',
+            borderColor: examineOpen ? 'success.main' : 'divider',
+            bgcolor: examineOpen ? 'success.50' : 'transparent',
+            transition: 'all 0.2s',
+            '&:hover': { borderColor: 'success.main', bgcolor: 'action.hover' },
+          }}
+        >
+          <CollapseIcon
+            fontSize="small"
+            sx={{
+              transition: 'transform 0.2s',
+              transform: examineOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+              color: 'success.main',
+            }}
+          />
+          <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
+            {examineOpen ? 'Hide' : 'View'} Suggested Evidence ({examineItems.length})
+          </Typography>
+        </Box>
+      )}
+      <Collapse in={examineOpen} timeout="auto" unmountOnExit>
+        <Box sx={{ mt: 1, pl: 2, borderLeft: '2px solid', borderColor: 'success.light' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontStyle: 'italic' }}>
+            Assessment objects an assessor may examine (select from — not all are required).
+            Source: the control's official assessment publication.
+          </Typography>
+          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+            {examineItems.map((item, i) => (
+              <Typography key={i} component="li" variant="caption" sx={{ color: 'text.primary', lineHeight: 1.7 }}>
+                {item}
+              </Typography>
+            ))}
+          </Box>
+        </Box>
       </Collapse>
 
       {/* Objective detail dialog */}
