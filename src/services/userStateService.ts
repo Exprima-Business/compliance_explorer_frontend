@@ -1,4 +1,3 @@
-import { supabase } from '../lib/supabase';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
 
@@ -15,6 +14,11 @@ export interface Project {
 }
 
 export interface UserStateResponse {
+  /** Identity from the BE (cookie/token) — lets the FE rebuild auth state
+   *  without a persisted supabase-js session (cookie auth Phase 4b). */
+  userId?: string;
+  email?: string | null;
+  aal?: string;
   needsSetup: boolean;
   organizations: Organization[];
   currentOrganization?: Organization;
@@ -30,16 +34,7 @@ export class UserStateService {
    */
   static async getUserState(): Promise<UserStateResponse> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('No valid session found');
-      }
-
-      dlog('UserStateService: Getting user state', {
-        userId: session.user.id,
-        hasToken: !!session.access_token
-      });
+      dlog('UserStateService: Getting user state (cookie auth)');
 
       // 12-second timeout — prevents infinite spinner when Railway is deploying
       // or unreachable.  AbortController is supported in all modern browsers.
@@ -48,10 +43,13 @@ export class UserStateService {
 
       let response: Response;
       try {
+        // Cookie auth (Phase 4b): authenticated by the HttpOnly session cookie
+        // (credentials:include); no Bearer. No longer requires a supabase-js
+        // session, so this still works once persistSession is disabled.
         response = await fetch(`${environment.api.url}/api/auth/user-state`, {
           method: 'GET',
+          credentials: 'include',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
           },
           signal: controller.signal

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { ensureCookieSession, clearCookieSession } from '../services/sessionBridge';
+import { UserStateService } from '../services/userStateService';
 
 export interface AuthContextValue {
   user: User | null;
@@ -21,15 +22,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // When there is no supabase-js session (persistSession disabled, or a tab
+    // restored without one), derive auth state from the BE HttpOnly cookie —
+    // the cookie is the source of truth (cookie auth Phase 4b). Dormant while
+    // persistSession is on, since getSession() then always returns a session.
+    const hydrateFromCookie = async () => {
+      try {
+        const state = await UserStateService.getUserState();
+        setUser(
+          state?.userId
+            ? ({ id: state.userId, email: state.email ?? undefined } as User)
+            : null,
+        );
+      } catch {
+        setUser(null);
+      }
+    };
+
     const initializeAuth = async () => {
       try {
-        // Check active sessions and sets the user
         const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
-        
-        // Auth initialization is intentionally minimal — org/project context is
-        // resolved by useUserState (backend /auth/user-state) and OrgContext.
-        
+        if (session?.user) {
+          setUser(session.user);
+        } else {
+          await hydrateFromCookie();
+        }
         setLoading(false);
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -40,24 +57,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initializeAuth();
 
-    // Listen for changes on auth state
+    // Listen for changes on auth state. ensureCookieSession() is idempotent
+    // (no-ops when a cookie session already exists), so TOKEN_REFRESHED /
+    // INITIAL_SESSION events don't spawn extra server-side sessions. This one
+    // listener covers every sign-in path: password, magic-link, restore.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
-
-      // Cookie auth Phase 3 (dual-send): keep the BE HttpOnly cookie session in
-      // step with the supabase-js session. ensureCookieSession() is idempotent
-      // (no-ops when a cookie session is already present) so TOKEN_REFRESHED /
-      // INITIAL_SESSION events don't spawn extra server-side sessions. This one
-      // listener covers every sign-in path: password, magic-link callback, and
-      // session restore on reload.
       if (event === 'SIGNED_OUT') {
+        setUser(null);
         // Revoke the cookie session server-side, then clear local org context.
         void clearCookieSession();
         localStorage.removeItem('orgId');
-      } else if (session) {
-        void ensureCookieSession();
+        setLoading(false);
+        return;
       }
-
+      if (session) {
+        // Establish/refresh the BE cookie BEFORE the app proceeds so cookie-only
+        // API calls (user-state, etc.) don't race ahead of the cookie on a
+        // fresh login.
+        await ensureCookieSession();
+        setUser(session.user);
+      } else {
+        // Non-SIGNED_OUT event with no session — fall back to the cookie.
+        await hydrateFromCookie();
+      }
       setLoading(false);
     });
 
