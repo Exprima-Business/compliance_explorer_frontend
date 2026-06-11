@@ -152,15 +152,19 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
+    // session is still read for resolveOrgId (the org claim lives in the JWT);
+    // the access token itself is no longer sent as a Bearer header.
     const orgId = await resolveOrgId(session);
 
     const headers: Record<string, string> = {
       'x-org-id': orgId,
-      // Dual-send (cookie auth Phase 3): the HttpOnly session cookie rides via
-      // credentials:'include'; the Bearer token stays as the back-compat path
-      // until Phase 4 removes it. Backend prefers Bearer when both are present.
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      // Cookie auth Phase 4a: authentication now rides ENTIRELY on the HttpOnly
+      // session cookie (attached via credentials:'include' below) plus the CSRF
+      // header on writes. The Supabase Bearer token is no longer sent on the
+      // api.ts path. The BE still ACCEPTS Bearer (Phase 2) for the remaining
+      // direct-fetch callers and as a one-revert safety net, so restoring this
+      // header rolls 4a back cleanly. Phase 4b removes BE Bearer acceptance and
+      // disables localStorage session persistence (the actual XSS closure).
       ...(getCurrentProjectId() ? { 'x-project-id': getCurrentProjectId()! } : {}),
     };
 
