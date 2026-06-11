@@ -37,8 +37,14 @@ try {
     environment.supabase.anonKey,
     {
       auth: {
-        autoRefreshToken: true, // Enable auto-refresh - AuthContext will handle session state
-        persistSession: true,
+        autoRefreshToken: true, // in-memory refresh during the page session (login/MFA)
+        // Cookie auth Phase 4b: do NOT persist the supabase session (JWT +
+        // refresh token) to localStorage. The HttpOnly ca_session cookie is the
+        // only durable credential, so an XSS payload can no longer read the
+        // token from storage. The session lives in memory for the current page
+        // (enough to log in, pass MFA, and establish the cookie); on reload it
+        // is gone and AuthContext rehydrates auth state from the cookie.
+        persistSession: false,
         detectSessionInUrl: true
       }
     }

@@ -65,24 +65,14 @@ const OrganizationSetup: React.FC = () => {
     setError(null);
 
     try {
-      // Get current session using the same pattern as UserStateService
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('No valid session found');
-      }
-
+      // Cookie auth (Phase 4b): authenticate via the HttpOnly session cookie
+      // (credentials:include) + double-submit CSRF token; no Bearer, and no
+      // supabase-session dependency (works after persistSession is disabled).
       dlog('OrganizationSetup: Submitting organization setup', {
         organizationName: formData.organizationName,
         projectName: formData.projectName,
-        userId: session.user.id,
-        hasToken: !!session.access_token
       });
 
-      // Cookie auth (Phase 4b): authenticate via the HttpOnly session cookie
-      // (credentials:include) + double-submit CSRF token; no Bearer. The
-      // session is still read above for the dlog/guard while persistSession
-      // remains on; that guard is removed in the 4b auth-state rewire.
       const csrf = getCsrfToken();
       const response = await fetch(`${environment.api.url}/api/organizations/setup`, {
         method: 'POST',
