@@ -50,6 +50,25 @@ try {
     }
   );
 
+  // Cookie auth Phase 4b: persistSession is false, but a session persisted by
+  // an earlier build (persistSession:true) may still linger in localStorage.
+  // Purge any legacy supabase auth-token entries so an XSS payload can't read a
+  // token from storage. supabase-js (memory storage) no longer uses these keys,
+  // so removing them is safe.
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      for (let i = window.localStorage.length - 1; i >= 0; i--) {
+        const key = window.localStorage.key(i);
+        if (key && /^sb-.*-auth-token$/.test(key)) {
+          window.localStorage.removeItem(key);
+          dlog('Purged legacy supabase session from localStorage', { key });
+        }
+      }
+    }
+  } catch {
+    // best-effort cleanup — ignore
+  }
+
   // Simple connection test - session management is handled by AuthContext
   dlog('Supabase client initialized successfully');
 } catch (error) {
