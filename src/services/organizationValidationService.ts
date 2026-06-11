@@ -1,6 +1,6 @@
-import { supabase } from '../lib/supabase';
 import { dlog } from '../utils/debugLog';
 import environment from '../config/environment';
+import { getCsrfToken } from './sessionBridge';
 
 export interface OrganizationValidationResponse {
   valid: boolean;
@@ -32,37 +32,21 @@ export class OrganizationValidationService {
     request?: OrganizationValidationRequest
   ): Promise<OrganizationValidationResponse> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        return {
-          valid: false,
-          error: 'No active session found'
-        };
-      }
-
-      dlog('Validating organization access', { 
-        hasSession: !!session, 
-        userId: session.user.id,
-        requestOrgId: request?.organizationId 
-      });
-
       const requestBody = request || {};
-      dlog('Organization validation request - REQUEST DEBUG', {
-        url: `${environment.api.url}${this.VALIDATION_ENDPOINT}`,
-        method: 'POST',
-        requestBody: requestBody,
-        requestBodyType: typeof requestBody,
-        hasSession: !!session,
-        userId: session?.user?.id,
-        tokenLength: session?.access_token?.length || 0
+      dlog('Validating organization access (cookie auth)', {
+        requestOrgId: request?.organizationId,
       });
 
+      // Cookie auth (Phase 4b): authenticated by the HttpOnly session cookie
+      // (credentials:include) + double-submit CSRF token (POST). No Bearer and
+      // no supabase-js session dependency — works after persistSession is off.
+      const csrf = getCsrfToken();
       const response = await fetch(`${environment.api.url}${this.VALIDATION_ENDPOINT}`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(csrf ? { 'x-csrf-token': csrf } : {}),
         },
         body: JSON.stringify(requestBody)
       });
