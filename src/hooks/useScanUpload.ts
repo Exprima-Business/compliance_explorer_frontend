@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { scanApi, validateFile } from '../services/scanApi';
 import type { ScanProgress, ScanSession, DetectedClause } from '../services/scanApi';
-import { getAuthToken } from '../services/api';
+import { getCsrfToken } from '../services/sessionBridge';
 import environment from '../config/environment';
 import { DEMO_DETECTED_CLAUSES, DEMO_FILE_NAME, DEMO_METADATA } from '../data/demoScanResults';
 
@@ -164,15 +164,16 @@ export function useScanUpload(initialScanId?: string): ScanUploadResult {
       closeSSE();
       try {
         // Per BE security audit 2026-06 (M-04): fetch a short-lived single-
-        // use SSE ticket and pass that in the URL instead of the full JWT.
-        // The JWT goes only in the Authorization header on the ticket-mint
-        // request, never in the URL where it would persist in logs / history.
-        const token = await getAuthToken();
+        // use SSE ticket and pass that in the URL instead of any long-lived
+        // credential. Auth is the HttpOnly session cookie (credentials:include);
+        // this POST also echoes the double-submit CSRF token. EventSource
+        // itself can't send headers, hence the ticket-in-URL handoff.
+        const csrf = getCsrfToken();
         const ticketRes = await fetch(`${environment.api.url}/api/auth/sse-ticket`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token ?? ''}`,
+            ...(csrf ? { 'x-csrf-token': csrf } : {}),
           },
           credentials: 'include',
         });

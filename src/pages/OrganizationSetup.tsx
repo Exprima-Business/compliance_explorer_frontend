@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
 import { useAuth } from '../hooks/useAuth';
+import { getCsrfToken } from '../services/sessionBridge';
 
 interface OrganizationSetupData {
   organizationName: string;
@@ -78,11 +79,17 @@ const OrganizationSetup: React.FC = () => {
         hasToken: !!session.access_token
       });
 
+      // Cookie auth (Phase 4b): authenticate via the HttpOnly session cookie
+      // (credentials:include) + double-submit CSRF token; no Bearer. The
+      // session is still read above for the dlog/guard while persistSession
+      // remains on; that guard is removed in the 4b auth-state rewire.
+      const csrf = getCsrfToken();
       const response = await fetch(`${environment.api.url}/api/organizations/setup`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(csrf ? { 'x-csrf-token': csrf } : {})
         },
         body: JSON.stringify({
           organizationName: formData.organizationName,

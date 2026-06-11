@@ -528,21 +528,14 @@ const POAM: React.FC = () => {
     setOscalExporting(true);
     setError(null);
     try {
-      // Use the same apiCall flow as the rest of the service layer so the
-      // Authorization header is attached. Then trigger a save-as in the
-      // browser via a blob URL — we need to preserve the JSON formatting
-      // the BE emits, so just stringify the response data.
+      // Cookie auth (Phase 4b): authenticated by the HttpOnly session cookie
+      // (credentials:include); no Bearer, and no CSRF token needed on a GET.
+      // Then trigger a save-as in the browser via a blob URL — we preserve the
+      // JSON formatting the BE emits, so just stringify the response data.
       const url = `/api/oscal/poam/${encodeURIComponent(programId)}${includeClosed ? '?include_closed=true' : ''}`;
-      const token = await (await import('../lib/supabase')).supabase.auth.getSession()
-        .then(s => s.data.session?.access_token);
-      if (!token) {
-        setError('Authentication required to export OSCAL POA&M.');
-        return;
-      }
       const resp = await fetch(
         `${import.meta.env.VITE_API_URL ?? ''}${url}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
           credentials: 'include',
         },
       );

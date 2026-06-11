@@ -1,4 +1,5 @@
-import { apiCall, getAuthToken } from './api';
+import { apiCall } from './api';
+import { getCsrfToken } from './sessionBridge';
 import type { ApiResponse } from '../types/api';
 import environment from '../config/environment';
 
@@ -173,7 +174,6 @@ export async function uploadFileWithProgress(
   if (source) form.append('source', source);
   if (metadata) form.append('metadata', JSON.stringify(metadata));
 
-  const token = await getAuthToken();
   const orgId =
     (typeof window !== 'undefined' && localStorage.getItem('orgId')) ||
     '00000000-0000-0000-0000-000000000000';
@@ -183,8 +183,12 @@ export async function uploadFileWithProgress(
   return new Promise((resolve) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${environment.api.url}/api/evidence`);
+    // Cookie auth (Phase 4b): the HttpOnly session cookie rides via
+    // withCredentials; auth no longer uses a Bearer token. POST is a
+    // state-changing request, so echo the double-submit CSRF token.
     xhr.withCredentials = true;
-    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    const csrf = getCsrfToken();
+    if (csrf) xhr.setRequestHeader('x-csrf-token', csrf);
     xhr.setRequestHeader('x-org-id', orgId);
     if (projectId) xhr.setRequestHeader('x-project-id', projectId);
     // Do NOT set Content-Type — the browser writes the multipart boundary.
