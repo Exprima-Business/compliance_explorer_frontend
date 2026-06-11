@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
+import { ensureCookieSession, clearCookieSession } from '../services/sessionBridge';
 
 export interface AuthContextValue {
   user: User | null;
@@ -42,12 +43,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for changes on auth state
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
-      
+
+      // Cookie auth Phase 3 (dual-send): keep the BE HttpOnly cookie session in
+      // step with the supabase-js session. ensureCookieSession() is idempotent
+      // (no-ops when a cookie session is already present) so TOKEN_REFRESHED /
+      // INITIAL_SESSION events don't spawn extra server-side sessions. This one
+      // listener covers every sign-in path: password, magic-link callback, and
+      // session restore on reload.
       if (event === 'SIGNED_OUT') {
-        // Clear any stored organization context
+        // Revoke the cookie session server-side, then clear local org context.
+        void clearCookieSession();
         localStorage.removeItem('orgId');
+      } else if (session) {
+        void ensureCookieSession();
       }
-      
+
       setLoading(false);
     });
 

@@ -4,6 +4,7 @@ import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiResponse, ApiError as ApiErrorObj } from '../types/api';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
+import { getCsrfToken, hasCookieSession, refreshCookieSession } from './sessionBridge';
 
 // API configuration
 const API_URL = environment.api.url;
@@ -140,73 +141,54 @@ interface ApiOptions extends RequestInit {
 
 export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Promise<ApiResponse<T>> => {
   const { requireAuth = false, timeout = 30_000, ...fetchOptions } = options;
+  void requireAuth; // auth is attached whenever a session exists; flag kept for call-site compatibility
 
-  try {
-    // Retrieve current session token (if any)
+  const method = (fetchOptions.method || 'GET').toUpperCase();
+  const isUnsafeMethod = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+
+  // Build headers fresh per (re)try so a token/CSRF value refreshed after a 401
+  // is picked up on the retry.
+  const buildHeaders = async (): Promise<Record<string, string>> => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
-
-    // Backend will handle organization validation via JWT claims
-    // No need to validate claims here as backend validates on every request
-
     const orgId = await resolveOrgId(session);
-    const baseHeaders: Record<string, string> = {
+
+    const headers: Record<string, string> = {
       'x-org-id': orgId,
+      // Dual-send (cookie auth Phase 3): the HttpOnly session cookie rides via
+      // credentials:'include'; the Bearer token stays as the back-compat path
+      // until Phase 4 removes it. Backend prefers Bearer when both are present.
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(getCurrentProjectId() ? { 'x-project-id': getCurrentProjectId()! } : {}),
     };
 
     // Only add Content-Type for non-FormData requests
     if (!(fetchOptions.body instanceof FormData)) {
-      baseHeaders['Content-Type'] = 'application/json';
+      headers['Content-Type'] = 'application/json';
     }
 
-    // Merge with any additional headers from options
-    const headers = {
-      ...baseHeaders,
-      ...(fetchOptions.headers as Record<string, string> || {})
+    // CSRF double-submit: echo the readable ca_csrf cookie on state-changing
+    // requests. Required once the session cookie is present and the BE enforces
+    // CSRF; a no-op when there is no cookie session yet.
+    if (isUnsafeMethod) {
+      const csrf = getCsrfToken();
+      if (csrf) headers['x-csrf-token'] = csrf;
+    }
+
+    return {
+      ...headers,
+      ...((fetchOptions.headers as Record<string, string>) || {}),
     };
+  };
 
-    // Debug: log request details for scan uploads
-    if (endpoint.includes('/scans')) {
-      dlog('[api] Scan request:', {
-        endpoint,
-        method: fetchOptions.method || 'GET',
-        hasBody: !!fetchOptions.body,
-        bodyType: fetchOptions.body ? (fetchOptions.body instanceof FormData ? 'FormData' : 'JSON') : 'None',
-        hasAuth: !!headers['Authorization'],
-        orgId: headers['x-org-id'],
-      });
-    }
-
-    // Debug: log headers for bookmark requests
-    if (endpoint.includes('/bookmark')) {
-      dlog('Bookmark request headers:', {
-        endpoint,
-        'x-org-id': headers['x-org-id'],
-        'x-project-id': headers['x-project-id'],
-        hasAuth: !!headers['Authorization']
-      });
-    }
-
-    // Debug: log headers for clauses requests
-    if (endpoint.includes('/clauses')) {
-      dlog('Clauses request headers:', {
-        endpoint,
-        'x-org-id': headers['x-org-id'],
-        'x-project-id': headers['x-project-id'],
-        hasAuth: !!headers['Authorization']
-      });
-    }
-
+  const doFetch = async (): Promise<Response> => {
+    const headers = await buildHeaders();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    let response: Response;
     try {
-      response = await fetch(`${API_URL}${endpoint}`, {
+      return await fetch(`${API_URL}${endpoint}`, {
         ...fetchOptions,
         headers,
         credentials: 'include',
@@ -214,6 +196,20 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
       });
     } finally {
       clearTimeout(timeoutId);
+    }
+  };
+
+  try {
+    let response = await doFetch();
+
+    // Cookie-session access-token expiry: rotate the cookie once and retry.
+    // Gated on hasCookieSession() so pure-Bearer traffic is untouched (its own
+    // refresh is handled by supabase-js autoRefreshToken on the next getSession).
+    if (response.status === 401 && hasCookieSession()) {
+      const refreshed = await refreshCookieSession();
+      if (refreshed) {
+        response = await doFetch();
+      }
     }
 
     // Handle CORS / network-level errors
