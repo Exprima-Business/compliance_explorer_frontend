@@ -27,6 +27,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import { supabase } from '../lib/supabase';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { useAuth } from '../hooks/useAuth';
+import { MfaChallenge } from '../components/MfaChallenge';
 
 /**
  * SecuritySettings — TOTP-based multi-factor authentication enrollment.
@@ -64,6 +66,8 @@ import { extractErrorMessage } from '../utils/errorUtils';
 
 type ViewState =
   | { kind: 'loading' }
+  | { kind: 'reauth' }
+  | { kind: 'mfa_elevate' }
   | { kind: 'not_enrolled' }
   | { kind: 'enrolling'; factorId: string; qrCode: string; secret: string }
   | { kind: 'enrolled'; factor: EnrolledFactor };
@@ -87,6 +91,9 @@ const SecuritySettings: React.FC = () => {
   const [verifyCode, setVerifyCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const { user } = useAuth();
+  const [reauthEmail, setReauthEmail] = useState('');
+  const [reauthPassword, setReauthPassword] = useState('');
 
   // ── List factors on mount (and after any state-changing operation) ───────
   const refresh = useCallback(async () => {
@@ -112,7 +119,63 @@ const SecuritySettings: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  // Step-up auth ("sudo mode"): MFA management needs a live supabase session,
+  // which is gone after a reload (cookie auth Phase 4b — persistSession:false).
+  // If there is no session, require re-authentication before any factor
+  // operation; if the user already has a factor, elevate to AAL2 via an MFA
+  // challenge (Supabase gates factor removal on AAL2). Standard practice for
+  // changing security controls.
+  const proceedAfterSession = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (data?.currentLevel === 'aal1' && data?.nextLevel === 'aal2') {
+        setView({ kind: 'mfa_elevate' });
+        return;
+      }
+    } catch {
+      // fall through — refresh()/listFactors will surface any real error
+    }
+    await refresh();
+  }, [refresh]);
+
+  const init = useCallback(async () => {
+    setView({ kind: 'loading' });
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setReauthEmail(user?.email ?? '');
+      setView({ kind: 'reauth' });
+      return;
+    }
+    await proceedAfterSession();
+  }, [user?.email, proceedAfterSession]);
+
+  useEffect(() => { void init(); }, [init]);
+
+  const handleReauth = async () => {
+    const email = reauthEmail.trim();
+    if (!email || !reauthPassword) {
+      setError('Enter your email and password to continue.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email,
+        password: reauthPassword,
+      });
+      if (signInErr) {
+        setError(extractErrorMessage(signInErr.message));
+        return;
+      }
+      setReauthPassword('');
+      await proceedAfterSession();
+    } catch (err: any) {
+      setError(extractErrorMessage(err?.message ?? 'Re-authentication failed'));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // ── Cleanup any stale unverified factors before enrolling ────────────────
   // If the user previously clicked Set Up then closed the page without
@@ -253,6 +316,11 @@ const SecuritySettings: React.FC = () => {
   };
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Elevate to AAL2 with the existing TOTP challenge before sensitive ops.
+  if (view.kind === 'mfa_elevate') {
+    return <MfaChallenge onVerified={() => { void refresh(); }} />;
+  }
+
   return (
     <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 }, maxWidth: 800, mx: 'auto' }}>
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 0.5 }}>
@@ -291,6 +359,53 @@ const SecuritySettings: React.FC = () => {
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
               <CircularProgress size={24} />
             </Box>
+          )}
+
+          {/* ── Step-up re-authentication (sudo mode) ───────────────────── */}
+          {view.kind === 'reauth' && (
+            <Stack spacing={2}>
+              <Typography variant="body2">
+                For your security, confirm your password to manage two-factor
+                authentication.
+              </Typography>
+              {user?.email ? (
+                <Typography variant="body2" color="text.secondary">
+                  Signed in as <strong>{user.email}</strong>
+                </Typography>
+              ) : (
+                <TextField
+                  label="Email"
+                  size="small"
+                  fullWidth
+                  value={reauthEmail}
+                  onChange={(e) => setReauthEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              )}
+              <TextField
+                label="Password"
+                type="password"
+                size="small"
+                fullWidth
+                value={reauthPassword}
+                onChange={(e) => setReauthPassword(e.target.value)}
+                autoComplete="current-password"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && reauthPassword && !busy) void handleReauth();
+                }}
+              />
+              <Box>
+                <Button
+                  variant="contained"
+                  onClick={handleReauth}
+                  disabled={busy}
+                  startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <LockResetIcon />}
+                >
+                  {busy ? 'Verifying…' : 'Confirm'}
+                </Button>
+              </Box>
+            </Stack>
           )}
 
           {/* ── State 1: Not enrolled ───────────────────────────────────── */}
