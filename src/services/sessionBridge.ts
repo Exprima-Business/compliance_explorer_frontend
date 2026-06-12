@@ -25,25 +25,28 @@ import environment from '../config/environment';
 const API_URL = environment.api.url;
 const CSRF_STORAGE_KEY = 'ca_csrf_token';
 
-// In-memory token, mirrored to sessionStorage so it survives a same-tab reload
-// (the ca_session cookie outlives the JS context; the token must too).
-let csrfToken: string | null = readStoredToken();
-
+// The double-submit CSRF token lives in localStorage (shared across tabs), NOT
+// sessionStorage (per-tab). The `ca_csrf` COOKIE is per-browser/shared, so every
+// tab must echo the SAME token to match it. With a per-tab store, a second tab
+// that re-established the session would rotate the shared cookie's token while
+// the first tab still held a stale one — the first tab's writes then 403'd.
+// localStorage + a live read on every access keeps all tabs in lockstep with the
+// current cookie. The token is a double-submit value, not a secret (its security
+// comes from the HttpOnly session cookie), so localStorage is an acceptable home.
 function readStoredToken(): string | null {
   try {
-    return sessionStorage.getItem(CSRF_STORAGE_KEY);
+    return localStorage.getItem(CSRF_STORAGE_KEY);
   } catch {
     return null;
   }
 }
 
 function setCsrfToken(token: string | null): void {
-  csrfToken = token;
   try {
-    if (token) sessionStorage.setItem(CSRF_STORAGE_KEY, token);
-    else sessionStorage.removeItem(CSRF_STORAGE_KEY);
+    if (token) localStorage.setItem(CSRF_STORAGE_KEY, token);
+    else localStorage.removeItem(CSRF_STORAGE_KEY);
   } catch {
-    // sessionStorage unavailable (private mode quota) — in-memory still works.
+    // localStorage unavailable (private mode quota) — degrade gracefully.
   }
 }
 
@@ -58,9 +61,11 @@ async function captureCsrf(resp: Response): Promise<void> {
   }
 }
 
-/** The double-submit CSRF token the BE expects echoed in `x-csrf-token`. */
+/** The double-submit CSRF token the BE expects echoed in `x-csrf-token`. Read
+ *  live from localStorage so concurrent tabs always send the token matching the
+ *  current shared `ca_csrf` cookie. */
 export function getCsrfToken(): string | null {
-  return csrfToken;
+  return readStoredToken();
 }
 
 /**
@@ -69,11 +74,12 @@ export function getCsrfToken(): string | null {
  * /refresh, or /csrf) is the observable proxy.
  */
 export function hasCookieSession(): boolean {
-  return !!csrfToken;
+  return !!readStoredToken();
 }
 
 function csrfHeaders(): Record<string, string> {
-  return csrfToken ? { 'x-csrf-token': csrfToken } : {};
+  const token = readStoredToken();
+  return token ? { 'x-csrf-token': token } : {};
 }
 
 /**

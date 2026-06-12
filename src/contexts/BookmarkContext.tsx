@@ -140,9 +140,25 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [currentOrg, currentProject]);
 
   // Setup realtime subscription with connection monitoring
-  const setupRealtimeSubscription = useCallback(() => {
+  const setupRealtimeSubscription = useCallback(async () => {
     if (!currentOrg || !currentProject) {
       dlog('Cannot setup subscription: missing org or project');
+      return;
+    }
+
+    // Cookie auth (Phase 4b): with persistSession:false there is no supabase
+    // session after a reload — only the HttpOnly cookie, which Realtime cannot
+    // use to authorize an RLS-protected channel. Skip the subscription and
+    // degrade to API reads + optimistic updates instead of spinning in a
+    // reconnect/error loop; live cross-device sync resumes after the next login
+    // (when an in-memory session exists). We deliberately do NOT hand Realtime a
+    // token sourced from the cookie — that would re-expose an access token to JS
+    // and undercut the XSS closure.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      dlog('Skipping realtime subscription — no active supabase session (cookie-only)');
+      cleanupConnection();
+      setConnectionStatus('disconnected');
       return;
     }
 
