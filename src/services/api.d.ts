@@ -3,6 +3,8 @@ import type { ApiResponse } from '../types/api';
 export declare function getAuthToken(): Promise<string | null>;
 interface ApiOptions extends RequestInit {
     requireAuth?: boolean;
+    /** Override the default 30 s request timeout (in milliseconds). */
+    timeout?: number;
 }
 export declare const apiCall: <T>(endpoint: string, options?: ApiOptions) => Promise<ApiResponse<T>>;
 export declare const fetchClauses: () => Promise<ApiResponse<Clause[]>>;

@@ -1457,7 +1457,7 @@ const Controls: React.FC = () => {
       {/* SPRS Score */}
       {sprsScore && <SPRSScoreCard sprs={sprsScore} />}
 
-      {/* Action buttons — sized to match summary grid cards */}
+      {/* Action buttons — sized to match summary grid cards above */}
       <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 2, mb: 3 }}>
         <Card
           variant="outlined"
@@ -1466,13 +1466,24 @@ const Controls: React.FC = () => {
             cursor: 'pointer',
             borderColor: 'primary.main',
             borderStyle: 'dashed',
+            borderWidth: 2,
             transition: 'all 0.2s',
             '&:hover': { boxShadow: 2, borderStyle: 'solid', bgcolor: 'rgba(99,102,241,0.04)' },
           }}
         >
-          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 }, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-            <DocumentIcon sx={{ fontSize: 28, color: 'primary.main' }} />
-            <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+          <CardContent sx={{
+            p: isMobile ? 1.5 : 2,
+            '&:last-child': { pb: isMobile ? 1.5 : 2 },
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.75,
+            minHeight: isMobile ? 80 : 90,
+          }}>
+            <DocumentIcon sx={{ fontSize: isMobile ? 32 : 36, color: 'primary.main' }} />
+            <Typography variant={isMobile ? 'body2' : 'body1'} sx={{ fontWeight: 600, color: 'primary.main' }}>
               Upload SSP
             </Typography>
           </CardContent>
@@ -1484,13 +1495,24 @@ const Controls: React.FC = () => {
             cursor: 'pointer',
             borderColor: '#22c55e',
             borderStyle: 'dashed',
+            borderWidth: 2,
             transition: 'all 0.2s',
             '&:hover': { boxShadow: 2, borderStyle: 'solid', bgcolor: 'rgba(34,197,94,0.04)' },
           }}
         >
-          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 }, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-            <UploadFileIcon sx={{ fontSize: 28, color: '#22c55e' }} />
-            <Typography variant="body2" sx={{ fontWeight: 600, color: '#22c55e' }}>
+          <CardContent sx={{
+            p: isMobile ? 1.5 : 2,
+            '&:last-child': { pb: isMobile ? 1.5 : 2 },
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.75,
+            minHeight: isMobile ? 80 : 90,
+          }}>
+            <UploadFileIcon sx={{ fontSize: isMobile ? 32 : 36, color: '#22c55e' }} />
+            <Typography variant={isMobile ? 'body2' : 'body1'} sx={{ fontWeight: 600, color: '#22c55e' }}>
               Import Assessment
             </Typography>
           </CardContent>

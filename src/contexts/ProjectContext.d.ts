@@ -13,6 +13,8 @@ interface ProjectContextValue {
     setCurrentProject: (p: Project) => void;
     refreshProjects: () => Promise<void>;
     createProject: (name: string, description?: string) => Promise<void>;
+    deleteProject: (id: string) => Promise<void>;
+    updateProject: (id: string, name: string, description?: string) => Promise<void>;
 }
 export declare const ProjectProvider: React.FC<{
     children: React.ReactNode;
