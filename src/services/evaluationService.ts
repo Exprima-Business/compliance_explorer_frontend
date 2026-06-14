@@ -100,6 +100,9 @@ export interface TriggeredObligation {
   sourceAuthority: string;
   /** Edge type that surfaced it: incorporates_by_reference | mandates | flows_down_to */
   via: string;
+  /** Identifier of the in-document clause this derives from — the citation that
+   *  keeps the document authoritative (null only for named rows). */
+  viaNamedClause: string | null;
   /** Hops from a named clause (>= 1). */
   hop: number;
 }

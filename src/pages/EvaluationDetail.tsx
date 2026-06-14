@@ -377,17 +377,21 @@ const StatTile: React.FC<{ label: string; value: number; color?: string }> = ({ 
   </Card>
 );
 
-/** Edge type → label + chip color for a triggered obligation. */
-const VIA_BADGE: Record<string, { label: string; color: 'warning' | 'info' | 'secondary' }> = {
-  mandates: { label: 'Mandated', color: 'warning' },
-  incorporates_by_reference: { label: 'Incorporated', color: 'info' },
-  flows_down_to: { label: 'Flows to subs', color: 'secondary' },
+/** Edge type → neutral, non-asserting label (NOT a claim that the doc mandates it). */
+const VIA_LABEL: Record<string, string> = {
+  incorporates_by_reference: 'Incorporated by ref.',
+  mandates: 'Per named standard',
+  flows_down_to: 'Flows to subs',
 };
 
 /**
- * Per-opportunity cascade: obligations the solicitation triggers through the
- * regulatory graph but never names — the "you didn't know you owed this"
- * surface. Renders nothing when the cascade is empty.
+ * Per-opportunity cascade — standards/rules the named (in-document) clauses
+ * reference or incorporate, surfaced from the regulatory graph. Deliberately
+ * framed as DERIVED context, never as obligations beyond the document: each row
+ * cites the in-document clause it descends from (viaNamedClause), and the copy
+ * defers to the solicitation text as authoritative. The document is the source
+ * of truth — this panel never asserts a requirement the doc does not name.
+ * Renders nothing when nothing cascades.
  */
 const TriggeredObligationsCard: React.FC<{
   obligations: TriggeredObligation[];
@@ -396,32 +400,45 @@ const TriggeredObligationsCard: React.FC<{
   if (!obligations.length) return null;
   const authorities = new Set(obligations.map(o => o.sourceAuthority));
   return (
-    <Card sx={{ mb: 3, borderLeft: '4px solid', borderColor: 'secondary.main' }}>
+    <Card variant="outlined" sx={{ mb: 3, borderLeft: '4px solid', borderColor: 'secondary.main' }}>
       <CardContent>
         <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
-          Triggered obligations
+          Referenced by the named clauses
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Beyond the {namedCount} clause{namedCount === 1 ? '' : 's'} this solicitation names, the
-          regulatory graph surfaces <strong>{obligations.length}</strong> more obligation
-          {obligations.length === 1 ? '' : 's'} across <strong>{authorities.size}</strong>{' '}
-          authorit{authorities.size === 1 ? 'y' : 'ies'} you owe but the document does not spell out.
+          The {namedCount} clause{namedCount === 1 ? '' : 's'} this solicitation names reference{' '}
+          <strong>{obligations.length}</strong> further standard{obligations.length === 1 ? '' : 's'} or
+          rule{obligations.length === 1 ? '' : 's'} across <strong>{authorities.size}</strong>{' '}
+          authorit{authorities.size === 1 ? 'y' : 'ies'} via the regulatory graph. These are derived,
+          not read from the document — confirm each against the solicitation text.
         </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {obligations.map(o => {
-            const badge = VIA_BADGE[o.via] ?? { label: o.via, color: 'default' as const };
-            return (
-              <Box key={o.artifactId} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <Chip size="small" variant="outlined" label={badge.label} color={badge.color} />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+          {obligations.map(o => (
+            <Box key={o.artifactId} sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Chip size="small" variant="outlined" label={VIA_LABEL[o.via] ?? o.via} />
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.identifier}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 120 }}>
-                  {o.title}
-                </Typography>
+                <Box sx={{ flex: 1 }} />
                 <Chip size="small" variant="outlined" label={o.sourceAuthority} />
               </Box>
-            );
-          })}
+              <Typography variant="caption" color="text.secondary">
+                {o.title}
+                {o.viaNamedClause && (
+                  <> — via <Box component="span" sx={{ fontWeight: 600 }}>{o.viaNamedClause}</Box></>
+                )}
+                {o.hop > 1 ? ` · ${o.hop} steps from the document` : ''}
+              </Typography>
+            </Box>
+          ))}
         </Box>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', mt: 2, fontStyle: 'italic' }}
+        >
+          Derived from the regulatory graph. The solicitation text is authoritative — verify before
+          relying on these.
+        </Typography>
       </CardContent>
     </Card>
   );
