@@ -19,12 +19,10 @@ import { ProjectProvider } from './contexts/ProjectContext';
 import AuthGate from './components/AuthGate';
 import OrgSetupDialog from './components/OrgSetupDialog';
 import ProjectGate from './components/ProjectGate';
-import { URLValidation } from './components/URLValidation';
 import { useUserState } from './hooks/useUserState';
 import MainApp from './components/MainApp';
 
 const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
-const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING === 'true';
 
 // Simplified App component that handles routing based on user state
 const AppContent: React.FC = () => {
@@ -96,29 +94,14 @@ export default function App() {
           <Route path="/login" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/setup-organization" element={<OrganizationSetup />} />
-          {ENABLE_URL_BASED_ROUTING ? (
-            // URL-based routing with organization and project slugs
-            <Route
-              path="/:orgSlug/:projectSlug/*"
-              element={
-                <AuthGate>
-                  <URLValidation>
-                    <AppContent />
-                  </URLValidation>
-                </AuthGate>
-              }
-            />
-          ) : (
-            // Header-based routing (current approach)
-            <Route
-              path="/*"
-              element={
-                <AuthGate>
-                  <AppContent />
-                </AuthGate>
-              }
-            />
-          )}
+          <Route
+            path="/*"
+            element={
+              <AuthGate>
+                <AppContent />
+              </AuthGate>
+            }
+          />
         </Routes>
       </Router>
       </ThemeProvider>

@@ -33,8 +33,6 @@ import {
 } from '@mui/icons-material';
 import { AppBar } from './AppBar';
 import { Settings } from './Settings';
-import { URLDebugInfo } from './URLDebugInfo';
-import { ApiTestComponent } from './ApiTestComponent';
 import { useURLBasedNavigation } from '../hooks/useURLBasedNavigation';
 import { useAuth } from '../contexts/AuthContext';
 import ProjectSelector from './ProjectSelector';
@@ -50,7 +48,6 @@ interface LayoutProps {
 }
 
 const ENABLE_SCANNER = import.meta.env.VITE_ENABLE_SCANNER === 'true';
-const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING === 'true';
 
 export default function Layout({ children }: LayoutProps) {
   const theme = useTheme();
@@ -374,8 +371,6 @@ export default function Layout({ children }: LayoutProps) {
           }),
         }}
       >
-        {ENABLE_URL_BASED_ROUTING && <URLDebugInfo />}
-        {ENABLE_URL_BASED_ROUTING && <ApiTestComponent />}
         {children}
       </Box>
       <Settings
