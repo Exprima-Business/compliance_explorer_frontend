@@ -85,6 +85,25 @@ export interface ImplicatedControl {
   satisfiedViaCrosswalk: boolean;
 }
 
+/**
+ * One obligation the solicitation TRIGGERS through the regulatory graph but
+ * does not literally name — e.g. naming DFARS 252.204-7012 also pulls in NIST
+ * SP 800-171, which mandates FIPS 140 / SP 800-63 / SP 800-88. The "you didn't
+ * know you owed this" surface. Backed by the get_evaluation_triggered_obligations
+ * SQL function (BE migration 126).
+ */
+export interface TriggeredObligation {
+  artifactId: string;
+  artifactType: string;
+  identifier: string;
+  title: string | null;
+  sourceAuthority: string;
+  /** Edge type that surfaced it: incorporates_by_reference | mandates | flows_down_to */
+  via: string;
+  /** Hops from a named clause (>= 1). */
+  hop: number;
+}
+
 export interface SolicitationEvaluation {
   id: string;
   organizationId: string;
@@ -111,6 +130,11 @@ export interface EvaluationDetail {
    * entry. May be {} when the eval has no program scope.
    */
   controlsByClauseId: Record<string, ImplicatedControl[]>;
+  /**
+   * Per-opportunity cascade: obligations triggered via the regulatory graph
+   * beyond the literally-detected clauses. Empty when nothing cascades.
+   */
+  triggeredObligations: TriggeredObligation[];
 }
 
 export interface CreateEvaluationRequest {

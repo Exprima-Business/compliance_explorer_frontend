@@ -20,6 +20,7 @@ import {
   type EvaluationClause,
   type RequiredFramework,
   type ImplicatedControl,
+  type TriggeredObligation,
   type CoverageStatus,
   type ClauseCategory,
 } from '../services/evaluationService';
@@ -376,6 +377,56 @@ const StatTile: React.FC<{ label: string; value: number; color?: string }> = ({ 
   </Card>
 );
 
+/** Edge type → label + chip color for a triggered obligation. */
+const VIA_BADGE: Record<string, { label: string; color: 'warning' | 'info' | 'secondary' }> = {
+  mandates: { label: 'Mandated', color: 'warning' },
+  incorporates_by_reference: { label: 'Incorporated', color: 'info' },
+  flows_down_to: { label: 'Flows to subs', color: 'secondary' },
+};
+
+/**
+ * Per-opportunity cascade: obligations the solicitation triggers through the
+ * regulatory graph but never names — the "you didn't know you owed this"
+ * surface. Renders nothing when the cascade is empty.
+ */
+const TriggeredObligationsCard: React.FC<{
+  obligations: TriggeredObligation[];
+  namedCount: number;
+}> = ({ obligations, namedCount }) => {
+  if (!obligations.length) return null;
+  const authorities = new Set(obligations.map(o => o.sourceAuthority));
+  return (
+    <Card sx={{ mb: 3, borderLeft: '4px solid', borderColor: 'secondary.main' }}>
+      <CardContent>
+        <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+          Triggered obligations
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Beyond the {namedCount} clause{namedCount === 1 ? '' : 's'} this solicitation names, the
+          regulatory graph surfaces <strong>{obligations.length}</strong> more obligation
+          {obligations.length === 1 ? '' : 's'} across <strong>{authorities.size}</strong>{' '}
+          authorit{authorities.size === 1 ? 'y' : 'ies'} you owe but the document does not spell out.
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {obligations.map(o => {
+            const badge = VIA_BADGE[o.via] ?? { label: o.via, color: 'default' as const };
+            return (
+              <Box key={o.artifactId} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Chip size="small" variant="outlined" label={badge.label} color={badge.color} />
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.identifier}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 120 }}>
+                  {o.title}
+                </Typography>
+                <Chip size="small" variant="outlined" label={o.sourceAuthority} />
+              </Box>
+            );
+          })}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
+
 const EvaluationDetail: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -616,6 +667,12 @@ const EvaluationDetail: React.FC = () => {
         <StatTile label="New" value={summary.gaps} color={theme.palette.warning.main} />
         <StatTile label="Not in Catalog" value={summary.unknown} color={theme.palette.text.disabled} />
       </Box>
+
+      {/* Per-opportunity cascade — obligations triggered beyond the named clauses */}
+      <TriggeredObligationsCard
+        obligations={detail!.triggeredObligations ?? []}
+        namedCount={summary.detected}
+      />
 
       {/* Per-framework completion — the compliance headline */}
       <ComplianceBreakdown
