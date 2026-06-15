@@ -1,23 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Autocomplete,
   Box,
   Typography,
   Card,
   CardContent,
-  Grid,
   Chip,
   Button,
   CircularProgress,
   Alert,
   LinearProgress,
   Collapse,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  InputAdornment,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -31,7 +23,6 @@ import {
   ArrowForward as ArrowIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  Search as SearchIcon,
   Shield as ShieldIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
@@ -45,12 +36,8 @@ import ObligationsDueWidget from '../components/ObligationsDueWidget';
 import RecentEvaluationsWidget from '../components/RecentEvaluationsWidget';
 import ProgramReadinessWidget from '../components/ProgramReadinessWidget';
 import CascadeOverview from '../components/CascadeOverview';
-import type { Clause, RiskClassification, ClauseFamilyGroup } from '../types/clause';
+import type { Clause, RiskClassification } from '../types/clause';
 import { useProjectSummary } from '../hooks/useProjectSummary';
-import {
-  fetchRegulatoryArtifacts,
-  type RegulatoryArtifactListItem,
-} from '../services/regulatoryArtifactsService';
 // Compliance summary types live in the shared `useProjectSummary` hook now —
 // imported above so Dashboard, Matrix, and any future consumer agree on shape.
 
@@ -79,7 +66,7 @@ const Dashboard: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
 
-  const { clauses, loading, error, searchQuery, setSearchQuery, selectedFamily, setSelectedFamily, families } = useClause();
+  const { clauses, loading, error } = useClause();
   const { bookmarks, loading: bookmarkLoading } = useBookmarks();
   const { currentProject } = useProject();
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -87,72 +74,11 @@ const Dashboard: React.FC = () => {
   const [expandedFamily, setExpandedFamily] = useState<string | null>(null);
   const [selectedClause, setSelectedClause] = useState<Clause | null>(null);
 
-  // ── Catalog jump-search ───────────────────────────────────────
-  // Separate from `searchQuery` (which filters the in-project clause list).
-  // This one hits the full regulatory-artifacts catalog via /api/regulatory-
-  // artifacts?q=... and navigates to /clauses/[identifier] on pick — the same
-  // detail route the Regulations page uses, so users can leap directly to any
-  // clause's detail page from the dashboard without paging through the catalog.
-  const [catalogInput, setCatalogInput] = useState('');
-  const [catalogOptions, setCatalogOptions] = useState<RegulatoryArtifactListItem[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  // Track the request that owns the current input so out-of-order responses
-  // can't overwrite a fresher search's results.
-  const catalogReqIdRef = useRef(0);
-
-  useEffect(() => {
-    const term = catalogInput.trim();
-    if (term.length < 2) {
-      setCatalogOptions([]);
-      setCatalogLoading(false);
-      return;
-    }
-    const reqId = ++catalogReqIdRef.current;
-    setCatalogLoading(true);
-    const timer = setTimeout(async () => {
-      const resp = await fetchRegulatoryArtifacts({ q: term, limit: 5 });
-      if (reqId !== catalogReqIdRef.current) return; // stale
-      if (resp.data?.items) setCatalogOptions(resp.data.items);
-      else setCatalogOptions([]);
-      setCatalogLoading(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [catalogInput]);
-
-  const openClauseDetail = (identifier: string) => {
-    navigate(`/clauses/${encodeURIComponent(identifier)}`);
-  };
-
   // Compliance progress summary — React Query. Shared with Matrix.tsx via
   // the same projectSummary key, so back-navigation between the two views
   // is cache-instant. Invalidated by control / objective status flips and
   // POA&M mutations.
   const { data: complianceSummary = null } = useProjectSummary();
-
-  // Valid families for the filter dropdown
-  const validFamilies = useMemo(() =>
-    Array.isArray(families)
-      ? families.filter((fg): fg is ClauseFamilyGroup =>
-          Boolean(fg && fg.family && fg.family.id && fg.family.name)
-        )
-      : [],
-  [families]);
-
-  // Whether a search or family filter is active
-  const isFiltered = Boolean(searchQuery.trim() || selectedFamily);
-
-  // Clauses matching the current search query (applied on top of family filter from context)
-  const filteredClauses = useMemo(() => {
-    const term = searchQuery.trim().toLowerCase();
-    if (!term) return clauses;
-    return clauses.filter(c =>
-      c.clauseCode?.toLowerCase().includes(term) ||
-      c.title?.toLowerCase().includes(term) ||
-      c.description?.toLowerCase().includes(term) ||
-      c.family?.name?.toLowerCase().includes(term) ||
-      c.riskClassification?.toLowerCase().includes(term)
-    );
-  }, [clauses, searchQuery]);
 
   // ── Derived stats (memoized) ────────────────────────────────────
   const stats = useMemo(() => {
@@ -235,193 +161,6 @@ const Dashboard: React.FC = () => {
           </Typography>
         )}
       </Box>
-
-      {/* ── Catalog jump-search ────────────────────────────────────
-          Jumps to any clause's detail page from the full regulatory catalog.
-          Distinct from the in-program filter below (which narrows the list of
-          clauses already bookmarked into this program). */}
-      <Box sx={{ mb: { xs: 1.5, md: 2 } }}>
-        <Autocomplete<RegulatoryArtifactListItem, false, false, true>
-          freeSolo
-          size="small"
-          options={catalogOptions}
-          loading={catalogLoading}
-          filterOptions={(x) => x /* server-side filtering */}
-          inputValue={catalogInput}
-          onInputChange={(_, value) => setCatalogInput(value)}
-          getOptionLabel={(opt) =>
-            typeof opt === 'string' ? opt : `${opt.identifier} — ${opt.title}`
-          }
-          onChange={(_, value) => {
-            if (!value || typeof value === 'string') return;
-            openClauseDetail(value.identifier);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && catalogOptions.length > 0) {
-              const first = catalogOptions[0];
-              // Defer to next tick so Autocomplete doesn't swallow the navigation.
-              e.preventDefault();
-              openClauseDetail(first.identifier);
-            }
-          }}
-          renderOption={(props, opt) => (
-            <li {...props} key={opt.id}>
-              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                <Typography
-                  variant="body2"
-                  sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'primary.main' }}
-                >
-                  {opt.identifier}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" noWrap>
-                  {opt.title}
-                </Typography>
-              </Box>
-            </li>
-          )}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              placeholder="Find any clause — e.g. DFARS 7012, FAR 52.204-21, NIST SP 800-171"
-              helperText="Searches the full regulatory catalog and opens the clause's detail page."
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <>
-                    {catalogLoading ? <CircularProgress size={16} /> : null}
-                    {params.InputProps.endAdornment}
-                  </>
-                ),
-              }}
-            />
-          )}
-        />
-      </Box>
-
-      {/* ── Search & Filter Bar ───────────────────────────────────
-          Narrows the in-project clause list below (bookmarked into your
-          program). Different surface than the catalog jump-search above. */}
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 2,
-          mb: { xs: 2, md: 3 },
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'stretch' : 'center',
-        }}
-      >
-        <TextField
-          size="small"
-          placeholder="Filter clauses in this program..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ flex: 1, minWidth: 200 }}
-        />
-        <FormControl size="small" sx={{ minWidth: isMobile ? '100%' : 220 }}>
-          <InputLabel>Filter by Family</InputLabel>
-          <Select
-            value={selectedFamily?.id || ''}
-            label="Filter by Family"
-            onChange={(e) => {
-              const familyId = e.target.value;
-              if (!familyId) {
-                setSelectedFamily(null);
-                return;
-              }
-              const familyGroup = validFamilies.find(fg => fg.family.id === familyId);
-              setSelectedFamily(familyGroup?.family || null);
-            }}
-          >
-            <MenuItem value="">All Families</MenuItem>
-            {validFamilies.map((fg) => (
-              <MenuItem key={fg.family.id} value={fg.family.id}>
-                {fg.family.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
-
-      {/* ── Quick Stats Row ─────────────────────────────────────── */}
-      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: { xs: 2, md: 3 } }}>
-        <Grid item xs={6} md={3}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent sx={{ p: isMobile ? 1.5 : 2, '&:last-child': { pb: isMobile ? 1.5 : 2 } }}>
-              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                {isFiltered ? 'Matching Clauses' : 'Database'}
-              </Typography>
-              <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700, color: 'secondary.main' }}>
-                {isFiltered ? filteredClauses.length : stats.totalClauses}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {isFiltered
-                  ? `of ${stats.totalClauses} total clauses`
-                  : `clauses across ${stats.totalFamilies} families`}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={6} md={3}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent sx={{ p: isMobile ? 1.5 : 2, '&:last-child': { pb: isMobile ? 1.5 : 2 } }}>
-              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                Project Clauses
-              </Typography>
-              <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700, color: 'primary.main' }}>
-                {stats.projectClauses}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                in project scope
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={6} md={3}>
-          <Card sx={{ height: '100%', bgcolor: RISK_BG.HIGH }}>
-            <CardContent sx={{ p: isMobile ? 1.5 : 2, '&:last-child': { pb: isMobile ? 1.5 : 2 } }}>
-              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                High Risk
-              </Typography>
-              <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700, color: RISK_COLORS.HIGH }}>
-                {stats.riskCounts.HIGH}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                clauses require attention
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={6} md={3}>
-          <Card sx={{ height: '100%', bgcolor: RISK_BG.LOW }}>
-            <CardContent sx={{ p: isMobile ? 1.5 : 2, '&:last-child': { pb: isMobile ? 1.5 : 2 } }}>
-              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                Low Risk
-              </Typography>
-              <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 700, color: RISK_COLORS.LOW }}>
-                {stats.riskCounts.LOW}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                clauses on track
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
 
       {/* ── Program Readiness — north-star "ready to bid?" view (D-2.1+2.2) ─ */}
       <ProgramReadinessWidget />
@@ -613,92 +352,6 @@ const Dashboard: React.FC = () => {
                 </Box>
               );
             })}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ── Filtered Clause Cards ──────────────────────────────── */}
-      {isFiltered && filteredClauses.length > 0 && (
-        <Card sx={{ mb: { xs: 2, md: 3 } }}>
-          <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                {selectedFamily ? selectedFamily.name : 'Search Results'}
-                {' '}
-                <Chip
-                  label={`${filteredClauses.length} clause${filteredClauses.length !== 1 ? 's' : ''}`}
-                  size="small"
-                  sx={{ fontSize: '0.7rem', height: 22 }}
-                />
-              </Typography>
-              {(searchQuery || selectedFamily) && (
-                <Button
-                  size="small"
-                  onClick={() => { setSearchQuery(''); setSelectedFamily(null); }}
-                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                >
-                  Clear Filters
-                </Button>
-              )}
-            </Box>
-            <Grid container spacing={1.5}>
-              {filteredClauses.map(clause => {
-                const risk = (clause.riskClassification?.toUpperCase() || 'LOW') as RiskClassification;
-                return (
-                  <Grid item xs={12} sm={6} md={4} key={clause.id}>
-                    <Card
-                      variant="outlined"
-                      onClick={() => setSelectedClause(clause)}
-                      sx={{
-                        cursor: 'pointer',
-                        height: '100%',
-                        bgcolor: RISK_BG[risk],
-                        borderLeft: `3px solid ${RISK_COLORS[risk]}`,
-                        '&:hover': { boxShadow: 2 },
-                        transition: 'box-shadow 0.2s',
-                      }}
-                    >
-                      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                            {clause.clauseCode}
-                          </Typography>
-                          <Chip
-                            label={risk}
-                            size="small"
-                            sx={{
-                              height: 20,
-                              fontSize: '0.6rem',
-                              fontWeight: 700,
-                              bgcolor: RISK_COLORS[risk],
-                              color: '#fff',
-                            }}
-                          />
-                        </Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5, lineHeight: 1.3 }}>
-                          {clause.title}
-                        </Typography>
-                        {clause.family?.name && (
-                          <Chip
-                            label={clause.family.name}
-                            size="small"
-                            variant="outlined"
-                            sx={{ fontSize: '0.6rem', height: 18, mt: 0.5 }}
-                          />
-                        )}
-                        {clause.description && (
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, lineHeight: 1.3 }}>
-                            {clause.description.length > 80
-                              ? `${clause.description.slice(0, 80)}...`
-                              : clause.description}
-                          </Typography>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
           </CardContent>
         </Card>
       )}
