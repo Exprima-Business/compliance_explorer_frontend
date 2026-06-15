@@ -32,7 +32,6 @@ import { useProject } from '../contexts/ProjectContext';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { FloatingPanel } from '../components/FloatingPanel';
-import ObligationsDueWidget from '../components/ObligationsDueWidget';
 import RecentEvaluationsWidget from '../components/RecentEvaluationsWidget';
 import ProgramReadinessWidget from '../components/ProgramReadinessWidget';
 import CascadeOverview from '../components/CascadeOverview';
@@ -162,14 +161,67 @@ const Dashboard: React.FC = () => {
         )}
       </Box>
 
+      {/* ── Quick Actions — always visible, top of page ──────────── */}
+      <Card sx={{ mb: { xs: 2, md: 3 } }}>
+        <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+            Quick Actions
+          </Typography>
+          <Box sx={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+            gap: 1.5,
+          }}>
+            <Button
+              variant="contained"
+              startIcon={<ScannerIcon />}
+              onClick={() => navigate('/document-scanner')}
+              fullWidth
+              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
+            >
+              Scan Document
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ShieldIcon />}
+              onClick={() => navigate('/controls')}
+              fullWidth
+              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
+            >
+              View Controls
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<MatrixIcon />}
+              onClick={() => navigate('/matrix')}
+              fullWidth
+              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
+            >
+              Matrix
+            </Button>
+            {/* Re-entry to the BundlePicker flow. Deep-links to /controls with
+                ?addFramework=1, which the Controls page consumes to open the
+                Add-framework dialog. Lets users layer additional frameworks
+                (e.g. HIPAA on top of NIST 800-171) without having to deactivate
+                what they already have. */}
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/controls?addFramework=1')}
+              fullWidth
+              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
+            >
+              Add framework
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
       {/* ── Program Readiness — north-star "ready to bid?" view (D-2.1+2.2) ─ */}
       <ProgramReadinessWidget />
 
       {/* ── Cascade overview — Posture · Gaps · Moves (migs 131/132) ── */}
       <CascadeOverview />
-
-      {/* ── Obligations widget (W3 Phase 4) ─────────────────────── */}
-      <ObligationsDueWidget />
 
       {/* ── Recent Document Evaluations (Phase B-4) ─────────────── */}
       <RecentEvaluationsWidget />
@@ -356,61 +408,6 @@ const Dashboard: React.FC = () => {
         </Card>
       )}
 
-      {/* ── Quick Actions — always visible ───────────────────────── */}
-      <Card sx={{ mb: { xs: 2, md: 3 } }}>
-        <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
-            Quick Actions
-          </Typography>
-          <Box sx={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
-            gap: 1.5,
-          }}>
-            <Button
-              variant="contained"
-              startIcon={<ScannerIcon />}
-              onClick={() => navigate('/document-scanner')}
-              fullWidth
-              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
-            >
-              Scan Document
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<ShieldIcon />}
-              onClick={() => navigate('/controls')}
-              fullWidth
-              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
-            >
-              View Controls
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<MatrixIcon />}
-              onClick={() => navigate('/matrix')}
-              fullWidth
-              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
-            >
-              Matrix
-            </Button>
-            {/* Re-entry to the BundlePicker flow. Deep-links to /controls with
-                ?addFramework=1, which the Controls page consumes to open the
-                Add-framework dialog. Lets users layer additional frameworks
-                (e.g. HIPAA on top of NIST 800-171) without having to deactivate
-                what they already have. */}
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => navigate('/controls?addFramework=1')}
-              fullWidth
-              sx={{ textTransform: 'none', fontWeight: 600, py: 1.2 }}
-            >
-              Add framework
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
 
       {/* ── Demo Flow Hero Cards ────────────────────────────────── */}
       {/* State-aware CTAs that guide the demo narrative */}

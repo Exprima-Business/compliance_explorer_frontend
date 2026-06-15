@@ -466,27 +466,6 @@ const ProgramReadinessWidget: React.FC = () => {
                       </>
                     )}
 
-                    {/* Clause reciprocity — moved from the old Compliance Progress card */}
-                    {summary && summary.reciprocity.length > 0 && (
-                      <>
-                        <Divider sx={{ mb: 1 }} />
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75, fontWeight: 600 }}>
-                          Clause reciprocity
-                        </Typography>
-                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.5, mb: 2 }}>
-                          {summary.reciprocity.map(r => (
-                            <Chip
-                              key={r.clauseCode}
-                              label={`${r.clauseCode}: ${Math.round(r.implementedPct)}%`}
-                              size="small"
-                              color={r.implementedPct >= 80 ? 'success' : r.implementedPct >= 40 ? 'warning' : 'default'}
-                              variant="outlined"
-                              sx={{ fontWeight: 600 }}
-                            />
-                          ))}
-                        </Stack>
-                      </>
-                    )}
                   </>
                 ) : (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
