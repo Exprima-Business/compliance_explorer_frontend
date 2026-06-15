@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { keys } from '../queryClient';
 import { useProjectSummary, type FrameworkSummary } from '../hooks/useProjectSummary';
 import { listInstances } from '../services/obligationsService';
+import { PieChart, Pie, Cell } from 'recharts';
 
 /**
  * Program Readiness widget — Phase D-2.1 + D-2.2.
@@ -156,6 +157,9 @@ function computeReadiness(
 const ProgramReadinessWidget: React.FC = () => {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState<boolean>(true);
+  // Which framework's control/objective detail is expanded (merged in from the
+  // old standalone Compliance Progress card). Null = all collapsed.
+  const [openFw, setOpenFw] = useState<string | null>(null);
 
   // Compliance frameworks — same query key + hook the Compliance Progress
   // card already uses, so this is a cache hit on dashboard re-render.
@@ -277,40 +281,137 @@ const ProgramReadinessWidget: React.FC = () => {
                 {frameworks.length > 0 ? (
                   <>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 600 }}>
-                      Framework progress
+                      Framework progress — click a framework for control &amp; objective detail
                     </Typography>
-                    <Stack spacing={1.25} sx={{ mb: 2 }}>
+                    <Stack spacing={1} sx={{ mb: 2 }}>
                       {frameworks.map(fw => {
                         const pct = fw.completionPct;
                         const barColor = pct >= READY_FRAMEWORK_PCT ? '#22c55e'
                           : pct >= EVALUATE_FRAMEWORK_PCT ? '#f59e0b'
                           : '#ef4444';
+                        const isOpen = openFw === fw.id;
+                        const controlSegs = [
+                          { label: 'Implemented', value: fw.implemented, color: '#22c55e', muted: false },
+                          { label: 'In Progress', value: fw.inProgress, color: '#f59e0b', muted: false },
+                          { label: 'Not Started', value: fw.notStarted, color: '#e5e7eb', muted: true },
+                        ];
+                        const o = fw.objectives;
                         return (
-                          <Box key={fw.id}>
-                            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.25 }}>
-                              <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
-                                {fw.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {fw.implemented}/{fw.totalControls}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                sx={{ fontWeight: 700, color: barColor, minWidth: 36, textAlign: 'right' }}
-                              >
-                                {Math.round(pct)}%
-                              </Typography>
-                            </Stack>
-                            <LinearProgress
-                              variant="determinate"
-                              value={Math.min(100, Math.max(0, pct))}
-                              sx={{
-                                height: 6,
-                                borderRadius: 3,
-                                bgcolor: 'rgba(0,0,0,0.06)',
-                                '& .MuiLinearProgress-bar': { borderRadius: 3, bgcolor: barColor },
-                              }}
-                            />
+                          <Box
+                            key={fw.id}
+                            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
+                          >
+                            {/* Clickable header row */}
+                            <Box
+                              onClick={() => setOpenFw(isOpen ? null : fw.id)}
+                              sx={{ cursor: 'pointer', p: 1, '&:hover': { bgcolor: 'action.hover' } }}
+                            >
+                              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.25 }}>
+                                {isOpen
+                                  ? <ExpandLessIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                                  : <ExpandMoreIcon sx={{ fontSize: 18, color: 'text.secondary' }} />}
+                                <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
+                                  {fw.name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {fw.implemented}/{fw.totalControls}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ fontWeight: 700, color: barColor, minWidth: 36, textAlign: 'right' }}
+                                >
+                                  {Math.round(pct)}%
+                                </Typography>
+                              </Stack>
+                              <LinearProgress
+                                variant="determinate"
+                                value={Math.min(100, Math.max(0, pct))}
+                                sx={{
+                                  height: 6,
+                                  borderRadius: 3,
+                                  bgcolor: 'rgba(0,0,0,0.06)',
+                                  '& .MuiLinearProgress-bar': { borderRadius: 3, bgcolor: barColor },
+                                }}
+                              />
+                            </Box>
+
+                            {/* Expanded detail — completion gauge + controls + objectives */}
+                            <Collapse in={isOpen} timeout="auto" unmountOnExit>
+                              <Box sx={{ p: 1.5, pt: 1, bgcolor: 'action.hover' }}>
+                                {/* Completion gauge */}
+                                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+                                  <Box sx={{ position: 'relative', width: 170, height: 96 }}>
+                                    <PieChart width={170} height={96}>
+                                      <Pie
+                                        data={[{ value: pct }, { value: Math.max(0, 100 - pct) }]}
+                                        cx={85}
+                                        cy={90}
+                                        startAngle={180}
+                                        endAngle={0}
+                                        innerRadius={50}
+                                        outerRadius={70}
+                                        dataKey="value"
+                                        stroke="none"
+                                      >
+                                        <Cell fill={barColor} />
+                                        <Cell fill="#f1f5f9" />
+                                      </Pie>
+                                    </PieChart>
+                                    <Box sx={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', textAlign: 'center' }}>
+                                      <Typography variant="h6" sx={{ fontWeight: 800, color: barColor, lineHeight: 1 }}>
+                                        {Math.round(pct)}%
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                                        controls implemented
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                </Box>
+
+                                {/* Controls breakdown */}
+                                <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                                  Controls ({fw.totalControls})
+                                </Typography>
+                                <Box sx={{ display: 'flex', height: 14, borderRadius: 1, overflow: 'hidden', bgcolor: 'rgba(0,0,0,0.06)' }}>
+                                  {controlSegs.filter(s => s.value > 0).map(s => (
+                                    <Box key={s.label} sx={{ width: `${(s.value / Math.max(1, fw.totalControls)) * 100}%`, bgcolor: s.color }} />
+                                  ))}
+                                </Box>
+                                <Stack direction="row" spacing={1.5} sx={{ mt: 0.5, flexWrap: 'wrap', rowGap: 0.25 }}>
+                                  {controlSegs.map(s => (
+                                    <Typography key={s.label} variant="caption" sx={{ color: s.muted ? 'text.secondary' : s.color }}>
+                                      {s.value} {s.label}
+                                    </Typography>
+                                  ))}
+                                </Stack>
+
+                                {/* Assessment objectives breakdown */}
+                                {o && o.total > 0 && (
+                                  <>
+                                    <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mt: 1.25, mb: 0.5 }}>
+                                      Assessment objectives ({o.total})
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', height: 14, borderRadius: 1, overflow: 'hidden', bgcolor: 'rgba(0,0,0,0.06)' }}>
+                                      {o.fullyMet > 0 && <Box sx={{ width: `${(o.fullyMet / o.total) * 100}%`, bgcolor: '#22c55e' }} />}
+                                      {o.partiallyMet > 0 && <Box sx={{ width: `${(o.partiallyMet / o.total) * 100}%`, bgcolor: '#f59e0b' }} />}
+                                      {o.notMet > 0 && <Box sx={{ width: `${(o.notMet / o.total) * 100}%`, bgcolor: '#ef4444' }} />}
+                                    </Box>
+                                    <Stack direction="row" spacing={1.5} sx={{ mt: 0.5, flexWrap: 'wrap', rowGap: 0.25 }}>
+                                      <Typography variant="caption" sx={{ color: '#15803d' }}>{o.fullyMet} Met</Typography>
+                                      <Typography variant="caption" sx={{ color: '#b45309' }}>{o.partiallyMet} Partial</Typography>
+                                      <Typography variant="caption" sx={{ color: '#b91c1c' }}>{o.notMet} Not Met</Typography>
+                                    </Stack>
+                                  </>
+                                )}
+
+                                {/* Explainer — the two number sets, related */}
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.25, fontStyle: 'italic' }}>
+                                  Each control is one requirement that breaks into finer assessment objectives.
+                                  Implemented / In Progress / Not Started is the status of the controls;
+                                  Met / Partial / Not Met is the status of the objectives underneath them.
+                                </Typography>
+                              </Box>
+                            </Collapse>
                           </Box>
                         );
                       })}
@@ -361,6 +462,28 @@ const ProgramReadinessWidget: React.FC = () => {
                                 </Stack>
                               );
                             })}
+                        </Stack>
+                      </>
+                    )}
+
+                    {/* Clause reciprocity — moved from the old Compliance Progress card */}
+                    {summary && summary.reciprocity.length > 0 && (
+                      <>
+                        <Divider sx={{ mb: 1 }} />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75, fontWeight: 600 }}>
+                          Clause reciprocity
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.5, mb: 2 }}>
+                          {summary.reciprocity.map(r => (
+                            <Chip
+                              key={r.clauseCode}
+                              label={`${r.clauseCode}: ${Math.round(r.implementedPct)}%`}
+                              size="small"
+                              color={r.implementedPct >= 80 ? 'success' : r.implementedPct >= 40 ? 'warning' : 'default'}
+                              variant="outlined"
+                              sx={{ fontWeight: 600 }}
+                            />
+                          ))}
                         </Stack>
                       </>
                     )}
