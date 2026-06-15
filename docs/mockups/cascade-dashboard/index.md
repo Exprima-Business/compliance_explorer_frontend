@@ -72,6 +72,7 @@ closest to "what the product actually looks like."
 | [full-page-guided.html](full-page-guided.html) | Same page **+ the guidance layer**: journey spine + next-step hero on top. The recommended direction. |
 | [first-run.html](first-run.html) | Empty/onboarding state: welcome, mostly-locked spine, and the **two nested onramps** (org questionnaire primary; solicitation upload branching off it) + a teaching strip of what's coming. |
 | [scope-signaling.html](scope-signaling.html) | The two-scopes study: the **same move** framed by the baseline vs. by a live solicitation — proving scope reads without labels (document chip + deadline + "this solicitation requires it" vs. ambient "across your whole program"). |
+| [solicitation-subview.html](solicitation-subview.html) | The **project-level full page** — inside one bid. Persistent document ribbon, bid-scoped spine (parsed → surfaced → checked → close gaps → bid-ready), "14 of 19 requirements / 74% bid-ready", gaps **cited to the in-document clause** (`via VAAR 852.204-71 · SOW §C.5`) + the authoritative-text caveat, and an explicit rollup footer ("62% → ~68%"). Same pattern as the org page, scoped + rolled up. |
 
 ### How they compose (current recommendation)
 
