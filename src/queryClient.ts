@@ -93,4 +93,7 @@ export const keys = {
     ['notifications', status ?? 'unread'] as const,
   notificationsCount: () =>
     ['notifications', 'count'] as const,
+  // Cascade dashboard — org-wide leverage "moves" per program
+  cascadeLeverage: (programId?: string) =>
+    ['cascade-leverage', programId] as const,
 };
