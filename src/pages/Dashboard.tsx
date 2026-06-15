@@ -33,7 +33,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { FloatingPanel } from '../components/FloatingPanel';
 import RecentEvaluationsWidget from '../components/RecentEvaluationsWidget';
-import ProgramReadinessWidget from '../components/ProgramReadinessWidget';
 import CascadeOverview from '../components/CascadeOverview';
 import type { Clause, RiskClassification } from '../types/clause';
 import { useProjectSummary } from '../hooks/useProjectSummary';
@@ -217,10 +216,7 @@ const Dashboard: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* ── Program Readiness — north-star "ready to bid?" view (D-2.1+2.2) ─ */}
-      <ProgramReadinessWidget />
-
-      {/* ── Cascade overview — Posture · Gaps · Moves (migs 131/132) ── */}
+      {/* ── Cascade overview — Coverage · Gaps · Moves (migs 131/132/134) ── */}
       <CascadeOverview />
 
       {/* ── Recent Document Evaluations (Phase B-4) ─────────────── */}

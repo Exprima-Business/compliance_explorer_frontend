@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { keys } from '../queryClient';
 import { useProjectSummary, type FrameworkSummary } from '../hooks/useProjectSummary';
+import { useCascadeSurface, obligationCoverage } from '../hooks/useCascadeSurface';
 import { listInstances } from '../services/obligationsService';
 import { PieChart, Pie, Cell } from 'recharts';
 
@@ -204,6 +205,23 @@ const ProgramReadinessWidget: React.FC = () => {
     [frameworks, obligationStats],
   );
 
+  // Posture — coverage across the FULL obligation surface (the cascade), derived
+  // from the SAME framework %s as readiness so the two are consistent. Posture is
+  // broader than control implementation: it also counts non-control obligations
+  // and the overlooked tail that lies beyond your activated frameworks (the
+  // "blind spots"), so it comes out at or below the control-implementation %.
+  const { data: obligations } = useCascadeSurface();
+  const coverage = useMemo(() => {
+    const obs = obligations ?? [];
+    if (obs.length === 0) return null;
+    const fwPct: Record<string, number> = {};
+    frameworks.forEach(f => { fwPct[f.id] = f.completionPct; });
+    const covs = obs.map(o => obligationCoverage(o, fwPct));
+    const posturePct = Math.round(covs.reduce((a, b) => a + b, 0) / obs.length);
+    const blindSpots = obs.filter(o => !o.explicitSatisfied && o.frameworkIds.length === 0).length;
+    return { posturePct, blindSpots, total: obs.length };
+  }, [obligations, frameworks]);
+
   const isLoading = summaryLoading || obligationsLoading;
   const meta = SIGNAL_META[readiness.signal];
 
@@ -214,7 +232,7 @@ const ProgramReadinessWidget: React.FC = () => {
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
           <RocketLaunchIcon fontSize="small" color="action" />
           <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
-            Program Readiness
+            Coverage
           </Typography>
           <Tooltip title="Open controls page">
             <IconButton size="small" onClick={() => navigate('/controls')} aria-label="Open controls">
@@ -264,14 +282,31 @@ const ProgramReadinessWidget: React.FC = () => {
                   letterSpacing: 0.5,
                 }}
               />
-              <Typography variant="body2" sx={{ flex: 1, color: 'text.primary', fontWeight: 500 }}>
-                {readiness.reason}
-              </Typography>
-              {readiness.overallPct != null && (
-                <Typography variant="h6" sx={{ fontWeight: 800, color: meta.color, whiteSpace: 'nowrap' }}>
-                  {Math.round(readiness.overallPct)}%
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                  {coverage
+                    ? `${coverage.posturePct}% of everything you owe is covered`
+                    : readiness.reason}
                 </Typography>
-              )}
+                {coverage && readiness.overallPct != null && (
+                  <Typography variant="caption" color="text.secondary">
+                    driven by {Math.round(readiness.overallPct)}% of your framework controls implemented
+                    {coverage.blindSpots > 0 && (
+                      <>
+                        {' · '}
+                        <Box component="span" sx={{ color: '#b91c1c', fontWeight: 600 }}>
+                          {coverage.blindSpots} beyond your frameworks
+                        </Box>
+                      </>
+                    )}
+                  </Typography>
+                )}
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: meta.color, whiteSpace: 'nowrap' }}>
+                {coverage
+                  ? `${coverage.posturePct}%`
+                  : (readiness.overallPct != null ? `${Math.round(readiness.overallPct)}%` : '')}
+              </Typography>
             </Box>
 
             {/* LAYER 2 — Supporting metrics */}

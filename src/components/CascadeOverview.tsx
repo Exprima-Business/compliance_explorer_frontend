@@ -1,13 +1,14 @@
 import { Box, Typography } from '@mui/material';
-import PostureCard from './PostureCard';
+import ProgramReadinessWidget from './ProgramReadinessWidget';
 import GapsCard from './GapsCard';
 import CascadeLeverageWidget from './CascadeLeverageWidget';
 
 /**
- * The cascade dashboard trio — Posture → Gaps → Moves — over the full
- * obligation surface (everything the program's activated frameworks make it
- * owe, expanded through the regulatory graph). Posture and Gaps share one
- * fetch (useCascadeSurface); Moves has its own (useCascadeLeverage).
+ * The cascade dashboard — one "obligation surface" story:
+ *   Coverage (ProgramReadinessWidget — Posture headline driven by framework
+ *   control progress, with blind spots called out) → Gaps → Moves.
+ * Coverage and the old standalone Posture card are now merged into one widget,
+ * so there's a single coverage number, not two rival percentages.
  */
 export default function CascadeOverview() {
   return (
@@ -16,10 +17,9 @@ export default function CascadeOverview() {
         Your obligation surface
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Everything you owe across your activated frameworks — where you stand,
-        what's missing, and what to do next.
+        Where you stand → what's missing → what to do, across everything you owe.
       </Typography>
-      <PostureCard />
+      <ProgramReadinessWidget />
       <GapsCard />
       <CascadeLeverageWidget />
     </Box>
