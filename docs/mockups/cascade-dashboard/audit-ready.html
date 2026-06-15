@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cascade dashboard — audit-ready (end-state + stay-ready loop)</title>
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css">
+</head>
+<body>
+<div class="catalog-frame">
+<!-- ===== MOCKUP FRAGMENT (visualize-tool source — everything below renders in chat too) ===== -->
+<div style="background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1.25rem;">
+  <h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Audit-ready end-state: a completed journey spine, a next step focused on generating the audit package, high green posture, and a stay-ready loop of recurring obligations.</h2>
+
+  <!-- PAGE HEADER -->
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:18px; flex-wrap:wrap;">
+    <div style="flex-shrink:0; width:34px; height:34px; border-radius:50%; background:#E8F0DC; color:#4F7A1B; display:flex; align-items:center; justify-content:center;"><i class="ti ti-shield-check" style="font-size:20px;" aria-hidden="true"></i></div>
+    <div>
+      <div style="font-size:21px; font-weight:600; letter-spacing:-0.01em;">You're audit-ready</div>
+      <div style="font-size:13px; color:var(--color-text-secondary);">94% covered. The 5 remaining items are accepted risks or already in progress — none block an assessment.</div>
+    </div>
+  </div>
+
+  <!-- ===== JOURNEY SPINE (complete) ===== -->
+  <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:16px 18px 14px; margin-bottom:14px;">
+    <div style="display:flex; align-items:flex-start;">
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; position:relative;">
+        <div style="position:absolute; top:11px; left:50%; width:100%; height:2px; background:#639922;"></div>
+        <div style="width:24px; height:24px; border-radius:50%; background:#639922; color:#fff; display:flex; align-items:center; justify-content:center; position:relative; z-index:1;"><i class="ti ti-check" style="font-size:14px;" aria-hidden="true"></i></div>
+        <div style="font-size:11px; margin-top:6px; color:var(--color-text-secondary); text-align:center;">Set up</div>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; position:relative;">
+        <div style="position:absolute; top:11px; left:-50%; width:100%; height:2px; background:#639922;"></div>
+        <div style="position:absolute; top:11px; left:50%; width:100%; height:2px; background:#639922;"></div>
+        <div style="width:24px; height:24px; border-radius:50%; background:#639922; color:#fff; display:flex; align-items:center; justify-content:center; position:relative; z-index:1;"><i class="ti ti-check" style="font-size:14px;" aria-hidden="true"></i></div>
+        <div style="font-size:11px; margin-top:6px; color:var(--color-text-secondary); text-align:center;">Scope frameworks</div>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; position:relative;">
+        <div style="position:absolute; top:11px; left:-50%; width:100%; height:2px; background:#639922;"></div>
+        <div style="position:absolute; top:11px; left:50%; width:100%; height:2px; background:#639922;"></div>
+        <div style="width:24px; height:24px; border-radius:50%; background:#639922; color:#fff; display:flex; align-items:center; justify-content:center; position:relative; z-index:1;"><i class="ti ti-check" style="font-size:14px;" aria-hidden="true"></i></div>
+        <div style="font-size:11px; margin-top:6px; color:var(--color-text-secondary); text-align:center;">Surface obligations</div>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; position:relative;">
+        <div style="position:absolute; top:11px; left:-50%; width:100%; height:2px; background:#639922;"></div>
+        <div style="position:absolute; top:11px; left:50%; width:100%; height:2px; background:#639922;"></div>
+        <div style="width:24px; height:24px; border-radius:50%; background:#639922; color:#fff; display:flex; align-items:center; justify-content:center; position:relative; z-index:1;"><i class="ti ti-check" style="font-size:14px;" aria-hidden="true"></i></div>
+        <div style="font-size:11px; margin-top:6px; color:var(--color-text-secondary); text-align:center;">Close gaps</div>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; position:relative;">
+        <div style="position:absolute; top:11px; left:-50%; width:100%; height:2px; background:#639922;"></div>
+        <div style="width:26px; height:26px; border-radius:50%; background:#639922; color:#fff; display:flex; align-items:center; justify-content:center; position:relative; z-index:1; box-shadow:0 0 0 4px #E8F0DC;"><i class="ti ti-flag-check" style="font-size:15px;" aria-hidden="true"></i></div>
+        <div style="font-size:11px; margin-top:5px; color:#4F7A1B; font-weight:600; text-align:center;">Audit-ready</div>
+        <div style="font-size:10px; color:#4F7A1B;">reached</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== NEXT-STEP HERO (generate package) ===== -->
+  <div style="background:#F5F4FC; border:1px solid #D9D5F0; border-radius:var(--border-radius-lg); padding:18px 20px; margin-bottom:24px;">
+    <div style="font-size:11px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; color:#3C3489; margin-bottom:7px;">Your next step</div>
+    <div style="font-size:18px; font-weight:600; margin-bottom:8px;">Generate your audit package</div>
+    <div style="font-size:13px; color:var(--color-text-secondary); line-height:1.6; margin-bottom:6px;"><i class="ti ti-file-export" style="font-size:14px; color:#3C3489; vertical-align:-2px;" aria-hidden="true"></i> <b style="color:var(--color-text-primary); font-weight:500;">What you get:</b> an OSCAL <b style="color:var(--color-text-primary); font-weight:500;">SSP + POA&amp;M</b> and an evidence index — everything an assessor asks for, formatted and cited.</div>
+    <div style="font-size:13px; color:var(--color-text-secondary); line-height:1.6; margin-bottom:16px;"><i class="ti ti-refresh" style="font-size:14px; color:#3C3489; vertical-align:-2px;" aria-hidden="true"></i> <b style="color:var(--color-text-primary); font-weight:500;">Stays live:</b> regenerate any time — it tracks your posture as it changes.</div>
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <button style="background:#534AB7; color:#fff; border:none; font-weight:500; padding:8px 18px;">Generate package <i class="ti ti-arrow-right" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i></button>
+      <span style="font-size:13px; color:#3C3489; cursor:pointer;">Export SSP only</span>
+      <span style="font-size:13px; color:#3C3489; cursor:pointer;">Export POA&amp;M only</span>
+    </div>
+  </div>
+
+  <!-- ===== POSTURE (condensed, green) ===== -->
+  <div style="display:flex; align-items:baseline; gap:8px; margin:0 0 9px 2px;"><span style="font-size:15px; font-weight:600;">Posture</span><span style="font-size:12px; color:var(--color-text-secondary);">where you stand</span><span style="flex:1;"></span><span style="font-size:12px; color:#3C3489; cursor:pointer;">Full posture →</span></div>
+  <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1rem 1.25rem; margin-bottom:24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+    <svg width="76" height="76" viewBox="0 0 120 120" style="flex-shrink:0;" role="img" aria-label="94 percent covered">
+      <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-background-tertiary)" stroke-width="13"></circle>
+      <circle cx="60" cy="60" r="50" fill="none" stroke="#639922" stroke-width="13" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="19" transform="rotate(-90 60 60)"></circle>
+      <text x="60" y="58" text-anchor="middle" font-size="28" font-weight="500" fill="var(--color-text-primary)">94%</text>
+      <text x="60" y="78" text-anchor="middle" font-size="13" fill="var(--color-text-secondary)">covered</text>
+    </svg>
+    <div style="flex:1; min-width:200px; font-size:13px; color:var(--color-text-secondary); line-height:1.6;">Strong across every authority — including the long tail (statutes, agency supplements) that started in the red. <b style="color:var(--color-text-primary); font-weight:500;">5 items remain</b>: 3 accepted risks (documented), 2 in progress.</div>
+  </div>
+
+  <!-- ===== STAY READY (the monitor loop) ===== -->
+  <div style="display:flex; align-items:baseline; gap:8px; margin:0 0 9px 2px;"><span style="font-size:15px; font-weight:600;">Stay ready</span><span style="font-size:12px; color:var(--color-text-secondary);">recurring obligations — we'll remind you before each is due</span></div>
+  <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1rem 1.25rem;">
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"><i class="ti ti-calendar-due" style="font-size:16px; color:#BA7517;" aria-hidden="true"></i><span style="font-size:13px; font-weight:500;">DFARS 252.204-7012 annual affirmation</span><span style="flex:1;"></span><span style="font-size:11px; padding:1px 8px; border-radius:var(--border-radius-md); background:#FBEEE6; color:#993C1D; font-weight:500;">due in 41 days</span></div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"><i class="ti ti-calendar-due" style="font-size:16px; color:var(--color-text-tertiary);" aria-hidden="true"></i><span style="font-size:13px; font-weight:500;">SPRS score refresh</span><span style="flex:1;"></span><span style="font-size:11px; padding:1px 8px; border-radius:var(--border-radius-md); background:var(--color-background-secondary); color:var(--color-text-secondary); font-weight:500;">due in 3 months</span></div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"><i class="ti ti-calendar-due" style="font-size:16px; color:var(--color-text-tertiary);" aria-hidden="true"></i><span style="font-size:13px; font-weight:500;">CMMC L2 reassessment</span><span style="flex:1;"></span><span style="font-size:11px; padding:1px 8px; border-radius:var(--border-radius-md); background:var(--color-background-secondary); color:var(--color-text-secondary); font-weight:500;">due in 14 months</span></div>
+    </div>
+  </div>
+</div>
+<!-- ===== END FRAGMENT ===== -->
+</div>
+</body>
+</html>
