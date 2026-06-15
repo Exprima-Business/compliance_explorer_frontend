@@ -1,0 +1,41 @@
+/* Shared viewer shell for the cascade-dashboard mockup catalog.
+   Each variation HTML links this file so it renders standalone in a browser.
+   These CSS-variable values approximate the in-app (visualize) palette — the
+   canonical render is via the visualize tool in chat; this is a convenience
+   viewer so the catalog is browsable without re-rendering. Light mode only. */
+:root {
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f4f3ee;
+  --color-background-tertiary: #e9e7df;
+  --color-text-primary: #1d1d1b;
+  --color-text-secondary: #6e6d68;
+  --color-text-tertiary: #9c9a93;
+  --color-border-tertiary: rgba(0, 0, 0, 0.12);
+  --color-border-secondary: rgba(0, 0, 0, 0.26);
+  --color-success: #639922;
+  --color-warning: #ba7517;
+  --color-danger: #a32d2d;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 28px;
+  background: var(--color-background-tertiary);
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+}
+.catalog-frame { max-width: 720px; margin: 0 auto; }
+button {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-secondary);
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-primary);
+}

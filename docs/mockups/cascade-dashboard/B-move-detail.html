@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cascade dashboard — B · move detail</title>
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css">
+</head>
+<body>
+<div class="catalog-frame">
+<!-- ===== MOCKUP FRAGMENT (visualize-tool source — everything below renders in chat too) ===== -->
+<div style="background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1.25rem;">
+  <h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Move-detail variation: drilling into one leverage move to show every obligation it clears, grouped by authority with citations.</h2>
+
+  <div style="display:flex; background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); overflow:hidden; margin-bottom:1rem;">
+    <div style="width:4px; background:#534AB7; flex-shrink:0;"></div>
+    <div style="padding:1rem 1.25rem; flex:1; min-width:0;">
+      <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:8px;"><i class="ti ti-arrow-left" style="font-size:13px; vertical-align:-1px;" aria-hidden="true"></i> Moves</div>
+      <div style="font-size:18px; font-weight:500;">Implement FIPS-validated cryptography</div>
+      <div style="font-size:13px; color:var(--color-text-secondary); margin-bottom:14px;">NIST SP 800-171 §3.13.11 — deploy a FIPS 140-validated cryptographic module</div>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <span style="font-size:14px;"><span style="font-weight:500; color:#3C3489;">Unlocks 7 obligations</span> across 4 authorities</span>
+        <span style="flex:1;"></span>
+        <button style="white-space:nowrap; border-color:var(--color-border-secondary);">Plan this move <i class="ti ti-arrow-right" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1rem 1.25rem;">
+    <div style="font-size:15px; font-weight:500; margin-bottom:14px;">What this clears</div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px; font-weight:500; color:var(--color-text-secondary); margin-bottom:7px;">NIST</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:flex-start; gap:9px;"><span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid #BA7517; color:#854F0B; white-space:nowrap;">open</span><div><span style="font-size:13px; font-weight:500;">NIST 800-171 §3.13.11</span> <span style="font-size:12px; color:var(--color-text-secondary);">— requires FIPS-validated cryptography to protect CUI confidentiality.</span></div></div>
+        <div style="display:flex; align-items:flex-start; gap:9px;"><span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid #BA7517; color:#854F0B; white-space:nowrap;">open</span><div><span style="font-size:13px; font-weight:500;">NIST 800-53 SC-13</span> <span style="font-size:12px; color:var(--color-text-secondary);">— mandates FIPS-validated or NSA-approved cryptographic protection.</span></div></div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px; font-weight:500; color:var(--color-text-secondary); margin-bottom:7px;">DoD (DFARS)</div>
+      <div style="display:flex; align-items:flex-start; gap:9px;"><span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid #BA7517; color:#854F0B; white-space:nowrap;">open</span><div><span style="font-size:13px; font-weight:500;">DFARS 252.204-7012</span> <span style="font-size:12px; color:var(--color-text-secondary);">— incorporates 800-171, which requires FIPS-validated crypto for CDI.</span></div></div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px; font-weight:500; color:var(--color-text-secondary); margin-bottom:7px;">DHS (HSAR)</div>
+      <div style="display:flex; align-items:flex-start; gap:9px;"><span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid #BA7517; color:#854F0B; white-space:nowrap;">open</span><div><span style="font-size:13px; font-weight:500;">HSAR 3052.204-72</span> <span style="font-size:12px; color:var(--color-text-secondary);">— "CUI shall be transmitted using a FIPS 140-2/140-3 validated cryptographic module."</span></div></div>
+    </div>
+
+    <div>
+      <div style="font-size:12px; font-weight:500; color:var(--color-text-secondary); margin-bottom:7px;">VA (VAAR) · OMB</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:flex-start; gap:9px;"><span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid #BA7517; color:#854F0B; white-space:nowrap;">open</span><div><span style="font-size:13px; font-weight:500;">VAAR 852.204-71</span> <span style="font-size:12px; color:var(--color-text-secondary);">— VA-approved encryption tools must be FIPS 140-3 validated.</span></div></div>
+        <div style="display:flex; align-items:flex-start; gap:9px;"><span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid #BA7517; color:#854F0B; white-space:nowrap;">open</span><div><span style="font-size:13px; font-weight:500;">OMB M-06-16</span> <span style="font-size:12px; color:var(--color-text-secondary);">— encrypt sensitive agency information using NIST-certified (FIPS 140) modules.</span></div></div>
+      </div>
+    </div>
+
+    <div style="font-size:12px; color:var(--color-text-secondary); font-style:italic; margin-top:14px; border-top:0.5px solid var(--color-border-tertiary); padding-top:10px;">
+      One control implemented → 7 obligations cleared across 4 authorities, each backed by a verbatim citation.
+    </div>
+  </div>
+</div>
+<!-- ===== END FRAGMENT ===== -->
+</div>
+</body>
+</html>
