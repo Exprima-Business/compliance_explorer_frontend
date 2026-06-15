@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cascade dashboard — full page (Posture · Gaps · Moves)</title>
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css">
+</head>
+<body>
+<div class="catalog-frame">
+<!-- ===== MOCKUP FRAGMENT (visualize-tool source — everything below renders in chat too) ===== -->
+<div style="background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1.25rem;">
+  <h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Full cascade dashboard page: a page header, then Posture, Gaps, and Moves stacked as sections in one scroll.</h2>
+
+  <!-- PAGE HEADER -->
+  <div style="margin-bottom:20px;">
+    <div style="font-size:21px; font-weight:600; letter-spacing:-0.01em;">Your obligation surface</div>
+    <div style="font-size:13px; color:var(--color-text-secondary); margin-top:2px;">Everything you owe across CMMC L2 + 4 agency programs — where you stand, what's missing, what to do.</div>
+  </div>
+
+  <!-- ===== SECTION 1 · POSTURE ===== -->
+  <div style="display:flex; align-items:baseline; gap:8px; margin:0 0 9px 2px;">
+    <span style="font-size:15px; font-weight:600;">Posture</span>
+    <span style="font-size:12px; color:var(--color-text-secondary);">where you stand</span>
+  </div>
+  <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1.1rem 1.25rem; margin-bottom:24px;">
+    <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin-bottom:16px;">
+      <svg width="104" height="104" viewBox="0 0 120 120" style="flex-shrink:0;" role="img" aria-label="62 percent covered">
+        <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-background-tertiary)" stroke-width="12"></circle>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#BA7517" stroke-width="12" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="119" transform="rotate(-90 60 60)"></circle>
+        <text x="60" y="56" text-anchor="middle" font-size="27" font-weight="500" fill="var(--color-text-primary)">62%</text>
+        <text x="60" y="76" text-anchor="middle" font-size="12" fill="var(--color-text-secondary)">covered</text>
+      </svg>
+      <div style="flex:1; min-width:200px;">
+        <div style="font-size:14px; font-weight:500; margin-bottom:6px;">Strong on the famous frameworks. Exposed in the long tail.</div>
+        <div style="font-size:13px; color:var(--color-text-secondary);">Your biggest exposure is where competitors don't look:</div>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+          <span style="font-size:12px; padding:2px 9px; border-radius:var(--border-radius-md); background:var(--color-background-secondary); color:#993C1D; font-weight:500;">Statutes 22%</span>
+          <span style="font-size:12px; padding:2px 9px; border-radius:var(--border-radius-md); background:var(--color-background-secondary); color:#993C1D; font-weight:500;">Agency supplements 31%</span>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:0.5px solid var(--color-border-tertiary); padding-top:14px; display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; align-items:center; gap:10px;"><span style="width:150px; font-size:13px;">DoD (DFARS) / CMMC</span><span style="flex:1; height:8px; background:var(--color-background-tertiary); border-radius:4px; overflow:hidden;"><span style="display:block; width:85%; height:100%; background:#639922;"></span></span><span style="width:34px; font-size:12px; text-align:right; color:var(--color-text-secondary);">85%</span></div>
+      <div style="display:flex; align-items:center; gap:10px;"><span style="width:150px; font-size:13px;">NIST (800-53/171/FIPS)</span><span style="flex:1; height:8px; background:var(--color-background-tertiary); border-radius:4px; overflow:hidden;"><span style="display:block; width:78%; height:100%; background:#639922;"></span></span><span style="width:34px; font-size:12px; text-align:right; color:var(--color-text-secondary);">78%</span></div>
+      <div style="display:flex; align-items:center; gap:10px;"><span style="width:150px; font-size:13px;">OMB / CUI (NARA)</span><span style="flex:1; height:8px; background:var(--color-background-tertiary); border-radius:4px; overflow:hidden;"><span style="display:block; width:58%; height:100%; background:#BA7517;"></span></span><span style="width:34px; font-size:12px; text-align:right; color:var(--color-text-secondary);">58%</span></div>
+      <div style="display:flex; align-items:center; gap:10px;"><span style="width:150px; font-size:13px; font-weight:500;">Agency supplements</span><span style="flex:1; height:8px; background:var(--color-background-tertiary); border-radius:4px; overflow:hidden;"><span style="display:block; width:31%; height:100%; background:#D85A30;"></span></span><span style="width:34px; font-size:12px; text-align:right; color:var(--color-text-secondary);">31%</span></div>
+      <div style="display:flex; align-items:center; gap:10px;"><span style="width:150px; font-size:13px; font-weight:500;">Statutes / privacy</span><span style="flex:1; height:8px; background:var(--color-background-tertiary); border-radius:4px; overflow:hidden;"><span style="display:block; width:22%; height:100%; background:#D85A30;"></span></span><span style="width:34px; font-size:12px; text-align:right; color:var(--color-text-secondary);">22%</span></div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION 2 · GAPS ===== -->
+  <div style="display:flex; align-items:baseline; gap:8px; margin:0 0 9px 2px;">
+    <span style="font-size:15px; font-weight:600;">Gaps</span>
+    <span style="font-size:12px; color:var(--color-text-secondary);">what applies but isn't covered</span>
+    <span style="flex:1;"></span>
+    <span style="font-size:13px; font-weight:500; color:#A32D2D;">23 open</span>
+  </div>
+  <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1rem 1.25rem; margin-bottom:24px;">
+    <div style="display:flex; flex-direction:column; gap:9px;">
+      <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;"><span style="font-size:13px; font-weight:500;">5 U.S.C. 552a</span><span style="font-size:12px; color:var(--color-text-secondary);">Privacy Act — system of records</span><span style="flex:1;"></span><span style="font-size:11px; color:var(--color-text-secondary);">via HHSAR 352.224-70</span><span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid #D85A30; color:#993C1D;">open</span></div>
+      <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;"><span style="font-size:13px; font-weight:500;">38 U.S.C. 5701 / 5705 / 7332</span><span style="font-size:12px; color:var(--color-text-secondary);">VA confidentiality statutes</span><span style="flex:1;"></span><span style="font-size:11px; color:var(--color-text-secondary);">via VAAR 852.204-71</span><span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid #D85A30; color:#993C1D;">open</span></div>
+      <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;"><span style="font-size:13px; font-weight:500;">36 CFR 1194 / WCAG 2.0</span><span style="font-size:12px; color:var(--color-text-secondary);">Section 508 standards</span><span style="flex:1;"></span><span style="font-size:11px; color:var(--color-text-secondary);">via HHSAR 352.239-73</span><span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid #D85A30; color:#993C1D;">open</span></div>
+      <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;"><span style="font-size:13px; font-weight:500;">32 CFR Part 2002</span><span style="font-size:12px; color:var(--color-text-secondary);">Controlled Unclassified Information</span><span style="flex:1;"></span><span style="font-size:11px; color:var(--color-text-secondary);">via FAR 52.204-28</span><span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid #D85A30; color:#993C1D;">open</span></div>
+    </div>
+    <div style="font-size:12px; margin-top:12px; border-top:0.5px solid var(--color-border-tertiary); padding-top:10px;"><span style="color:#3C3489; font-weight:500; cursor:pointer;">View all 23 gaps →</span> <span style="color:var(--color-text-secondary);">grouped by authority &amp; category</span></div>
+  </div>
+
+  <!-- ===== SECTION 3 · MOVES ===== -->
+  <div style="display:flex; align-items:baseline; gap:8px; margin:0 0 9px 2px;">
+    <span style="font-size:15px; font-weight:600;">Moves</span>
+    <span style="font-size:12px; color:var(--color-text-secondary);">ranked by what they unlock — do these in order</span>
+  </div>
+  <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1rem 1.25rem;">
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="flex-shrink:0; width:26px; height:26px; border-radius:50%; background:#EDEBF7; color:#3C3489; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center;">1</span>
+        <div style="flex:1; min-width:0;"><div style="font-size:14px; font-weight:500;">Implement FIPS-validated cryptography</div><div style="font-size:12px; color:var(--color-text-secondary);">NIST 800-171 §3.13.11 · <span style="color:#3C3489; font-weight:500;">unlocks 7</span> across 4 authorities</div></div>
+        <button style="white-space:nowrap;">Plan</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="flex-shrink:0; width:26px; height:26px; border-radius:50%; background:#EDEBF7; color:#3C3489; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center;">2</span>
+        <div style="flex:1; min-width:0;"><div style="font-size:14px; font-weight:500;">Deploy phishing-resistant MFA</div><div style="font-size:12px; color:var(--color-text-secondary);">OMB M-22-09 · <span style="color:#3C3489; font-weight:500;">unlocks 5</span> across 3 authorities</div></div>
+        <button style="white-space:nowrap;">Plan</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="flex-shrink:0; width:26px; height:26px; border-radius:50%; background:#EDEBF7; color:#3C3489; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center;">3</span>
+        <div style="flex:1; min-width:0;"><div style="font-size:14px; font-weight:500;">Implement Section 508 accessibility</div><div style="font-size:12px; color:var(--color-text-secondary);">29 U.S.C. 794d · <span style="color:#3C3489; font-weight:500;">unlocks 4</span> across 4 authorities</div></div>
+        <button style="white-space:nowrap;">Plan</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="flex-shrink:0; width:26px; height:26px; border-radius:50%; background:#EDEBF7; color:#3C3489; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center;">4</span>
+        <div style="flex:1; min-width:0;"><div style="font-size:14px; font-weight:500;">Adopt NIST 800-88 media sanitization</div><div style="font-size:12px; color:var(--color-text-secondary);">800-171 §3.8.3 · <span style="color:#3C3489; font-weight:500;">unlocks 3</span> across 2 authorities</div></div>
+        <button style="white-space:nowrap;">Plan</button>
+      </div>
+    </div>
+    <div style="font-size:12px; color:var(--color-text-secondary); font-style:italic; margin-top:12px; border-top:0.5px solid var(--color-border-tertiary); padding-top:10px;">Click any move to see the full cited unlock tree (the move-detail view).</div>
+  </div>
+</div>
+<!-- ===== END FRAGMENT ===== -->
+</div>
+</body>
+</html>

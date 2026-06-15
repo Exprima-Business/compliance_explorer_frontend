@@ -19,6 +19,21 @@ several together.
 - **Document-authoritative discipline carries over from the per-opportunity cascade:**
   never assert an obligation that isn't text-backed; every item is cited; the green→coral
   authority bars tell the moat story (strong on famous frameworks, exposed in the long tail).
+- **Guided, not menu-driven.** The page must answer "what do I do now / what's next / how do
+  I reach my goal" without the user leaning on tabs. Two devices do this: a **journey spine**
+  (setup → scope → surface → close gaps → audit-ready; stateful, shows where you are) and a
+  single **next-step hero** (one explained action — *why* + *what happens next*). The hero is
+  **stateful**: it recomputes per stage (first-run → "scope"; mid → "implement FIPS"; late →
+  "generate SSP"; steady → "renew attestation"). Every button states its consequence; empty
+  states teach.
+- **Two nested scopes, signaled — never labeled.** The **org/baseline** journey is the whole
+  obligation surface; a **solicitation** journey is a *subset* (one bid). Scope is carried by
+  identity + provenance, NOT by "ORG/PROJECT" tags: a bid-scoped item has a **document chip +
+  deadline** and says *"this solicitation requires it"*; a baseline item has no document and
+  says *"across your whole program."* The cascade line (*"clears N more across your program"*)
+  shows the bid **rolls up** into the baseline. Structurally the solicitation is a focused
+  sub-view nested in the org, with a persistent document ribbon; a looming deadline can promote
+  a bid's requirement to the org's #1 next step.
 
 ## Open decisions (must be settled before building)
 
@@ -45,6 +60,18 @@ by the visualize tool — to re-render or splice, that fragment is what gets use
 > **v0 (retired):** the original single-view "stand / gap / plan" triad was rendered in
 > chat before the naming was locked. Not saved as a file — superseded by `Posture · Gaps · Moves`
 > and the split surfaces above. Reconstruct on request if ever needed.
+
+### Assembled pages & states
+
+The components above composed into real pages, plus journey states. These are the
+closest to "what the product actually looks like."
+
+| File | What it is |
+|------|------------|
+| [full-page.html](full-page.html) | The dashboard as one scroll: **Posture → Gaps → Moves**, no guidance layer. The plain composition. |
+| [full-page-guided.html](full-page-guided.html) | Same page **+ the guidance layer**: journey spine + next-step hero on top. The recommended direction. |
+| [first-run.html](first-run.html) | Empty/onboarding state: welcome, mostly-locked spine, and the **two nested onramps** (org questionnaire primary; solicitation upload branching off it) + a teaching strip of what's coming. |
+| [scope-signaling.html](scope-signaling.html) | The two-scopes study: the **same move** framed by the baseline vs. by a live solicitation — proving scope reads without labels (document chip + deadline + "this solicitation requires it" vs. ambient "across your whole program"). |
 
 ### How they compose (current recommendation)
 
