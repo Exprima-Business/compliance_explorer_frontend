@@ -416,56 +416,6 @@ const ProgramReadinessWidget: React.FC = () => {
                         );
                       })}
                     </Stack>
-
-                    {/* Top frameworks to work next — the lowest-% frameworks
-                        are the highest-leverage place to focus. We surface
-                        frameworks rather than individual controls because
-                        the project-summary endpoint doesn't (yet) return
-                        per-control gap rows; the framework grain is what's
-                        cheaply available. */}
-                    {readiness.worstFrameworks.length > 0 && readiness.worstFrameworks[0].completionPct < READY_FRAMEWORK_PCT && (
-                      <>
-                        <Divider sx={{ mb: 1 }} />
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75, fontWeight: 600 }}>
-                          Where to focus next
-                        </Typography>
-                        <Stack spacing={0.5} sx={{ mb: 2 }}>
-                          {readiness.worstFrameworks
-                            .filter(f => f.completionPct < READY_FRAMEWORK_PCT)
-                            .slice(0, 3)
-                            .map(fw => {
-                              const gap = fw.totalControls - fw.implemented;
-                              return (
-                                <Stack
-                                  key={fw.id}
-                                  direction="row"
-                                  alignItems="center"
-                                  spacing={1}
-                                  onClick={() => navigate('/controls')}
-                                  sx={{
-                                    cursor: 'pointer',
-                                    p: 0.75,
-                                    borderRadius: 1,
-                                    '&:hover': { bgcolor: 'action.hover' },
-                                  }}
-                                >
-                                  <Box sx={{
-                                    width: 6, height: 6, borderRadius: '50%',
-                                    bgcolor: fw.completionPct < EVALUATE_FRAMEWORK_PCT ? 'error.main' : 'warning.main',
-                                  }} />
-                                  <Typography variant="body2" sx={{ flex: 1 }}>
-                                    {fw.name}
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {gap} control{gap === 1 ? '' : 's'} to {READY_FRAMEWORK_PCT}%-ready
-                                  </Typography>
-                                </Stack>
-                              );
-                            })}
-                        </Stack>
-                      </>
-                    )}
-
                   </>
                 ) : (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>

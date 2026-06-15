@@ -99,4 +99,7 @@ export const keys = {
   // Cascade dashboard — posture + gaps (the obligation surface) per program
   cascadeSurface: (programId?: string) =>
     ['cascade-surface', programId] as const,
+  // Cascade dashboard — the obligations a single move clears (drill-in)
+  cascadeMove: (programId?: string, mechanismTypeId?: string) =>
+    ['cascade-move', programId, mechanismTypeId] as const,
 };
