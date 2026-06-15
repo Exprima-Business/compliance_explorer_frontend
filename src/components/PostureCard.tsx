@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import {
   Box, Card, CardContent, CircularProgress, LinearProgress, Stack, Typography,
 } from '@mui/material';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
-import { useCascadeSurface } from '../hooks/useCascadeSurface';
+import { useCascadeSurface, obligationCoverage } from '../hooks/useCascadeSurface';
+import { useProjectSummary } from '../hooks/useProjectSummary';
 
 /** Coverage band → color, matching the dashboard's readiness palette. */
 function bandColor(pct: number): string {
@@ -12,13 +14,45 @@ function bandColor(pct: number): string {
 }
 
 /**
- * Cascade dashboard — "Posture" card. Overall coverage across the full
- * applicable obligation surface (ring) plus a by-authority breakdown (bars),
- * surfacing where the org is strong vs. exposed. Backed by useCascadeSurface.
+ * Cascade dashboard — "Posture" card. Coverage across the full applicable
+ * obligation surface. Coverage is fractional and derived on the client: each
+ * obligation inherits its framework's implementation % (from useProjectSummary,
+ * the same source as Program Readiness), so Posture rises as controls are
+ * implemented and the numbers stay consistent with Readiness.
  */
 export default function PostureCard() {
-  const { data, isLoading, error } = useCascadeSurface();
-  const posture = data?.posture;
+  const { data: obligations, isLoading, error } = useCascadeSurface();
+  const { data: summary } = useProjectSummary();
+
+  const view = useMemo(() => {
+    const obs = obligations ?? [];
+    if (obs.length === 0) return null;
+
+    const fwPct: Record<string, number> = {};
+    (summary?.frameworks ?? []).forEach(f => { fwPct[f.id] = f.completionPct; });
+
+    const covs = obs.map(o => obligationCoverage(o, fwPct));
+    const total = obs.length;
+    const overallPct = Math.round(covs.reduce((a, b) => a + b, 0) / total);
+    const fullyCovered = covs.filter(c => c >= 100).length;
+
+    const byAuthMap = new Map<string, number[]>();
+    obs.forEach((o, i) => {
+      const a = o.sourceAuthority || 'Other';
+      const arr = byAuthMap.get(a) || [];
+      arr.push(covs[i]);
+      byAuthMap.set(a, arr);
+    });
+    const byAuthority = Array.from(byAuthMap.entries())
+      .map(([authority, arr]) => ({
+        authority,
+        pct: Math.round(arr.reduce((a, b) => a + b, 0) / arr.length),
+        count: arr.length,
+      }))
+      .sort((a, b) => a.pct - b.pct || b.count - a.count); // most-exposed first
+
+    return { total, overallPct, fullyCovered, byAuthority };
+  }, [obligations, summary]);
 
   return (
     <Card sx={{ mb: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider' }}>
@@ -30,7 +64,7 @@ export default function PostureCard() {
           </Typography>
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Coverage across everything you owe — not a single-framework score.
+          Coverage across everything you owe — rises as you implement controls.
         </Typography>
 
         {isLoading && (
@@ -45,14 +79,14 @@ export default function PostureCard() {
           </Typography>
         )}
 
-        {!isLoading && !error && posture && posture.total === 0 && (
+        {!isLoading && !error && !view && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
             No posture yet — activate a framework and we'll measure coverage across
             everything it makes you owe.
           </Typography>
         )}
 
-        {!isLoading && !error && posture && posture.total > 0 && (
+        {!isLoading && !error && view && (
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={2.5}
@@ -69,11 +103,11 @@ export default function PostureCard() {
               />
               <CircularProgress
                 variant="determinate"
-                value={posture.pct}
+                value={view.overallPct}
                 size={92}
                 thickness={4}
                 sx={{
-                  color: bandColor(posture.pct),
+                  color: bandColor(view.overallPct),
                   position: 'absolute',
                   left: 0,
                   '& .MuiCircularProgress-circle': { strokeLinecap: 'round' },
@@ -90,7 +124,7 @@ export default function PostureCard() {
                 }}
               >
                 <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1 }}>
-                  {posture.pct}%
+                  {view.overallPct}%
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   covered
@@ -101,10 +135,10 @@ export default function PostureCard() {
             {/* By-authority bars */}
             <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
               <Typography variant="caption" color="text.secondary">
-                {posture.covered} of {posture.total} obligations covered · by authority:
+                {view.fullyCovered} of {view.total} obligations fully covered · by authority:
               </Typography>
               <Stack spacing={0.75} sx={{ mt: 0.75 }}>
-                {posture.byAuthority.slice(0, 6).map((a) => (
+                {view.byAuthority.slice(0, 6).map(a => (
                   <Stack key={a.authority} direction="row" alignItems="center" spacing={1}>
                     <Typography
                       variant="caption"
@@ -122,10 +156,7 @@ export default function PostureCard() {
                         height: 7,
                         borderRadius: 3,
                         bgcolor: 'rgba(0,0,0,0.06)',
-                        '& .MuiLinearProgress-bar': {
-                          borderRadius: 3,
-                          bgcolor: bandColor(a.pct),
-                        },
+                        '& .MuiLinearProgress-bar': { borderRadius: 3, bgcolor: bandColor(a.pct) },
                       }}
                     />
                     <Typography

@@ -1,20 +1,32 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Box, Button, Card, CardContent, Chip, CircularProgress, Stack, Tooltip, Typography,
+  Box, Button, Card, CardContent, Chip, CircularProgress, Stack, Typography,
 } from '@mui/material';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
-import { useCascadeSurface } from '../hooks/useCascadeSurface';
+import { useCascadeSurface, obligationCoverage } from '../hooks/useCascadeSurface';
+import { useProjectSummary } from '../hooks/useProjectSummary';
 
 /**
- * Cascade dashboard — "Gaps" card. The applicable-but-uncovered obligations,
- * each tied to its authority. Items pulled in by the cascade (hop > 0) are the
- * overlooked tail. Backed by useCascadeSurface (shared cache with PostureCard).
+ * Cascade dashboard — "Gaps" card. Obligations that aren't yet fully covered
+ * (coverage < 100%). Coverage is fractional and derived on the client (control
+ * implementation feeds it), so an obligation leaves the list only once it's
+ * fully covered. Shares the useCascadeSurface fetch with PostureCard.
  */
 export default function GapsCard() {
-  const { data, isLoading, error } = useCascadeSurface();
+  const { data: obligations, isLoading, error } = useCascadeSurface();
+  const { data: summary } = useProjectSummary();
   const [showAll, setShowAll] = useState(false);
 
-  const gaps = data?.gaps ?? [];
+  const gaps = useMemo(() => {
+    const obs = obligations ?? [];
+    const fwPct: Record<string, number> = {};
+    (summary?.frameworks ?? []).forEach(f => { fwPct[f.id] = f.completionPct; });
+    return obs
+      .map(o => ({ o, cov: obligationCoverage(o, fwPct) }))
+      .filter(x => x.cov < 100)
+      .sort((a, b) => a.cov - b.cov); // least-covered first
+  }, [obligations, summary]);
+
   const visible = showAll ? gaps : gaps.slice(0, 6);
 
   return (
@@ -32,7 +44,7 @@ export default function GapsCard() {
           )}
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          What applies but isn't covered — each tied to its source authority.
+          What isn't fully covered yet — each shows how far along it is.
         </Typography>
 
         {isLoading && (
@@ -49,47 +61,44 @@ export default function GapsCard() {
 
         {!isLoading && !error && gaps.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-            No open gaps — every applicable obligation is covered, or no framework
-            is activated yet.
+            No open gaps — every applicable obligation is fully covered, or no
+            framework is activated yet.
           </Typography>
         )}
 
         {!isLoading && !error && visible.length > 0 && (
           <Stack spacing={1}>
-            {visible.map((g) => (
+            {visible.map(({ o, cov }) => (
               <Stack
-                key={g.artifactId}
+                key={o.artifactId}
                 direction="row"
                 alignItems="center"
                 spacing={1}
                 sx={{ flexWrap: 'wrap' }}
               >
                 <Typography variant="body2" sx={{ fontWeight: 500, flexShrink: 0 }}>
-                  {g.identifier}
+                  {o.identifier}
                 </Typography>
                 <Typography
                   variant="body2"
                   color="text.secondary"
                   sx={{ flex: 1, minWidth: 0 }}
                   noWrap
-                  title={g.title}
+                  title={o.title}
                 >
-                  {g.title}
+                  {o.title}
                 </Typography>
-                {!g.hasMethod && (
-                  <Tooltip title="No satisfaction method in the catalog yet">
-                    <Chip
-                      label="needs method"
-                      size="small"
-                      variant="outlined"
-                      sx={{ height: 20, fontSize: 11 }}
-                    />
-                  </Tooltip>
+                {cov > 0 && (
+                  <Chip
+                    label={`${cov}%`}
+                    size="small"
+                    sx={{ height: 18, fontSize: 11, bgcolor: 'rgba(180,83,9,0.12)', color: '#854d0e' }}
+                  />
                 )}
                 <Chip
-                  label={g.sourceAuthority}
+                  label={o.sourceAuthority}
                   size="small"
-                  sx={{ height: 20, fontSize: 11, bgcolor: 'rgba(0,0,0,0.06)' }}
+                  sx={{ height: 18, fontSize: 11, bgcolor: 'rgba(0,0,0,0.06)' }}
                 />
               </Stack>
             ))}
@@ -99,7 +108,7 @@ export default function GapsCard() {
         {!isLoading && !error && gaps.length > 6 && (
           <Button
             size="small"
-            onClick={() => setShowAll((s) => !s)}
+            onClick={() => setShowAll(s => !s)}
             sx={{ mt: 1, textTransform: 'none' }}
           >
             {showAll ? 'Show fewer' : `Show all ${gaps.length} gaps`}
