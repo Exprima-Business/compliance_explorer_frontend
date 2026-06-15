@@ -96,4 +96,7 @@ export const keys = {
   // Cascade dashboard — org-wide leverage "moves" per program
   cascadeLeverage: (programId?: string) =>
     ['cascade-leverage', programId] as const,
+  // Cascade dashboard — posture + gaps (the obligation surface) per program
+  cascadeSurface: (programId?: string) =>
+    ['cascade-surface', programId] as const,
 };
