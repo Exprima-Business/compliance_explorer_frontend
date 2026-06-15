@@ -75,6 +75,24 @@ closest to "what the product actually looks like."
 | [solicitation-subview.html](solicitation-subview.html) | The **project-level full page** — inside one bid. Persistent document ribbon, bid-scoped spine (parsed → surfaced → checked → close gaps → bid-ready), "14 of 19 requirements / 74% bid-ready", gaps **cited to the in-document clause** (`via VAAR 852.204-71 · SOW §C.5`) + the authoritative-text caveat, and an explicit rollup footer ("62% → ~68%"). Same pattern as the org page, scoped + rolled up. |
 | [audit-ready.html](audit-ready.html) | The **end-state**. Completed spine (flag planted), green 94% posture, the next step shifts from *fixing* to *proving* ("generate your OSCAL SSP + POA&M package"), honest residual ("5 remain: 3 accepted risks, 2 in progress"), and a **"Stay ready" loop** of recurring obligations with due dates — audit-ready as a *maintained* state, not a finish line. |
 
+### Redesign exploration (2026-06-15) — legibility pass
+
+After the live dashboard still read as confusing (Coverage vs Gaps disconnected, no
+provenance, mandatory-vs-recommended unclear, gaps not tied to action), a redesign
+direction. Learns from Vanta/Drata *patterns* (compliance-progress headline + domain
+cards; list → detail) but stays leaner — deliberately NOT chart-heavy. Mockups only.
+
+| File | What it is |
+|------|------------|
+| [redesign-overview.html](redesign-overview.html) | Matured **overview**: one coverage headline + "needs attention / X of Y" domain cards (Requirements · Controls · Renewals) + a ranked "Do next" actions list. |
+| [redesign-requirements-register.html](redesign-requirements-register.html) | The **Requirements register** — the fix for the Gaps confusion. Each row ties together: identifier + title, authority, **Required/Referenced** badge, **"applies because…"** provenance (the cascade chain), coverage **status %** (same data as the headline), and a **Fix →** action. Coverage roll-up in the header. |
+
+> Not built yet — a real restructure (Coverage + Gaps unified into one requirements
+> register, provenance on every row, gap→fix wiring). The still-unmocked third surface
+> is the **requirement detail** (verbatim citation + why-it-applies + how-to-fix), where
+> the "how do we know this is correct" trust answer lives. Terminology: drop "owe" →
+> "requirements" / "what applies to you".
+
 ### How they compose (current recommendation)
 
 - **Dashboard widget** = **A** (the MVP; needs the new `get_cascade_leverage` backend).

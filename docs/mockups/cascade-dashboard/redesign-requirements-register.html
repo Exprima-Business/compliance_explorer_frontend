@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cascade dashboard — redesign: requirements register</title>
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css">
+</head>
+<body>
+<div class="catalog-frame">
+<!-- ===== MOCKUP FRAGMENT (visualize-tool source — everything below renders in chat too) ===== -->
+<div style="background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1.25rem;">
+  <h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Requirements register: each requirement with its authority, required/referenced type, why it applies, coverage status, and a fix action.</h2>
+
+  <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px;">
+    <span style="font-size:18px; font-weight:500;">Requirements</span>
+    <span style="flex:1;"></span>
+    <span style="font-size:13px; color:var(--color-text-secondary);"><b style="color:#854F0B; font-weight:500;">16% covered</b> · 51 total · <b style="color:#A32D2D; font-weight:500;">11 need action</b></span>
+  </div>
+  <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:12px;">Everything that applies to you, where each came from, and how to close it.</div>
+
+  <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+    <span style="font-size:12px; padding:4px 10px; border:0.5px solid var(--color-border-secondary); border-radius:var(--border-radius-md); color:var(--color-text-secondary);">All authorities <i class="ti ti-chevron-down" style="font-size:13px; vertical-align:-2px;" aria-hidden="true"></i></span>
+    <span style="font-size:12px; padding:4px 10px; border:0.5px solid var(--color-border-secondary); border-radius:var(--border-radius-md); color:var(--color-text-secondary);">All statuses <i class="ti ti-chevron-down" style="font-size:13px; vertical-align:-2px;" aria-hidden="true"></i></span>
+    <span style="font-size:12px; padding:4px 10px; border:0.5px solid var(--color-border-secondary); border-radius:var(--border-radius-md); color:var(--color-text-secondary);">Required only</span>
+  </div>
+
+  <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); overflow:hidden;">
+
+    <div style="padding:11px 15px; border-bottom:0.5px solid var(--color-border-tertiary);">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="font-size:13px; font-weight:500;">FAR 52.204-21</span>
+        <span style="font-size:13px; color:var(--color-text-secondary); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Basic Safeguarding of Covered Contractor Information Systems</span>
+        <span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-secondary); color:var(--color-text-secondary);">Required</span>
+        <span style="font-size:12px; font-weight:500; color:#854F0B; width:34px; text-align:right;">27%</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+        <span style="font-size:11px; color:var(--color-text-secondary);">GSA · applies because it's in your <b style="color:var(--color-text-primary); font-weight:500;">CMMC L2</b> scope</span>
+        <span style="flex:1;"></span>
+        <span style="font-size:12px; color:#3C3489; font-weight:500; cursor:pointer;">Fix →</span>
+      </div>
+    </div>
+
+    <div style="padding:11px 15px; border-bottom:0.5px solid var(--color-border-tertiary);">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="font-size:13px; font-weight:500;">DFARS 252.204-7012</span>
+        <span style="font-size:13px; color:var(--color-text-secondary); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Safeguarding Covered Defense Information &amp; Cyber Incident Reporting</span>
+        <span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-secondary); color:var(--color-text-secondary);">Required</span>
+        <span style="font-size:12px; font-weight:500; color:#854F0B; width:34px; text-align:right;">27%</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+        <span style="font-size:11px; color:var(--color-text-secondary);">DoD · <b style="color:var(--color-text-primary); font-weight:500;">flows down</b> to your subcontractors</span>
+        <span style="flex:1;"></span>
+        <span style="font-size:12px; color:#3C3489; font-weight:500; cursor:pointer;">Fix →</span>
+      </div>
+    </div>
+
+    <div style="padding:11px 15px; border-bottom:0.5px solid var(--color-border-tertiary);">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="font-size:13px; font-weight:500;">5 U.S.C. 552a</span>
+        <span style="font-size:13px; color:var(--color-text-secondary); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Privacy Act — system of records</span>
+        <span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-secondary); color:var(--color-text-secondary);">Required</span>
+        <span style="font-size:12px; font-weight:500; color:#A32D2D; width:34px; text-align:right;">0%</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+        <span style="font-size:11px; color:var(--color-text-secondary);">Statute · via <b style="color:var(--color-text-primary); font-weight:500;">HHSAR 352.224-70</b> (HHS scope)</span>
+        <span style="flex:1;"></span>
+        <span style="font-size:12px; color:#3C3489; font-weight:500; cursor:pointer;">Fix →</span>
+      </div>
+    </div>
+
+    <div style="padding:11px 15px; border-bottom:0.5px solid var(--color-border-tertiary);">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="font-size:13px; font-weight:500;">FIPS 140-2</span>
+        <span style="font-size:13px; color:var(--color-text-secondary); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Security Requirements for Cryptographic Modules</span>
+        <span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-secondary); color:var(--color-text-secondary);">Required</span>
+        <span style="font-size:12px; font-weight:500; color:#A32D2D; width:34px; text-align:right;">0%</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+        <span style="font-size:11px; color:var(--color-text-secondary);">NIST · <b style="color:var(--color-text-primary); font-weight:500;">incorporated by reference</b> in VAAR 852.204-71</span>
+        <span style="flex:1;"></span>
+        <span style="font-size:12px; color:#3C3489; font-weight:500; cursor:pointer;">Fix →</span>
+      </div>
+    </div>
+
+    <div style="padding:11px 15px;">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="font-size:13px; font-weight:500;">36 CFR 1194</span>
+        <span style="font-size:13px; color:var(--color-text-secondary); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Section 508 accessibility standards</span>
+        <span style="font-size:11px; padding:1px 7px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-secondary); color:var(--color-text-secondary);">Required</span>
+        <span style="font-size:12px; font-weight:500; color:#A32D2D; width:34px; text-align:right;">0%</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+        <span style="font-size:11px; color:var(--color-text-secondary);">Access Board · via <b style="color:var(--color-text-primary); font-weight:500;">HHSAR 352.239-73</b></span>
+        <span style="flex:1;"></span>
+        <span style="font-size:12px; color:#3C3489; font-weight:500; cursor:pointer;">Fix →</span>
+      </div>
+    </div>
+
+  </div>
+  <div style="font-size:12px; color:var(--color-text-secondary); margin-top:10px; text-align:center;">Showing 5 of 51 · <span style="color:#3C3489; font-weight:500; cursor:pointer;">Show all</span></div>
+</div>
+<!-- ===== END FRAGMENT ===== -->
+</div>
+</body>
+</html>

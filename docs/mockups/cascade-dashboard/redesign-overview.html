@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cascade dashboard — redesign: matured overview</title>
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css">
+</head>
+<body>
+<div class="catalog-frame">
+<!-- ===== MOCKUP FRAGMENT (visualize-tool source — everything below renders in chat too) ===== -->
+<div style="background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1.25rem;">
+  <h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Matured ClauseAtlas overview: a coverage headline card, domain summary cards, and a next-actions list.</h2>
+
+  <div style="font-size:13px; color:var(--color-text-secondary); margin-bottom:12px;">Northwind Federal · CMMC L2 + 4 agency programs</div>
+
+  <!-- Coverage hero -->
+  <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1rem 1.25rem; margin-bottom:14px;">
+    <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+      <span style="font-size:15px; font-weight:500;">Compliance coverage</span>
+      <span style="flex:1;"></span>
+      <span style="font-size:26px; font-weight:500; color:#854F0B;">16%</span>
+    </div>
+    <div style="height:9px; background:var(--color-background-tertiary); border-radius:5px; overflow:hidden; margin-bottom:8px;">
+      <span style="display:block; width:16%; height:100%; background:#BA7517;"></span>
+    </div>
+    <div style="font-size:12px; color:var(--color-text-secondary);">
+      40 of 51 requirements on track · <span style="color:#A32D2D; font-weight:500;">11 need separate action</span> · driven by 17% of framework controls implemented
+    </div>
+  </div>
+
+  <!-- Domain cards -->
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:10px; margin-bottom:16px;">
+    <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:13px 15px;">
+      <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:4px;"><i class="ti ti-list-check" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Requirements</div>
+      <div style="font-size:22px; font-weight:500; color:#A32D2D;">11</div>
+      <div style="font-size:11px; color:var(--color-text-secondary);">need action · 40 of 51 covered</div>
+      <div style="height:5px; background:var(--color-background-tertiary); border-radius:3px; overflow:hidden; margin-top:6px;"><span style="display:block; width:78%; height:100%; background:#639922;"></span></div>
+    </div>
+    <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:13px 15px;">
+      <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:4px;"><i class="ti ti-shield-check" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Controls</div>
+      <div style="font-size:22px; font-weight:500;">84<span style="font-size:13px; color:var(--color-text-secondary); font-weight:400;"> / 406</span></div>
+      <div style="font-size:11px; color:var(--color-text-secondary);">implemented across 3 frameworks</div>
+      <div style="height:5px; background:var(--color-background-tertiary); border-radius:3px; overflow:hidden; margin-top:6px;"><span style="display:block; width:21%; height:100%; background:#BA7517;"></span></div>
+    </div>
+    <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:13px 15px;">
+      <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:4px;"><i class="ti ti-calendar-due" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Renewals</div>
+      <div style="font-size:22px; font-weight:500;">0</div>
+      <div style="font-size:11px; color:var(--color-text-secondary);">overdue · 1 due in 30 days</div>
+      <div style="height:5px; background:var(--color-background-tertiary); border-radius:3px; overflow:hidden; margin-top:6px;"><span style="display:block; width:100%; height:100%; background:#639922;"></span></div>
+    </div>
+  </div>
+
+  <!-- Next moves -->
+  <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1rem 1.25rem;">
+    <div style="font-size:15px; font-weight:500; margin-bottom:2px;">Do next</div>
+    <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:12px;">Highest-leverage actions, in order.</div>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="flex-shrink:0; width:24px; height:24px; border-radius:50%; background:#EDEBF7; color:#3C3489; font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center;">1</span>
+        <div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:500;">Implement FIPS-validated cryptography</div><div style="font-size:11px; color:var(--color-text-secondary);">clears 7 requirements across 4 authorities</div></div>
+        <button style="white-space:nowrap; font-size:12px; padding:5px 12px;">Start</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="flex-shrink:0; width:24px; height:24px; border-radius:50%; background:#EDEBF7; color:#3C3489; font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center;">2</span>
+        <div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:500;">Flow down clauses to subcontractors</div><div style="font-size:11px; color:var(--color-text-secondary);">clears 9 requirements across 6 authorities</div></div>
+        <button style="white-space:nowrap; font-size:12px; padding:5px 12px;">Start</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="flex-shrink:0; width:24px; height:24px; border-radius:50%; background:#EDEBF7; color:#3C3489; font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center;">3</span>
+        <div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:500;">Adopt NIST 800-88 media sanitization</div><div style="font-size:11px; color:var(--color-text-secondary);">clears 3 requirements across 2 authorities</div></div>
+        <button style="white-space:nowrap; font-size:12px; padding:5px 12px;">Start</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ===== END FRAGMENT ===== -->
+</div>
+</body>
+</html>
