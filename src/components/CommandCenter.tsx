@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCascadeSurface, obligationCoverage } from '../hooks/useCascadeSurface';
 import { useProjectSummary } from '../hooks/useProjectSummary';
 import { useCascadeLeverage, type CascadeMove } from '../hooks/useCascadeLeverage';
+import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
 import { evaluationService, type SolicitationEvaluation } from '../services/evaluationService';
 import RemediationDrawer from './RemediationDrawer';
 
@@ -115,6 +116,12 @@ export default function CommandCenter() {
   const { data: obligations, isLoading: surfaceLoading } = useCascadeSurface();
   const { data: summary } = useProjectSummary();
   const { data: moves } = useCascadeLeverage();
+  const { data: members = [] } = useOrgMembers();
+  const leadLabel = (userId: string | null) => {
+    if (!userId) return null;
+    const m = members.find((x) => x.userId === userId);
+    return m ? memberLabel(m) : 'Assigned';
+  };
   const { data: evals } = useQuery({
     queryKey: ['evaluations', 'recent'],
     queryFn: async () => {
@@ -291,7 +298,11 @@ export default function CommandCenter() {
                         </td>
                         <td><Typography variant="body2" color="text.secondary">{mv.affectsSolicitations > 0 ? mv.affectsSolicitations : '—'}</Typography></td>
                         <td><Chip label={mv.riskLevel} size="small" sx={{ height: 20, fontSize: 11, bgcolor: riskBg(mv.riskLevel), color: riskFg(mv.riskLevel) }} /></td>
-                        <td><Typography variant="body2" color="text.secondary">Unassigned</Typography></td>
+                        <td>
+                          {leadLabel(mv.leadUserId)
+                            ? <Typography variant="body2" noWrap>{leadLabel(mv.leadUserId)}</Typography>
+                            : <Typography variant="body2" color="text.secondary">Unassigned</Typography>}
+                        </td>
                         <td><Chip label={mv.status} size="small" sx={{ height: 20, fontSize: 11, ...statusSx(mv.status) }} /></td>
                       </Box>
                     ))}
@@ -299,9 +310,6 @@ export default function CommandCenter() {
                 </Box>
               </Box>
             )}
-            <Box sx={{ mt: 1 }}>
-              <Pending label="owner assignment — coming" />
-            </Box>
           </CardContent>
         </Card>
 

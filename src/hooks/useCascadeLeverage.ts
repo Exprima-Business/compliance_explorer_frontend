@@ -21,6 +21,8 @@ export interface CascadeMove {
   affectsSolicitations: number;
   /** Task-tracking state rolled up from requirement statuses: Not started | In progress. */
   status: string;
+  /** Action-level oversight lead (PM) user id for this move, or null. */
+  leadUserId: string | null;
   clearedArtifactIds: string[];
 }
 

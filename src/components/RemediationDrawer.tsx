@@ -1,12 +1,19 @@
+import { useEffect, useState } from 'react';
 import {
-  Box, Button, Chip, CircularProgress, Divider, Drawer, IconButton, Stack, Typography,
+  Box, Chip, CircularProgress, Divider, Drawer, FormControl, IconButton,
+  MenuItem, Select, Stack, Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCascadeMoveObligations } from '../hooks/useCascadeMoveObligations';
 import type { CascadeMove } from '../hooks/useCascadeLeverage';
+import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
+import { useProject } from '../contexts/ProjectContext';
+import { apiCall } from '../services/api';
+import { keys } from '../queryClient';
 
 const PURPLE = '#534AB7';
 const riskBg = (l: string) => (l === 'High' ? 'rgba(163,45,45,0.12)' : l === 'Medium' ? 'rgba(180,83,9,0.12)' : 'rgba(0,0,0,0.06)');
@@ -43,6 +50,33 @@ export default function RemediationDrawer({
   const navigate = useNavigate();
   const open = !!move;
   const { data: obligations, isLoading } = useCascadeMoveObligations(move?.mechanismTypeId ?? null, open);
+  const { currentProject } = useProject();
+  const programId = currentProject?.id;
+  const { data: members = [], isLoading: membersLoading } = useOrgMembers();
+  const queryClient = useQueryClient();
+
+  // Action-level oversight lead (the card's "Owner"). Seed from the move; keep
+  // a local copy so the drawer reflects a change instantly while the leverage
+  // query refetches in the background.
+  const [localLead, setLocalLead] = useState<string>(move?.leadUserId ?? '');
+  const [savingLead, setSavingLead] = useState(false);
+  useEffect(() => {
+    setLocalLead(move?.leadUserId ?? '');
+  }, [move?.mechanismTypeId, move?.leadUserId]);
+
+  const handleSetLead = async (leadUserId: string | null) => {
+    if (!programId || !move) return;
+    setSavingLead(true);
+    const res = await apiCall<{ leadUserId: string | null }>(
+      `/api/cascade/lead/${encodeURIComponent(programId)}/${encodeURIComponent(move.mechanismTypeId)}`,
+      { method: 'PUT', body: JSON.stringify({ leadUserId }), requireAuth: true },
+    );
+    setSavingLead(false);
+    if (res.error) return;
+    setLocalLead(leadUserId ?? '');
+    // Refresh the dashboard card's Owner column.
+    queryClient.invalidateQueries({ queryKey: keys.cascadeLeverage(programId) });
+  };
 
   const goClause = (identifier: string) => {
     onClose();
@@ -78,7 +112,32 @@ export default function RemediationDrawer({
           {/* Operational fields (placeholders until wired) */}
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 2 }}>
             <Field label="Status" value={<Chip label={move.status} size="small" sx={{ height: 20, fontSize: 11, ...statusSx(move.status) }} />} />
-            <Field label="Owner" value={<Typography variant="body2" color="text.secondary">Unassigned</Typography>} />
+            <Field
+              label="Owner (oversight lead)"
+              value={(
+                <Stack direction="row" alignItems="center" spacing={0.5}>
+                  <FormControl size="small" fullWidth disabled={!programId || savingLead || membersLoading}>
+                    <Select
+                      value={localLead}
+                      displayEmpty
+                      onChange={(e) => handleSetLead((e.target.value as string) || null)}
+                      sx={{ '& .MuiSelect-select': { py: 0.5, fontSize: 13 } }}
+                      renderValue={(val) => {
+                        if (!val) return <Typography variant="body2" color="text.secondary">Unassigned</Typography>;
+                        const m = members.find((x) => x.userId === val);
+                        return <Typography variant="body2">{m ? memberLabel(m) : 'Unknown user'}</Typography>;
+                      }}
+                    >
+                      <MenuItem value=""><Typography variant="body2" color="text.secondary">Unassigned</Typography></MenuItem>
+                      {members.map((m) => (
+                        <MenuItem key={m.userId} value={m.userId}><Typography variant="body2">{memberLabel(m)}</Typography></MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  {savingLead && <CircularProgress size={14} />}
+                </Stack>
+              )}
+            />
             <Field
               label="Affects solicitations"
               value={(
