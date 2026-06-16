@@ -4,7 +4,7 @@ import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiResponse, ApiError as ApiErrorObj } from '../types/api';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
-import { getCsrfToken, hasCookieSession, refreshCookieSession } from './sessionBridge';
+import { getCsrfToken, ensureCsrfToken, hasCookieSession, refreshCookieSession } from './sessionBridge';
 
 // API configuration
 const API_URL = environment.api.url;
@@ -175,8 +175,11 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
 
     // CSRF double-submit: echo the readable ca_csrf cookie on state-changing
     // requests. Required once the session cookie is present and the BE enforces
-    // CSRF; a no-op when there is no cookie session yet.
+    // CSRF. ensureCsrfToken() recovers the token from the cookie session if it's
+    // missing (e.g. local storage cleared but the session cookie survived), so a
+    // cookie-authenticated POST self-heals instead of 403'ing.
     if (isUnsafeMethod) {
+      await ensureCsrfToken();
       const csrf = getCsrfToken();
       if (csrf) headers['x-csrf-token'] = csrf;
     }

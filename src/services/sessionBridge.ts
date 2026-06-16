@@ -82,6 +82,46 @@ function csrfHeaders(): Record<string, string> {
   return token ? { 'x-csrf-token': token } : {};
 }
 
+// Shared in-flight recovery so concurrent callers (e.g. several bootstrap POSTs
+// racing) await ONE GET /csrf rather than each minting a new token and rotating
+// the shared ca_csrf cookie out from under the others' pending requests.
+let csrfRecovery: Promise<void> | null = null;
+
+/**
+ * Recover a double-submit CSRF token from an existing HttpOnly cookie session.
+ * GET /api/auth/csrf is CSRF-exempt (safe method), needs no Supabase session,
+ * and sets a fresh `ca_csrf` cookie whose value it also returns — so after this
+ * the stored token matches the cookie the browser will send. Non-fatal.
+ */
+async function recoverCsrfToken(): Promise<void> {
+  try {
+    const resp = await fetch(`${API_URL}/api/auth/csrf`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+    if (resp.ok) await captureCsrf(resp);
+  } catch {
+    // Non-fatal — the request that triggered this will surface its own error.
+  }
+}
+
+/**
+ * Ensure a CSRF token is available before a state-changing cookie request.
+ * No-ops when one is already stored. Recovers it from /csrf otherwise — this is
+ * the fix for "localStorage cleared but the api-origin session cookie survived":
+ * the user is still authenticated by the HttpOnly cookie, but had no token to
+ * echo, so every POST 403'd. Concurrent callers share one recovery.
+ */
+export async function ensureCsrfToken(): Promise<void> {
+  if (readStoredToken()) return;
+  if (!csrfRecovery) {
+    csrfRecovery = recoverCsrfToken().finally(() => {
+      csrfRecovery = null;
+    });
+  }
+  await csrfRecovery;
+}
+
 /**
  * Establish the BE cookie session from the current supabase-js session.
  * Idempotent: no-ops when a token is already stored (unless `force`), so the
@@ -95,7 +135,14 @@ export async function ensureCookieSession(opts?: { force?: boolean }): Promise<v
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    if (!session?.access_token || !session?.refresh_token) return;
+    if (!session?.access_token || !session?.refresh_token) {
+      // No Supabase session to exchange — but a valid HttpOnly cookie session
+      // may still exist (persistSession off, restored tab, or local storage
+      // cleared while the api-origin cookie survived). Recover the CSRF token
+      // from it so cookie-authenticated writes don't 403.
+      await ensureCsrfToken();
+      return;
+    }
     const resp = await fetch(`${API_URL}/api/auth/session`, {
       method: 'POST',
       credentials: 'include',

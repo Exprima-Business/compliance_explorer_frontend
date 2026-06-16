@@ -1,6 +1,6 @@
 import { dlog } from '../utils/debugLog';
 import environment from '../config/environment';
-import { getCsrfToken } from './sessionBridge';
+import { getCsrfToken, ensureCsrfToken } from './sessionBridge';
 
 export interface OrganizationValidationResponse {
   valid: boolean;
@@ -40,6 +40,11 @@ export class OrganizationValidationService {
       // Cookie auth (Phase 4b): authenticated by the HttpOnly session cookie
       // (credentials:include) + double-submit CSRF token (POST). No Bearer and
       // no supabase-js session dependency — works after persistSession is off.
+      // This is the first POST at bootstrap, and OrgProvider can race ahead of
+      // AuthProvider's session bridge, so recover the CSRF token here too —
+      // otherwise a cookie-only session (local storage cleared) 403s and the
+      // app misreads it as "no org" and shows the project-setup prompt.
+      await ensureCsrfToken();
       const csrf = getCsrfToken();
       const response = await fetch(`${environment.api.url}${this.VALIDATION_ENDPOINT}`, {
         method: 'POST',
