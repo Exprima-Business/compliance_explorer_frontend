@@ -17,6 +17,7 @@ import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
 import { evaluationService, type SolicitationEvaluation } from '../services/evaluationService';
 import RemediationDrawer from './RemediationDrawer';
 import ComplianceAssistant from './ComplianceAssistant';
+import ScopeSetupAssistant from './ScopeSetupAssistant';
 
 const GREEN = '#15803d', AMBER = '#b45309', RED = '#b91c1c', PURPLE = '#534AB7';
 const band = (p: number) => (p >= 80 ? GREEN : p >= 50 ? AMBER : RED);
@@ -115,6 +116,7 @@ export default function CommandCenter() {
   const navigate = useNavigate();
   const [activeMove, setActiveMove] = useState<CascadeMove | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
   const { data: obligations, isLoading: surfaceLoading } = useCascadeSurface();
   const { data: summary } = useProjectSummary();
   const { data: moves } = useCascadeLeverage();
@@ -182,6 +184,9 @@ export default function CommandCenter() {
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
           <Chip label="Organization Baseline" size="small" variant="outlined" sx={{ borderStyle: 'solid' }} />
+          <Button size="small" variant="outlined" sx={{ textTransform: 'none' }} onClick={() => setSetupOpen(true)}>
+            Set up scope
+          </Button>
           <Button size="small" variant="outlined" startIcon={<StarIcon sx={{ fontSize: 16 }} />} sx={{ textTransform: 'none' }} onClick={() => setAssistantOpen(true)}>
             Ask AI
           </Button>
@@ -404,6 +409,7 @@ export default function CommandCenter() {
 
       <RemediationDrawer move={activeMove} onClose={() => setActiveMove(null)} />
       <ComplianceAssistant open={assistantOpen} onClose={() => setAssistantOpen(false)} />
+      <ScopeSetupAssistant open={setupOpen} onClose={() => setSetupOpen(false)} />
     </Box>
   );
 }
