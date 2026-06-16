@@ -3,6 +3,11 @@ import {
   Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Stack, Typography,
 } from '@mui/material';
 import StarIcon from '@mui/icons-material/AutoAwesome';
+import {
+  Shield, Description, AccountTree, VpnKey, WorkspacePremium, School, ReportProblem,
+  MonitorHeart, DeleteSweep, LocalOffer, Gavel, Badge, Public, Block, Inventory2,
+  BugReport, CloudUpload, TaskAlt,
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useCascadeSurface, obligationCoverage } from '../hooks/useCascadeSurface';
@@ -27,6 +32,34 @@ function sourceOf(identifier: string, authority: string): string {
   if (id.startsWith('FIPS')) return 'NIST 800-53';
   if (authority?.startsWith('NIST')) return 'NIST';
   return 'Agency / other';
+}
+
+/**
+ * Map a remediation (satisfaction-mechanism) label to an icon. Keyed off the
+ * label text for now; a mechanism_type → icon mapping in the catalog would be
+ * more robust (open question with the team).
+ */
+function iconFor(label: string) {
+  const l = label.toLowerCase();
+  const sx = { fontSize: 18, color: '#534AB7' };
+  if (l.includes('framework control')) return <Shield sx={sx} />;
+  if (l.includes('flowdown') || l.includes('subcontract')) return <AccountTree sx={sx} />;
+  if (l.includes('policy') || l.includes('procedure') || l.includes('conformance')) return <Description sx={sx} />;
+  if (l.includes('access') || l.includes('restriction')) return <VpnKey sx={sx} />;
+  if (l.includes('authorization') || l.includes('assessment') || l.includes('certification')) return <WorkspacePremium sx={sx} />;
+  if (l.includes('training')) return <School sx={sx} />;
+  if (l.includes('incident')) return <ReportProblem sx={sx} />;
+  if (l.includes('monitoring')) return <MonitorHeart sx={sx} />;
+  if (l.includes('sanitization') || l.includes('media')) return <DeleteSweep sx={sx} />;
+  if (l.includes('marking') || l.includes('handling')) return <LocalOffer sx={sx} />;
+  if (l.includes('agreement') || l.includes('statut') || l.includes('attestation') || l.includes('role')) return <Gavel sx={sx} />;
+  if (l.includes('personnel') || l.includes('credential')) return <Badge sx={sx} />;
+  if (l.includes('residency')) return <Public sx={sx} />;
+  if (l.includes('prohibition')) return <Block sx={sx} />;
+  if (l.includes('evidence') || l.includes('preservation')) return <Inventory2 sx={sx} />;
+  if (l.includes('vulnerability')) return <BugReport sx={sx} />;
+  if (l.includes('post') || l.includes('government system')) return <CloudUpload sx={sx} />;
+  return <TaskAlt sx={sx} />;
 }
 
 /** A subtle "not tracked yet" marker so placeholders never read as real data. */
@@ -205,30 +238,62 @@ export default function CommandCenter() {
         <Card sx={{ border: '1px solid', borderColor: 'divider' }}>
           <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
             <Stack direction="row" alignItems="center" sx={{ mb: 0.25 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>Priority remediation</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>Priority Remediation</Typography>
               <Button size="small" sx={{ textTransform: 'none' }}>View all actions</Button>
             </Stack>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              Highest-impact actions, ranked by requirements resolved.
+              Highest-impact actions, ranked by requirements resolved. Click an action to start it.
             </Typography>
-            <Stack spacing={1}>
-              {(moves ?? []).slice(0, 5).map((mv, i) => (
-                <Stack key={mv.mechanismTypeId} direction="row" alignItems="center" spacing={1.5}>
-                  <Box sx={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', bgcolor: 'rgba(83,74,183,0.12)', color: PURPLE, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</Box>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{mv.mechanismLabel}</Typography>
-                    <Typography variant="caption" color="text.secondary">resolves {mv.obligationsCleared} requirements · across {mv.authoritiesCount} authorities</Typography>
-                  </Box>
-                  <Chip label="Not started" size="small" variant="outlined" sx={{ height: 20, fontSize: 11 }} />
-                </Stack>
-              ))}
-              {(!moves || moves.length === 0) && (
-                <Typography variant="body2" color="text.secondary">No actions yet — activate a framework.</Typography>
-              )}
-            </Stack>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1.25 }}>
-              <Pending label="owner · risk · affected solicitations coming" />
-            </Typography>
+            {(!moves || moves.length === 0) ? (
+              <Typography variant="body2" color="text.secondary">No actions yet — activate a framework.</Typography>
+            ) : (
+              <Box sx={{ overflowX: 'auto' }}>
+                <Box
+                  component="table"
+                  sx={{
+                    width: '100%', borderCollapse: 'collapse', minWidth: 580,
+                    '& th': { textAlign: 'left', fontSize: 11, color: 'text.secondary', fontWeight: 500, py: 0.5, px: 1, whiteSpace: 'nowrap' },
+                    '& td': { py: 1, px: 1, borderTop: '0.5px solid', borderColor: 'divider', fontSize: 13, verticalAlign: 'middle' },
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <th></th><th>Action</th><th>Impact</th><th>Affects</th><th>Risk reduction</th><th>Owner</th><th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {moves.slice(0, 5).map((mv, i) => (
+                      <Box
+                        component="tr"
+                        key={mv.mechanismTypeId}
+                        onClick={() => navigate('/controls')}
+                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                      >
+                        <td>
+                          <Box sx={{ width: 22, height: 22, borderRadius: '50%', bgcolor: 'rgba(83,74,183,0.12)', color: PURPLE, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</Box>
+                        </td>
+                        <td>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            {iconFor(mv.mechanismLabel)}
+                            <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{mv.mechanismLabel}</Typography>
+                          </Stack>
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <Typography variant="body2"><Box component="span" sx={{ fontWeight: 600 }}>{mv.obligationsCleared}</Box> reqs</Typography>
+                        </td>
+                        <td><Typography variant="body2" color="text.secondary">—</Typography></td>
+                        <td><Typography variant="body2" color="text.secondary">—</Typography></td>
+                        <td><Typography variant="body2" color="text.secondary">Unassigned</Typography></td>
+                        <td><Chip label="Not started" size="small" variant="outlined" sx={{ height: 20, fontSize: 11 }} /></td>
+                      </Box>
+                    ))}
+                  </tbody>
+                </Box>
+              </Box>
+            )}
+            <Box sx={{ mt: 1 }}>
+              <Pending label="affects-solicitations · risk reduction · owner (from POA&M) — coming" />
+            </Box>
           </CardContent>
         </Card>
 
