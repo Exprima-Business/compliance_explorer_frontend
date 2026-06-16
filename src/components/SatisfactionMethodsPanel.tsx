@@ -990,6 +990,8 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
   const [savingMethodId, setSavingMethodId] = useState<string | null>(null);
   const [snack, setSnack] = useState<string | null>(null);
   const { data: members = [], isLoading: membersLoading } = useOrgMembers();
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkValue, setBulkValue] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -1019,6 +1021,47 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
     }
     return grouped;
   }, [methods]);
+
+  /** Methods whose owner is user-assignable (excludes computed framework-linked). */
+  const assignableMethods = useMemo(
+    () => methods.filter((m) => m.computed !== true),
+    [methods],
+  );
+
+  /**
+   * Bulk-assign one owner to every assignable requirement on this clause, while
+   * leaving the per-row pickers intact for finer-grained overrides. ownerUserId
+   * null clears them all. Computed framework-linked methods are skipped (their
+   * owner control is disabled too).
+   */
+  const handleAssignAllOwners = async (ownerUserId: string | null) => {
+    if (!programId || assignableMethods.length === 0) return;
+    setBulkSaving(true);
+    setError(null);
+    const results = await Promise.all(
+      assignableMethods.map((m) =>
+        satisfactionService.setOwner(m.id, programId, ownerUserId)
+          .then((resp) => ({ id: m.id, resp })),
+      ),
+    );
+    setBulkSaving(false);
+    const okById = new Map(
+      results.filter((r) => !r.resp.error).map((r) => [r.id, r.resp.data]),
+    );
+    setMethods((prev) => prev.map((m) =>
+      okById.has(m.id) ? { ...m, status: okById.get(m.id) ?? m.status } : m,
+    ));
+    const failed = results.length - okById.size;
+    if (failed > 0) {
+      setError(`Assigned ${okById.size} of ${results.length} requirements; ${failed} failed.`);
+      return;
+    }
+    const who = members.find((x) => x.userId === ownerUserId);
+    setSnack(ownerUserId
+      ? `Assigned all ${results.length} requirements to ${who ? memberLabel(who) : 'member'}`
+      : `Cleared owner on all ${results.length} requirements`);
+    setTimeout(() => setSnack(null), 2600);
+  };
 
   const handleStatusChange = async (methodId: string, newStatus: SatisfactionStatus) => {
     if (!programId) return;
@@ -1157,6 +1200,39 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
             ? `Status tracked against ${programName ?? 'your selected program'}. Each method is curated from authoritative federal sources cited inline.`
             : 'Read-only view. Select a compliance program in the project switcher to track satisfaction status.'}
         </Typography>
+
+        {/* Bulk owner assignment — one click assigns every requirement; per-row
+            pickers below still allow different owners per task. */}
+        {programId && assignableMethods.length > 1 && (
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+            <PersonOutlineIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <FormControl size="small" sx={{ minWidth: 280 }} disabled={bulkSaving || membersLoading}>
+              <Select
+                value={bulkValue}
+                displayEmpty
+                onChange={(e) => {
+                  const v = e.target.value as string;
+                  setBulkValue('');
+                  handleAssignAllOwners(v === '__clear__' ? null : v);
+                }}
+                renderValue={() => (
+                  <Typography variant="body2" color="text.secondary">
+                    Assign all {assignableMethods.length} requirements to…
+                  </Typography>
+                )}
+              >
+                <MenuItem value="__clear__"><em>Unassigned (clear all)</em></MenuItem>
+                {members.map((m) => (
+                  <MenuItem key={m.userId} value={m.userId}>{memberLabel(m)}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {bulkSaving && <CircularProgress size={16} />}
+            <Typography variant="caption" color="text.disabled">
+              Applies to every requirement; you can still set individual owners below.
+            </Typography>
+          </Stack>
+        )}
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
