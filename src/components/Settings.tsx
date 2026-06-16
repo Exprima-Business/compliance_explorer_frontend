@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -17,11 +17,15 @@ import {
   Chip,
   Divider,
   Alert,
+  TextField,
+  Stack,
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useProject } from '../contexts/ProjectContext';
+import { profileService } from '../services/profileService';
 
 interface SettingsProps {
   open: boolean;
@@ -34,9 +38,49 @@ export const Settings = ({
 }: SettingsProps) => {
   const { preferences, updatePreference } = usePreferences();
   const { projects, currentProject, deleteProject } = useProject();
+  const queryClient = useQueryClient();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Profile (display name) — stored on auth user_metadata; the owner picker
+  // shows this instead of the email once set.
+  const [displayName, setDisplayName] = useState('');
+  const [profileEmail, setProfileEmail] = useState<string | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [savingName, setSavingName] = useState(false);
+  const [nameMsg, setNameMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setProfileLoaded(false);
+    setNameMsg(null);
+    (async () => {
+      const resp = await profileService.get();
+      if (cancelled) return;
+      setDisplayName(resp.data?.fullName ?? '');
+      setProfileEmail(resp.data?.email ?? null);
+      setProfileLoaded(true);
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const handleSaveName = async () => {
+    setSavingName(true);
+    setNameMsg(null);
+    const resp = await profileService.update(displayName.trim());
+    setSavingName(false);
+    if (resp.error) {
+      setNameMsg(typeof resp.error === 'string' ? resp.error : resp.error.message ?? 'Failed to save');
+      return;
+    }
+    setDisplayName(resp.data?.fullName ?? '');
+    // Refresh the owner picker so it shows the new name immediately.
+    queryClient.invalidateQueries({ queryKey: ['orgMembers'] });
+    setNameMsg('Saved');
+    setTimeout(() => setNameMsg(null), 2400);
+  };
 
   const handleDelete = async (id: string) => {
     setDeleting(true);
@@ -55,6 +99,43 @@ export const Settings = ({
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Settings</DialogTitle>
       <DialogContent>
+        {/* ── Profile ─────────────────────────────────────── */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Profile
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Your display name is how teammates see you when assigning requirement
+            owners. Without one, you appear as your email{profileEmail ? ` (${profileEmail})` : ''}.
+          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <TextField
+              size="small"
+              label="Display name"
+              placeholder="e.g. Elliott Mattice"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              disabled={!profileLoaded || savingName}
+              inputProps={{ maxLength: 120 }}
+              sx={{ flex: 1 }}
+            />
+            <Button
+              variant="outlined"
+              onClick={handleSaveName}
+              disabled={!profileLoaded || savingName}
+            >
+              {savingName ? 'Saving…' : 'Save'}
+            </Button>
+            {nameMsg && (
+              <Typography variant="caption" color={nameMsg === 'Saved' ? 'success.main' : 'error'}>
+                {nameMsg}
+              </Typography>
+            )}
+          </Stack>
+        </Box>
+
+        <Divider sx={{ mb: 3 }} />
+
         {/* ── Project Management ──────────────────────────── */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" sx={{ mb: 1 }}>
