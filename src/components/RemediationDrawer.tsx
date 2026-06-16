@@ -9,6 +9,8 @@ import { useCascadeMoveObligations } from '../hooks/useCascadeMoveObligations';
 import type { CascadeMove } from '../hooks/useCascadeLeverage';
 
 const PURPLE = '#534AB7';
+const riskBg = (l: string) => (l === 'High' ? 'rgba(163,45,45,0.12)' : l === 'Medium' ? 'rgba(180,83,9,0.12)' : 'rgba(0,0,0,0.06)');
+const riskFg = (l: string) => (l === 'High' ? '#A32D2D' : l === 'Medium' ? '#854d0e' : '#5f5e5a');
 
 /** Plain-English "how to fix" guidance per remediation family. */
 function howToFix(label: string): string {
@@ -45,7 +47,11 @@ export default function RemediationDrawer({
 
   return (
     <Drawer anchor="right" open={open} onClose={onClose}
-      PaperProps={{ sx: { width: { xs: '100%', sm: 440 }, maxWidth: '100%' } }}>
+      PaperProps={{ sx: {
+        width: { xs: '100%', sm: 440 }, maxWidth: '100%',
+        top: { xs: '56px', sm: '72px' },
+        height: { xs: 'calc(100% - 56px)', sm: 'calc(100% - 72px)' },
+      } }}>
       {move && (
         <Box sx={{ p: 2 }}>
           {/* Header */}
@@ -69,8 +75,20 @@ export default function RemediationDrawer({
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 2 }}>
             <Field label="Status" value={<Chip label="Not started" size="small" variant="outlined" sx={{ height: 20, fontSize: 11 }} />} />
             <Field label="Owner" value={<Typography variant="body2" color="text.secondary">Unassigned</Typography>} />
-            <Field label="Affects solicitations" value={<Typography variant="body2" color="text.secondary">—</Typography>} />
-            <Field label="Risk reduction" value={<Typography variant="body2" color="text.secondary">—</Typography>} />
+            <Field
+              label="Affects solicitations"
+              value={(
+                <Typography variant="body2" color={move.affectsSolicitations > 0 ? 'text.primary' : 'text.secondary'}>
+                  {move.affectsSolicitations > 0
+                    ? `${move.affectsSolicitations} ${move.affectsSolicitations === 1 ? 'solicitation' : 'solicitations'}`
+                    : 'None'}
+                </Typography>
+              )}
+            />
+            <Field
+              label="Risk reduction"
+              value={<Chip label={move.riskLevel} size="small" sx={{ height: 20, fontSize: 11, bgcolor: riskBg(move.riskLevel), color: riskFg(move.riskLevel) }} />}
+            />
           </Box>
 
           {/* How to fix */}

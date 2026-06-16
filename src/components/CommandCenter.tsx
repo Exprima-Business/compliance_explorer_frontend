@@ -19,6 +19,8 @@ import RemediationDrawer from './RemediationDrawer';
 const GREEN = '#15803d', AMBER = '#b45309', RED = '#b91c1c', PURPLE = '#534AB7';
 const band = (p: number) => (p >= 80 ? GREEN : p >= 50 ? AMBER : RED);
 const bandLabel = (p: number) => (p >= 80 ? 'High' : p >= 50 ? 'Medium' : 'Low');
+const riskBg = (l: string) => (l === 'High' ? 'rgba(163,45,45,0.12)' : l === 'Medium' ? 'rgba(180,83,9,0.12)' : 'rgba(0,0,0,0.06)');
+const riskFg = (l: string) => (l === 'High' ? '#A32D2D' : l === 'Medium' ? '#854d0e' : '#5f5e5a');
 
 /** Map an obligation identifier to a clean "source" bucket for the by-source chart. */
 function sourceOf(identifier: string, authority: string): string {
@@ -283,8 +285,8 @@ export default function CommandCenter() {
                         <td style={{ whiteSpace: 'nowrap' }}>
                           <Typography variant="body2"><Box component="span" sx={{ fontWeight: 600 }}>{mv.obligationsCleared}</Box> reqs</Typography>
                         </td>
-                        <td><Typography variant="body2" color="text.secondary">—</Typography></td>
-                        <td><Typography variant="body2" color="text.secondary">—</Typography></td>
+                        <td><Typography variant="body2" color="text.secondary">{mv.affectsSolicitations > 0 ? mv.affectsSolicitations : '—'}</Typography></td>
+                        <td><Chip label={mv.riskLevel} size="small" sx={{ height: 20, fontSize: 11, bgcolor: riskBg(mv.riskLevel), color: riskFg(mv.riskLevel) }} /></td>
                         <td><Typography variant="body2" color="text.secondary">Unassigned</Typography></td>
                         <td><Chip label="Not started" size="small" variant="outlined" sx={{ height: 20, fontSize: 11 }} /></td>
                       </Box>
@@ -294,7 +296,7 @@ export default function CommandCenter() {
               </Box>
             )}
             <Box sx={{ mt: 1 }}>
-              <Pending label="affects-solicitations · risk reduction · owner (from POA&M) — coming" />
+              <Pending label="owner (from POA&M) · status tracking — coming" />
             </Box>
           </CardContent>
         </Card>

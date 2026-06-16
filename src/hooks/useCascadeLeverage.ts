@@ -15,6 +15,10 @@ export interface CascadeMove {
   patternType: string;
   obligationsCleared: number;
   authoritiesCount: number;
+  /** Highest clause-risk among the obligations this move clears: High | Medium | Low. */
+  riskLevel: string;
+  /** How many of the org's scanned solicitations need this action. */
+  affectsSolicitations: number;
   clearedArtifactIds: string[];
 }
 
