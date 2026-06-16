@@ -172,6 +172,46 @@ dependency or a source of truth.
 5. **AI rollout** — start with extraction (Phase 3) or the explainer assistant
    (Phase 4) first, once the structural core lands?
 
+## 11. Decisions & verification (locked 2026-06-16)
+
+**Decisions:**
+1. **Keep the existing intake** (`FrameworkQuestionnaire`) for now — works today; revisit later.
+2. **Pre-check high-confidence** scan detections for one-click apply.
+3. **Scan adds clause-grain only** — precise to what the document expects; do *not*
+   auto-activate whole frameworks.
+4. **Section 508 + non-cyber security ARE in scope**, but exclude
+   contracting/business obligations (hiring, finance, procurement-process, etc.).
+   Principle stays "cyber & risk."
+5. **AI build order:** confirm extraction exists (done — see below) → **grounded
+   assistant / "why in scope" + coaching (MVP)** → conversational intake →
+   scan→posture reconciliation summary.
+
+**Scan-pipeline verification (backend trace, 2026-06-16):** solicitation clause
+extraction is **in place (~80%)** and grounded:
+- ✅ Parse: `documentProcessingService.extractTextFromBuffer()` — PDF/DOCX/XLSX/TXT
+  (no OCR; scanned-image docs fail).
+- ✅ Detect: `openAIProcessingService` — **gpt-4o-mini** + function-calling/JSON
+  schema, temp 0.1, confidence 0.6–1.0, captures a 50–300 char verbatim
+  `supporting_context` excerpt + free-text `location`.
+- ✅ Ground to catalog: `scanValidationService` — exact → normalized → fuzzy match
+  to `clauses` (`clause_code`/`normalized_code`); unmatched → `clause_id = null`
+  (free-text, coverage `unknown`).
+- ✅ Triggered obligations: `getTriggeredObligations()` → `get_evaluation_triggered_obligations`
+  (mig 126) walks the cascade. Read-only analysis is complete.
+- ⚠️ **Gap (this is Phase 1, not an extraction gap):** `POST /:id/apply` writes
+  detected clauses to `project_matrix_data` + bookmarks only — it does **not** feed
+  the cascade obligation surface (no `program_scoped_clauses` yet), does not create
+  `obligation_instances`, and does not (by decision #3, correctly) auto-activate
+  frameworks. So a scanned clause shows in the Controls matrix but not necessarily
+  in the cascade dashboard's Posture/Gaps. Bridging `apply → program_scoped_clauses`
+  IS Phase 1.
+- ⚠️ `location` is free-text, not page/offset; `get_triggered_obligations_provenance`
+  (mig 127) exists but is unused. Fine for MVP; formalize later if audit needs it.
+
+**Net:** extraction needs no new work for the MVP. The grounded assistant reads
+existing catalog + cascade-graph + program data, so it does **not** depend on the
+Phase 1 bridge and can be built now.
+
 ## 10. Non-goals
 
 - No LLM-authored or LLM-inferred obligations; no AI-applied compliance status.
