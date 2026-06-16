@@ -19,6 +19,8 @@ export interface CascadeMove {
   riskLevel: string;
   /** How many of the org's scanned solicitations need this action. */
   affectsSolicitations: number;
+  /** Task-tracking state rolled up from requirement statuses: Not started | In progress. */
+  status: string;
   clearedArtifactIds: string[];
 }
 

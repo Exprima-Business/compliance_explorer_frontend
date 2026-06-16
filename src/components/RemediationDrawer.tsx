@@ -11,6 +11,10 @@ import type { CascadeMove } from '../hooks/useCascadeLeverage';
 const PURPLE = '#534AB7';
 const riskBg = (l: string) => (l === 'High' ? 'rgba(163,45,45,0.12)' : l === 'Medium' ? 'rgba(180,83,9,0.12)' : 'rgba(0,0,0,0.06)');
 const riskFg = (l: string) => (l === 'High' ? '#A32D2D' : l === 'Medium' ? '#854d0e' : '#5f5e5a');
+const statusSx = (s: string) =>
+  s === 'Complete' ? { bgcolor: 'rgba(21,128,61,0.12)', color: '#15803d' }
+    : s === 'In progress' ? { bgcolor: 'rgba(180,83,9,0.12)', color: '#854d0e' }
+      : { bgcolor: 'rgba(0,0,0,0.06)', color: '#5f5e5a' };
 
 /** Plain-English "how to fix" guidance per remediation family. */
 function howToFix(label: string): string {
@@ -73,7 +77,7 @@ export default function RemediationDrawer({
 
           {/* Operational fields (placeholders until wired) */}
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 2 }}>
-            <Field label="Status" value={<Chip label="Not started" size="small" variant="outlined" sx={{ height: 20, fontSize: 11 }} />} />
+            <Field label="Status" value={<Chip label={move.status} size="small" sx={{ height: 20, fontSize: 11, ...statusSx(move.status) }} />} />
             <Field label="Owner" value={<Typography variant="body2" color="text.secondary">Unassigned</Typography>} />
             <Field
               label="Affects solicitations"

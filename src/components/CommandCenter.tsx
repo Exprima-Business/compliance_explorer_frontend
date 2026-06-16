@@ -21,6 +21,10 @@ const band = (p: number) => (p >= 80 ? GREEN : p >= 50 ? AMBER : RED);
 const bandLabel = (p: number) => (p >= 80 ? 'High' : p >= 50 ? 'Medium' : 'Low');
 const riskBg = (l: string) => (l === 'High' ? 'rgba(163,45,45,0.12)' : l === 'Medium' ? 'rgba(180,83,9,0.12)' : 'rgba(0,0,0,0.06)');
 const riskFg = (l: string) => (l === 'High' ? '#A32D2D' : l === 'Medium' ? '#854d0e' : '#5f5e5a');
+const statusSx = (s: string) =>
+  s === 'Complete' ? { bgcolor: 'rgba(21,128,61,0.12)', color: '#15803d' }
+    : s === 'In progress' ? { bgcolor: 'rgba(180,83,9,0.12)', color: '#854d0e' }
+      : { bgcolor: 'rgba(0,0,0,0.06)', color: '#5f5e5a' };
 
 /** Map an obligation identifier to a clean "source" bucket for the by-source chart. */
 function sourceOf(identifier: string, authority: string): string {
@@ -288,7 +292,7 @@ export default function CommandCenter() {
                         <td><Typography variant="body2" color="text.secondary">{mv.affectsSolicitations > 0 ? mv.affectsSolicitations : '—'}</Typography></td>
                         <td><Chip label={mv.riskLevel} size="small" sx={{ height: 20, fontSize: 11, bgcolor: riskBg(mv.riskLevel), color: riskFg(mv.riskLevel) }} /></td>
                         <td><Typography variant="body2" color="text.secondary">Unassigned</Typography></td>
-                        <td><Chip label="Not started" size="small" variant="outlined" sx={{ height: 20, fontSize: 11 }} /></td>
+                        <td><Chip label={mv.status} size="small" sx={{ height: 20, fontSize: 11, ...statusSx(mv.status) }} /></td>
                       </Box>
                     ))}
                   </tbody>
@@ -296,7 +300,7 @@ export default function CommandCenter() {
               </Box>
             )}
             <Box sx={{ mt: 1 }}>
-              <Pending label="owner (from POA&M) · status tracking — coming" />
+              <Pending label="owner assignment — coming" />
             </Box>
           </CardContent>
         </Card>
