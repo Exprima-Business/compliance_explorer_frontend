@@ -27,14 +27,22 @@ export function useOrgMembers() {
   return useQuery({
     queryKey: ['orgMembers', orgId],
     queryFn: async (): Promise<OrgMember[]> => {
-      const res = await apiCall<OrgMember[]>('/api/organizations/members', {
+      const res = await apiCall<unknown>('/api/organizations/members', {
         requireAuth: true,
       });
-      if (!res.data) {
+      if (res.error) {
         const msg = typeof res.error === 'string' ? res.error : res.error?.message;
         throw new Error(msg || 'Failed to load organization members');
       }
-      return res.data;
+      // Tolerate both the standard { data, error } envelope (apiCall unwraps to
+      // the array) and a raw { success, data } body (apiCall passes through),
+      // so a non-array never reaches the .map/.find in the picker.
+      const payload = res.data as OrgMember[] | { data?: OrgMember[] } | null;
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray((payload as { data?: OrgMember[] }).data)) {
+        return (payload as { data: OrgMember[] }).data;
+      }
+      return [];
     },
     enabled: !!orgId,
     staleTime: 5 * 60_000,
