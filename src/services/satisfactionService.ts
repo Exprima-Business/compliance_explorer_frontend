@@ -41,6 +41,8 @@ export interface SatisfactionMethodStatus {
   notes: string | null;
   /** D-1.4 — per-mechanism JSONB payload (e.g. {name, email, phone}). */
   structuredEvidence?: Record<string, string | number | boolean | null> | null;
+  /** Phase B-1 — requirement owner (org member user id), or null if unassigned. */
+  ownerUserId: string | null;
   updatedAt: string;
   updatedBy: string | null;
 }
@@ -137,6 +139,25 @@ export const satisfactionService = {
       {
         method: 'PUT',
         body: JSON.stringify(request),
+        requireAuth: true,
+      },
+    );
+  },
+
+  /**
+   * Assign (or clear, with ownerUserId = null) the requirement owner for a
+   * method + program. Separate from status — never touches status/evidence.
+   */
+  setOwner: async (
+    methodId: string,
+    programId: string,
+    ownerUserId: string | null,
+  ): Promise<ApiResponse<SatisfactionMethodStatus>> => {
+    return apiCall<SatisfactionMethodStatus>(
+      `/api/satisfaction-methods/${methodId}/owner`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ programId, ownerUserId }),
         requireAuth: true,
       },
     );

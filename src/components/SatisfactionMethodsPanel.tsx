@@ -16,6 +16,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SaveIcon from '@mui/icons-material/Save';
 import LockIcon from '@mui/icons-material/Lock';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import {
   satisfactionService,
   type SatisfactionMethod,
@@ -27,6 +28,7 @@ import {
 } from '../services/satisfactionService';
 import EvidenceFileUpload from './EvidenceFileUpload';
 import { evidenceService } from '../services/evidenceService';
+import { useOrgMembers, memberLabel, type OrgMember } from '../hooks/useOrgMembers';
 
 /**
  * SatisfactionMethodsPanel — Phase C-1
@@ -712,15 +714,19 @@ function hasAnyEvidence(s: SatisfactionMethodStatus | null | undefined): boolean
 interface MethodRowProps {
   method: SatisfactionMethod;
   programId: string | null;
+  members: OrgMember[];
+  membersLoading: boolean;
   onStatusChange: (methodId: string, newStatus: SatisfactionStatus) => Promise<void>;
+  onOwnerChange: (methodId: string, ownerUserId: string | null) => Promise<void>;
   onEvidenceSave: (methodId: string, payload: EvidenceFormPayload) => Promise<void>;
   saving: boolean;
 }
 
 const MethodRow: React.FC<MethodRowProps> = ({
-  method, programId, onStatusChange, onEvidenceSave, saving,
+  method, programId, members, membersLoading, onStatusChange, onOwnerChange, onEvidenceSave, saving,
 }) => {
   const currentStatus: SatisfactionStatus = method.status?.status ?? 'not_started';
+  const currentOwner: string = method.status?.ownerUserId ?? '';
   const recurrence = formatInterval(method.recurrenceInterval);
   const response = formatInterval(method.responseWindow);
   const isComputed = method.computed === true;
@@ -883,6 +889,39 @@ const MethodRow: React.FC<MethodRowProps> = ({
           </FormControl>
         </Box>
 
+        {/* Phase B-1 — requirement owner. Shares the Status disabled rule
+            (program required + not a computed framework-linked method). */}
+        <Box sx={{ minWidth: 220 }}>
+          <FormControl size="small" fullWidth disabled={inputsDisabled || saving || membersLoading}>
+            <InputLabel>Owner</InputLabel>
+            <Select
+              value={currentOwner}
+              label="Owner"
+              displayEmpty
+              onChange={(e) => onOwnerChange(method.id, (e.target.value as string) || null)}
+              startAdornment={
+                <Box sx={{ mr: 1, display: 'flex', alignItems: 'center', color: 'text.secondary' }}>
+                  <PersonOutlineIcon fontSize="small" />
+                </Box>
+              }
+              renderValue={(val) => {
+                if (!val) return <Typography variant="body2" color="text.secondary">Unassigned</Typography>;
+                const m = members.find((x) => x.userId === val);
+                return <Typography variant="body2">{m ? memberLabel(m) : 'Unknown user'}</Typography>;
+              }}
+            >
+              <MenuItem value="">
+                <Typography variant="body2" color="text.secondary">Unassigned</Typography>
+              </MenuItem>
+              {members.map((m) => (
+                <MenuItem key={m.userId} value={m.userId}>
+                  <Typography variant="body2">{memberLabel(m)}</Typography>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
         {method.status?.satisfiedAt && (
           <Typography variant="caption" color="text.secondary">
             Satisfied {new Date(method.status.satisfiedAt).toLocaleDateString()}
@@ -950,6 +989,7 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
   const [error, setError] = useState<string | null>(null);
   const [savingMethodId, setSavingMethodId] = useState<string | null>(null);
   const [snack, setSnack] = useState<string | null>(null);
+  const { data: members = [], isLoading: membersLoading } = useOrgMembers();
 
   useEffect(() => {
     let cancelled = false;
@@ -1000,6 +1040,24 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
         : m
     ));
     setSnack(`Status updated to "${STATUS_LABEL[newStatus]}"`);
+    setTimeout(() => setSnack(null), 2400);
+  };
+
+  const handleOwnerChange = async (methodId: string, ownerUserId: string | null) => {
+    if (!programId) return;
+    setSavingMethodId(methodId);
+    setError(null);
+    const resp = await satisfactionService.setOwner(methodId, programId, ownerUserId);
+    setSavingMethodId(null);
+    if (resp.error) {
+      setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
+      return;
+    }
+    setMethods((prev) => prev.map((m) =>
+      m.id === methodId ? { ...m, status: resp.data ?? m.status } : m
+    ));
+    const m = members.find((x) => x.userId === ownerUserId);
+    setSnack(ownerUserId ? `Owner set to ${m ? memberLabel(m) : 'member'}` : 'Owner cleared');
     setTimeout(() => setSnack(null), 2400);
   };
 
@@ -1128,7 +1186,10 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
                   key={m.id}
                   method={m}
                   programId={programId}
+                  members={members}
+                  membersLoading={membersLoading}
                   onStatusChange={handleStatusChange}
+                  onOwnerChange={handleOwnerChange}
                   onEvidenceSave={handleEvidenceSave}
                   saving={savingMethodId === m.id}
                 />
