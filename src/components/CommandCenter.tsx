@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Stack, Typography,
 } from '@mui/material';
@@ -12,8 +12,9 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useCascadeSurface, obligationCoverage } from '../hooks/useCascadeSurface';
 import { useProjectSummary } from '../hooks/useProjectSummary';
-import { useCascadeLeverage } from '../hooks/useCascadeLeverage';
+import { useCascadeLeverage, type CascadeMove } from '../hooks/useCascadeLeverage';
 import { evaluationService, type SolicitationEvaluation } from '../services/evaluationService';
+import RemediationDrawer from './RemediationDrawer';
 
 const GREEN = '#15803d', AMBER = '#b45309', RED = '#b91c1c', PURPLE = '#534AB7';
 const band = (p: number) => (p >= 80 ? GREEN : p >= 50 ? AMBER : RED);
@@ -104,6 +105,7 @@ function relTime(iso: string): string {
  */
 export default function CommandCenter() {
   const navigate = useNavigate();
+  const [activeMove, setActiveMove] = useState<CascadeMove | null>(null);
   const { data: obligations, isLoading: surfaceLoading } = useCascadeSurface();
   const { data: summary } = useProjectSummary();
   const { data: moves } = useCascadeLeverage();
@@ -266,7 +268,7 @@ export default function CommandCenter() {
                       <Box
                         component="tr"
                         key={mv.mechanismTypeId}
-                        onClick={() => navigate('/controls')}
+                        onClick={() => setActiveMove(mv)}
                         sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
                       >
                         <td>
@@ -380,6 +382,8 @@ export default function CommandCenter() {
         when all required controls and evidence are complete — which is why baseline readiness can be above 0%
         while few requirements are fully satisfied.
       </Typography>
+
+      <RemediationDrawer move={activeMove} onClose={() => setActiveMove(null)} />
     </Box>
   );
 }
