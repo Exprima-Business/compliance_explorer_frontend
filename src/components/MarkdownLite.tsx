@@ -1,5 +1,46 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+
+const LINK_COLOR = '#534AB7';
+
+/** Map a semantic href to an in-app route, an external URL, or null (unknown). */
+function resolveHref(href: string): { to: string | null; external: string | null } {
+  const h = href.trim();
+  if (/^https?:\/\//i.test(h)) return { to: null, external: h };
+  if (h.startsWith('clause:')) return { to: `/clauses/${encodeURIComponent(h.slice(7).trim())}`, external: null };
+  if (h.startsWith('page:')) {
+    const map: Record<string, string> = {
+      poam: '/poam', controls: '/controls', frameworks: '/controls',
+      obligations: '/obligations', regulations: '/regulations', matrix: '/matrix',
+      dashboard: '/dashboard', evaluations: '/evaluations',
+      'document-scanner': '/document-scanner', scan: '/document-scanner',
+    };
+    return { to: map[h.slice(5).trim().toLowerCase()] ?? null, external: null };
+  }
+  if (h.startsWith('/')) return { to: h, external: null };
+  return { to: null, external: null };
+}
+
+const linkSx = { color: LINK_COLOR, textDecoration: 'underline', cursor: 'pointer', fontWeight: 500 };
+
+/** A markdown link → in-app navigation (internal) or new-tab (external). */
+function MdLink({ text, href }: { text: string; href: string }) {
+  const navigate = useNavigate();
+  const { to, external } = resolveHref(href);
+  if (external) {
+    return <Box component="a" href={external} target="_blank" rel="noopener noreferrer" sx={linkSx}>{text}</Box>;
+  }
+  if (to) {
+    return (
+      <Box component="a" href={to} sx={linkSx}
+        onClick={(e: React.MouseEvent) => { e.preventDefault(); navigate(to); }}>
+        {text}
+      </Box>
+    );
+  }
+  return <>{text}</>; // unknown scheme — show the label, no dead link
+}
 
 /**
  * Tiny, dependency-free Markdown renderer for assistant chat output.
@@ -11,15 +52,21 @@ import { Box, Typography } from '@mui/material';
  * tables/links/blockquotes, swap this for react-markdown.
  */
 
-const INLINE_RE = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|`[^`]+`)/g;
+const INLINE_RE = /(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|`[^`]+`)/g;
+const LINK_RE = /^\[([^\]]+)\]\(([^)]+)\)$/;
 
-/** Render inline emphasis within a single line to React nodes. */
+/** Render inline emphasis + links within a single line to React nodes. */
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   const parts = text.split(INLINE_RE);
   parts.forEach((part, i) => {
     if (!part) return;
     const key = `${keyPrefix}-${i}`;
+    const link = part.match(LINK_RE);
+    if (link) {
+      out.push(<MdLink key={key} text={link[1]} href={link[2]} />);
+      return;
+    }
     if ((part.startsWith('**') && part.endsWith('**')) || (part.startsWith('__') && part.endsWith('__'))) {
       out.push(<Box component="strong" key={key} sx={{ fontWeight: 700 }}>{part.slice(2, -2)}</Box>);
     } else if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_'))) {
