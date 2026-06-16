@@ -9,6 +9,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useQueryClient } from '@tanstack/react-query';
 import { assistantService, type IntakeTurn } from '../services/assistantService';
 import { onboardingService, type CuratedBundle } from '../services/onboardingService';
+import MarkdownLite from './MarkdownLite';
 
 const PURPLE = '#534AB7';
 
@@ -111,11 +112,12 @@ export default function ScopeSetupAssistant({
           {turns.map((t, i) => (
             <Box key={i} sx={{ display: 'flex', justifyContent: t.role === 'user' ? 'flex-end' : 'flex-start' }}>
               <Box sx={{
-                maxWidth: '85%', px: 1.5, py: 1, borderRadius: 2, fontSize: 14, whiteSpace: 'pre-wrap',
+                maxWidth: '85%', px: 1.5, py: 1, borderRadius: 2, fontSize: 14,
+                whiteSpace: t.role === 'user' ? 'pre-wrap' : 'normal',
                 bgcolor: t.role === 'user' ? PURPLE : '#F5F4FC',
                 color: t.role === 'user' ? '#fff' : 'text.primary',
               }}>
-                {t.content}
+                {t.role === 'assistant' ? <MarkdownLite text={t.content} /> : t.content}
               </Box>
             </Box>
           ))}

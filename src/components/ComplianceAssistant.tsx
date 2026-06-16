@@ -7,6 +7,7 @@ import SendIcon from '@mui/icons-material/Send';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { useProject } from '../contexts/ProjectContext';
 import { assistantService } from '../services/assistantService';
+import MarkdownLite from './MarkdownLite';
 
 const PURPLE = '#534AB7';
 
@@ -100,11 +101,12 @@ export default function ComplianceAssistant({
           {turns.map((t, i) => (
             <Box key={i} sx={{ display: 'flex', justifyContent: t.role === 'user' ? 'flex-end' : 'flex-start' }}>
               <Box sx={{
-                maxWidth: '85%', px: 1.5, py: 1, borderRadius: 2, fontSize: 14, whiteSpace: 'pre-wrap',
+                maxWidth: '85%', px: 1.5, py: 1, borderRadius: 2, fontSize: 14,
+                whiteSpace: t.role === 'user' ? 'pre-wrap' : 'normal',
                 bgcolor: t.role === 'user' ? PURPLE : '#F5F4FC',
                 color: t.role === 'user' ? '#fff' : 'text.primary',
               }}>
-                {t.text}
+                {t.role === 'assistant' ? <MarkdownLite text={t.text} /> : t.text}
               </Box>
             </Box>
           ))}
