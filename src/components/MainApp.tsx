@@ -1,8 +1,9 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import Layout from './Layout';
 import { ErrorBoundary } from './ErrorBoundary';
+import { lazyWithReload } from '../utils/lazyWithReload';
 import { PreferencesProvider } from '../contexts/PreferencesContext';
 import { ClauseProvider } from '../contexts/ClauseContext';
 import { BookmarkProvider } from '../contexts/BookmarkContext';
@@ -24,21 +25,21 @@ import OrgSetupDialog from './OrgSetupDialog';
  * the upload + processing stack. None of these belong in the initial
  * landing-page payload.
  */
-const Dashboard = lazy(() => import('../pages/Dashboard'));
-const Matrix = lazy(() => import('../pages/Matrix'));
-const Controls = lazy(() => import('../pages/Controls'));
-const ExecutiveReport = lazy(() => import('../pages/ExecutiveReport'));
-const Evaluations = lazy(() => import('../pages/Evaluations'));
-const EvaluationDetail = lazy(() => import('../pages/EvaluationDetail'));
-const POAM = lazy(() => import('../pages/POAM'));
-const Obligations = lazy(() => import('../pages/Obligations'));
-const ClauseDetail = lazy(() => import('../pages/ClauseDetail'));
-const Regulations = lazy(() => import('../pages/Regulations'));
-const RegulatoryGraphReview = lazy(() => import('../pages/RegulatoryGraphReview'));
-const SecuritySettings = lazy(() => import('../pages/SecuritySettings'));
-const Notifications = lazy(() => import('../pages/Notifications'));
+const Dashboard = lazyWithReload(() => import('../pages/Dashboard'));
+const Matrix = lazyWithReload(() => import('../pages/Matrix'));
+const Controls = lazyWithReload(() => import('../pages/Controls'));
+const ExecutiveReport = lazyWithReload(() => import('../pages/ExecutiveReport'));
+const Evaluations = lazyWithReload(() => import('../pages/Evaluations'));
+const EvaluationDetail = lazyWithReload(() => import('../pages/EvaluationDetail'));
+const POAM = lazyWithReload(() => import('../pages/POAM'));
+const Obligations = lazyWithReload(() => import('../pages/Obligations'));
+const ClauseDetail = lazyWithReload(() => import('../pages/ClauseDetail'));
+const Regulations = lazyWithReload(() => import('../pages/Regulations'));
+const RegulatoryGraphReview = lazyWithReload(() => import('../pages/RegulatoryGraphReview'));
+const SecuritySettings = lazyWithReload(() => import('../pages/SecuritySettings'));
+const Notifications = lazyWithReload(() => import('../pages/Notifications'));
 // DocumentScanner is a named export, not default — wrap it.
-const DocumentScanner = lazy(() =>
+const DocumentScanner = lazyWithReload(() =>
   import('./DocumentScanner').then(m => ({ default: m.DocumentScanner })),
 );
 
