@@ -36,6 +36,7 @@ const Obligations = lazyWithReload(() => import('../pages/Obligations'));
 const ClauseDetail = lazyWithReload(() => import('../pages/ClauseDetail'));
 const Regulations = lazyWithReload(() => import('../pages/Regulations'));
 const RegulatoryGraphReview = lazyWithReload(() => import('../pages/RegulatoryGraphReview'));
+const ClauseCurationReview = lazyWithReload(() => import('../pages/ClauseCurationReview'));
 const SecuritySettings = lazyWithReload(() => import('../pages/SecuritySettings'));
 const Notifications = lazyWithReload(() => import('../pages/Notifications'));
 // DocumentScanner is a named export, not default — wrap it.
@@ -86,6 +87,7 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
                       <Route path="/clauses/:clauseCode" element={<ClauseDetail />} />
                       <Route path="/regulations" element={<Regulations />} />
                       <Route path="/admin/regulatory-graph-review" element={<RegulatoryGraphReview />} />
+                      <Route path="/admin/clause-curation" element={<ClauseCurationReview />} />
                       <Route path="/settings/security" element={<SecuritySettings />} />
                       <Route path="/notifications" element={<Notifications />} />
                       {enableScanner && (
