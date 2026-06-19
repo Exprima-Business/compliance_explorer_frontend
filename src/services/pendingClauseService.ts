@@ -45,6 +45,7 @@ export interface MechanismType {
 
 /** Curator-editable draft fields (camelCase → BE maps to columns). */
 export interface CurateDraft {
+  clauseCode?: string;
   title?: string;
   description?: string | null;
   family?: string | null;

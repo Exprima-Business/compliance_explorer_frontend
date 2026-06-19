@@ -17,6 +17,7 @@ const RISK_LEVELS = ['LOW', 'MEDIUM', 'HIGH'];
 
 /** Editable form state for one candidate (superset of CurateDraft). */
 interface FormState {
+  clauseCode: string;
   title: string;
   description: string;
   family: string;
@@ -30,12 +31,13 @@ interface FormState {
 }
 
 const blankForm = (): FormState => ({
-  title: '', description: '', family: '', clauseCategory: '', riskClassification: '',
+  clauseCode: '', title: '', description: '', family: '', clauseCategory: '', riskClassification: '',
   implementationGuidance: '', assessmentMethod: '', referenceUrl: '', sourceAuthorityForLink: '',
   proposedMethods: [],
 });
 
 const fromCandidate = (c: PendingClause): FormState => ({
+  clauseCode: c.clause_code ?? '',
   title: c.title ?? '',
   description: c.description ?? '',
   family: c.family ?? '',
@@ -49,6 +51,7 @@ const fromCandidate = (c: PendingClause): FormState => ({
 });
 
 const toDraft = (f: FormState): CurateDraft => ({
+  clauseCode: f.clauseCode.trim() || undefined,
   title: f.title || undefined,
   description: f.description || null,
   family: f.family || null,
@@ -119,6 +122,10 @@ const ClauseCurationReview: React.FC = () => {
 
   const promote = async () => {
     if (!selectedId) return;
+    if (!form.clauseCode.trim()) {
+      setError('Clause code is required before promoting.');
+      return;
+    }
     if (!form.description.trim() || !form.implementationGuidance.trim()) {
       setError('Description and implementation guidance are required before promoting.');
       return;
@@ -206,7 +213,7 @@ const ClauseCurationReview: React.FC = () => {
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-                  <Typography variant="h6">{selected.clause_code}</Typography>
+                  <Typography variant="h6">{form.clauseCode || selected.clause_code}</Typography>
                   <Chip size="small" label={selected.status} variant="outlined" />
                 </Box>
                 {selected.supporting_context && (
@@ -215,7 +222,11 @@ const ClauseCurationReview: React.FC = () => {
                   </Alert>
                 )}
 
-                <TextField label="Title" size="small" value={form.title} onChange={e => set('title', e.target.value)} fullWidth />
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                  <TextField label="Clause code" size="small" value={form.clauseCode} onChange={e => set('clauseCode', e.target.value)} sx={{ width: 260 }} required
+                    helperText="The canonical identifier, e.g. NIST SP 800-88 Rev2" />
+                  <TextField label="Title" size="small" value={form.title} onChange={e => set('title', e.target.value)} sx={{ flex: 1, minWidth: 220 }} />
+                </Box>
                 <TextField label="Description" size="small" value={form.description} onChange={e => set('description', e.target.value)} fullWidth multiline minRows={2} required />
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   <TextField label="Family" size="small" value={form.family} onChange={e => set('family', e.target.value)} sx={{ flex: 1, minWidth: 160 }} />
