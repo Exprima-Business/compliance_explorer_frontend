@@ -14,6 +14,7 @@ import {
   type PendingClause, type MechanismType, type CurateDraft, type ProposedMethod,
   type EnrichedDraft, type Family,
 } from '../services/pendingClauseService';
+import ClauseGraphPanel from '../components/ClauseGraphPanel';
 
 const RISK_LEVELS = ['LOW', 'MEDIUM', 'HIGH'];
 
@@ -387,6 +388,16 @@ const ClauseCurationReview: React.FC = () => {
                     </Button>
                   )}
                 </Box>
+
+                {selected.status === 'promoted' && (
+                  <ClauseGraphPanel
+                    pendingId={selected.id}
+                    defaultIdentifier={form.clauseCode}
+                    defaultTitle={form.title}
+                    defaultUrl={form.referenceUrl}
+                    defaultSummary={form.description}
+                  />
+                )}
               </Box>
             )}
           </CardContent>

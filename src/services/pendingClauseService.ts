@@ -79,6 +79,42 @@ export interface EnrichedDraft {
   proposedMethods: ProposedMethod[];
 }
 
+// ── Related Regulations (Phase 2 graph wiring) ──────────────────────────────
+export const RELATIONSHIP_TYPES = [
+  'cites', 'incorporates_by_reference', 'derived_from', 'flows_down_to', 'mandates',
+  'implements', 'supersedes', 'amends', 'codified_in', 'created_by', 'extension_of',
+] as const;
+export type RelationshipType = (typeof RELATIONSHIP_TYPES)[number];
+
+export const ARTIFACT_TYPES = [
+  'nist_publication', 'cfr_part', 'cfr_section', 'far_clause', 'dfars_clause',
+  'hsar_clause', 'agency_supplement_clause', 'executive_order', 'federal_register_rule',
+  'omb_memo', 'statute', 'guidance_doc',
+] as const;
+export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
+
+export interface ArtifactRef {
+  id: string;
+  identifier: string;
+  title: string;
+  artifact_type: string;
+  source_authority?: string | null;
+}
+
+export interface ClauseGraph {
+  promoted?: boolean;
+  artifactId: string | null;
+  artifact: (ArtifactRef & { source_authority?: string | null }) | null;
+  relationships: Array<{
+    id: string;
+    relationship_type: string;
+    direction: 'outgoing' | 'incoming';
+    description: string | null;
+    source_authority_for_link: string | null;
+    other: ArtifactRef;
+  }>;
+}
+
 export interface SubmitForReviewInput {
   clauseCode: string;
   title?: string;
@@ -148,6 +184,39 @@ export const pendingClauseService = {
       timeout: 120_000, // PDF parse + Haiku call
     });
   },
+
+  // ── Related Regulations (graph wiring) ────────────────────────────────────
+  graph: (id: string): Promise<ApiResponse<ClauseGraph>> =>
+    apiCall<ClauseGraph>(`/api/pending-clauses/${id}/graph`, { requireAuth: true }),
+
+  searchArtifacts: (q: string): Promise<ApiResponse<{ items: ArtifactRef[] }>> =>
+    apiCall<{ items: ArtifactRef[] }>(`/api/regulatory-artifacts?q=${encodeURIComponent(q)}&limit=20`, { requireAuth: true }),
+
+  linkArtifact: (id: string, artifactId: string): Promise<ApiResponse<ClauseGraph>> =>
+    apiCall<ClauseGraph>(`/api/pending-clauses/${id}/graph/link`, {
+      method: 'POST', body: JSON.stringify({ artifactId }), requireAuth: true,
+    }),
+
+  createArtifact: (id: string, input: {
+    artifactType: string; identifier: string; title: string;
+    sourceAuthority: string; sourceUrl?: string | null; summary?: string | null;
+  }): Promise<ApiResponse<ClauseGraph>> =>
+    apiCall<ClauseGraph>(`/api/pending-clauses/${id}/graph/artifact`, {
+      method: 'POST', body: JSON.stringify(input), requireAuth: true,
+    }),
+
+  addRelationship: (id: string, input: {
+    otherArtifactId: string; relationshipType: string;
+    direction: 'outgoing' | 'incoming'; citation: string; description?: string | null;
+  }): Promise<ApiResponse<ClauseGraph>> =>
+    apiCall<ClauseGraph>(`/api/pending-clauses/${id}/graph/relationships`, {
+      method: 'POST', body: JSON.stringify(input), requireAuth: true,
+    }),
+
+  removeRelationship: (id: string, relId: string): Promise<ApiResponse<ClauseGraph>> =>
+    apiCall<ClauseGraph>(`/api/pending-clauses/${id}/graph/relationships/${relId}`, {
+      method: 'DELETE', requireAuth: true,
+    }),
 
   reject: (id: string, notes?: string): Promise<ApiResponse<{ ok: boolean }>> =>
     apiCall(`/api/pending-clauses/${id}/reject`, {
