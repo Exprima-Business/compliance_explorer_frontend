@@ -58,6 +58,20 @@ export interface CurateDraft {
   proposedMethods?: ProposedMethod[];
 }
 
+/** Draft catalog fields produced by AI from a source document (not persisted). */
+export interface EnrichedDraft {
+  suggestedClauseCode: string;
+  title: string;
+  description: string;
+  family: string;
+  clauseCategory: string;
+  riskClassification: '' | 'LOW' | 'MEDIUM' | 'HIGH';
+  implementationGuidance: string;
+  assessmentMethod: string;
+  referenceUrl: string;
+  proposedMethods: ProposedMethod[];
+}
+
 export interface SubmitForReviewInput {
   clauseCode: string;
   title?: string;
@@ -103,6 +117,18 @@ export const pendingClauseService = {
       body: JSON.stringify({ edits }),
       requireAuth: true,
     }),
+
+  /** Draft catalog fields from an uploaded source document (platform reviewer). */
+  enrich: (id: string, file: File): Promise<ApiResponse<EnrichedDraft>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return apiCall<EnrichedDraft>(`/api/pending-clauses/${id}/enrich`, {
+      method: 'POST',
+      body: fd,
+      requireAuth: true,
+      timeout: 120_000, // PDF parse + Haiku call
+    });
+  },
 
   reject: (id: string, notes?: string): Promise<ApiResponse<{ ok: boolean }>> =>
     apiCall(`/api/pending-clauses/${id}/reject`, {

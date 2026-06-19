@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box, Typography, Card, CardContent, CircularProgress, Alert, Chip, Button,
   TextField, MenuItem, Divider, IconButton, Stack, Snackbar, Tabs, Tab, Tooltip,
@@ -8,9 +8,11 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import PublishIcon from '@mui/icons-material/Publish';
 import SaveIcon from '@mui/icons-material/Save';
 import BlockIcon from '@mui/icons-material/Block';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import {
   pendingClauseService,
   type PendingClause, type MechanismType, type CurateDraft, type ProposedMethod,
+  type EnrichedDraft,
 } from '../services/pendingClauseService';
 
 const RISK_LEVELS = ['LOW', 'MEDIUM', 'HIGH'];
@@ -72,8 +74,10 @@ const ClauseCurationReview: React.FC = () => {
   const [form, setForm] = useState<FormState>(blankForm());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [snack, setSnack] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const selected = useMemo(() => queue.find(c => c.id === selectedId) ?? null, [queue, selectedId]);
 
@@ -109,6 +113,33 @@ const ClauseCurationReview: React.FC = () => {
     set('proposedMethods', form.proposedMethods.map((m, idx) => idx === i ? { ...m, ...patch } : m));
   const removeMethod = (i: number) =>
     set('proposedMethods', form.proposedMethods.filter((_, idx) => idx !== i));
+
+  /** AI-draft the catalog fields from an uploaded source document. Fills the
+   *  form for review — nothing is saved until you Save draft / Promote. */
+  const handleEnrichFile = async (file: File | null | undefined) => {
+    if (!file || !selectedId) return;
+    setEnriching(true); setError(null);
+    const resp = await pendingClauseService.enrich(selectedId, file);
+    setEnriching(false);
+    if (fileInputRef.current) fileInputRef.current.value = ''; // allow re-selecting the same file
+    if (resp.error) { setError(typeof resp.error === 'string' ? resp.error : resp.error.message); return; }
+    const d = resp.data as EnrichedDraft;
+    setForm(f => ({
+      ...f,
+      clauseCode: d.suggestedClauseCode || f.clauseCode,
+      title: d.title || f.title,
+      description: d.description || f.description,
+      family: d.family || f.family,
+      clauseCategory: d.clauseCategory || f.clauseCategory,
+      riskClassification: d.riskClassification || f.riskClassification,
+      implementationGuidance: d.implementationGuidance || f.implementationGuidance,
+      assessmentMethod: d.assessmentMethod || f.assessmentMethod,
+      referenceUrl: d.referenceUrl || f.referenceUrl,
+      // Append AI-suggested methods; the human assigns each mechanism type.
+      proposedMethods: [...f.proposedMethods, ...(d.proposedMethods ?? [])],
+    }));
+    setSnack('Fields drafted from the document — review, then Save or Promote.');
+  };
 
   const saveDraft = async () => {
     if (!selectedId) return;
@@ -221,6 +252,29 @@ const ClauseCurationReview: React.FC = () => {
                     Source excerpt: “{selected.supporting_context}”
                   </Alert>
                 )}
+
+                {/* AI enrichment from a source document — fills the fields below for review. */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.xlsx,application/pdf"
+                    style={{ display: 'none' }}
+                    onChange={e => handleEnrichFile(e.target.files?.[0])}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={enriching ? <CircularProgress size={16} /> : <AutoFixHighIcon />}
+                    disabled={enriching || busy || selected.status !== 'pending'}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {enriching ? 'Reading document…' : 'Auto-fill from source document'}
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    Upload the official PDF; AI drafts the fields below for your review. Nothing is saved until you Save or Promote.
+                  </Typography>
+                </Box>
 
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   <TextField label="Clause code" size="small" value={form.clauseCode} onChange={e => set('clauseCode', e.target.value)} sx={{ width: 260 }} required
