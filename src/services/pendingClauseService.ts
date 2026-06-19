@@ -121,6 +121,14 @@ export const pendingClauseService = {
       requireAuth: true,
     }),
 
+  /** Edit a clause that has already been promoted — writes through to the catalog. */
+  updateCatalog: (id: string, draft: CurateDraft): Promise<ApiResponse<PendingClause>> =>
+    apiCall<PendingClause>(`/api/pending-clauses/${id}/catalog`, {
+      method: 'PATCH',
+      body: JSON.stringify(draft),
+      requireAuth: true,
+    }),
+
   /** Promote a curated candidate into the authoritative catalog. */
   promote: (id: string, edits?: CurateDraft): Promise<ApiResponse<{ clause: any; methodsCreated: number }>> =>
     apiCall(`/api/pending-clauses/${id}/promote`, {

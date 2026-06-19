@@ -160,8 +160,8 @@ const ClauseCurationReview: React.FC = () => {
     setQueue(q => q.map(c => c.id === selectedId ? (resp.data as PendingClause) : c));
   };
 
-  const promote = async () => {
-    if (!selectedId) return;
+  /** Returns the missing required-field labels (empty array = all present). */
+  const requiredMissing = (): string[] => {
     const missing: string[] = [];
     if (!form.clauseCode.trim()) missing.push('clause code');
     if (!form.description.trim()) missing.push('description');
@@ -169,10 +169,13 @@ const ClauseCurationReview: React.FC = () => {
     if (!form.familyId) missing.push('family');
     if (!form.clauseCategory.trim()) missing.push('category');
     if (!form.riskClassification) missing.push('risk');
-    if (missing.length) {
-      setError(`Required before promoting: ${missing.join(', ')}.`);
-      return;
-    }
+    return missing;
+  };
+
+  const promote = async () => {
+    if (!selectedId) return;
+    const missing = requiredMissing();
+    if (missing.length) { setError(`Required before promoting: ${missing.join(', ')}.`); return; }
     setBusy(true); setError(null);
     const resp = await pendingClauseService.promote(selectedId, toDraft(form));
     setBusy(false);
@@ -180,6 +183,19 @@ const ClauseCurationReview: React.FC = () => {
     setSnack(`Promoted to catalog (${resp.data?.methodsCreated ?? 0} satisfaction method(s) created).`);
     setSelectedId(null);
     loadQueue(statusTab);
+  };
+
+  /** Edit a clause that's already promoted — writes through to the catalog. */
+  const saveCatalog = async () => {
+    if (!selectedId) return;
+    const missing = requiredMissing();
+    if (missing.length) { setError(`Required before saving: ${missing.join(', ')}.`); return; }
+    setBusy(true); setError(null);
+    const resp = await pendingClauseService.updateCatalog(selectedId, toDraft(form));
+    setBusy(false);
+    if (resp.error) { setError(typeof resp.error === 'string' ? resp.error : resp.error.message); return; }
+    setSnack('Catalog clause updated.');
+    setQueue(q => q.map(c => c.id === selectedId ? (resp.data as PendingClause) : c));
   };
 
   const reject = async () => {
@@ -316,41 +332,60 @@ const ClauseCurationReview: React.FC = () => {
                 <Divider textAlign="left">
                   <Typography variant="subtitle2">How to Satisfy the Clause</Typography>
                 </Divider>
+                {selected.status !== 'pending' && (
+                  <Typography variant="caption" color="text.secondary">
+                    Satisfaction methods are read-only here for a published clause — editing them can affect
+                    customers' completion tracking. Descriptive fields above can still be updated.
+                  </Typography>
+                )}
                 {form.proposedMethods.map((m, i) => (
                   <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.25 }}>
-                    <TextField label="Mechanism" size="small" select value={m.mechanism_type_id}
+                    <TextField label="Mechanism" size="small" select value={m.mechanism_type_id} disabled={selected.status !== 'pending'}
                       onChange={e => updateMethod(i, { mechanism_type_id: e.target.value })} sx={{ width: 220 }}>
                       <MenuItem value=""><em>select…</em></MenuItem>
                       {mechTypes.map(t => <MenuItem key={t.id} value={t.id}>{t.display_label}</MenuItem>)}
                     </TextField>
-                    <TextField label="Obligation (plain English)" size="small" value={m.description}
+                    <TextField label="Obligation (plain English)" size="small" value={m.description} disabled={selected.status !== 'pending'}
                       onChange={e => updateMethod(i, { description: e.target.value })} sx={{ flex: 1, minWidth: 220 }} multiline />
-                    <TextField label="Required?" size="small" select value={m.is_required === false ? 'no' : 'yes'}
+                    <TextField label="Required?" size="small" select value={m.is_required === false ? 'no' : 'yes'} disabled={selected.status !== 'pending'}
                       onChange={e => updateMethod(i, { is_required: e.target.value === 'yes' })} sx={{ width: 110 }}>
                       <MenuItem value="yes">Required</MenuItem>
                       <MenuItem value="no">Optional</MenuItem>
                     </TextField>
-                    <Tooltip title="Remove method">
-                      <IconButton size="small" onClick={() => removeMethod(i)}><DeleteOutlineIcon fontSize="small" /></IconButton>
-                    </Tooltip>
+                    {selected.status === 'pending' && (
+                      <Tooltip title="Remove method">
+                        <IconButton size="small" onClick={() => removeMethod(i)}><DeleteOutlineIcon fontSize="small" /></IconButton>
+                      </Tooltip>
+                    )}
                   </Box>
                 ))}
-                <Button size="small" startIcon={<AddIcon />} onClick={addMethod} sx={{ alignSelf: 'flex-start' }}>
-                  Add satisfaction method
-                </Button>
+                {selected.status === 'pending' && (
+                  <Button size="small" startIcon={<AddIcon />} onClick={addMethod} sx={{ alignSelf: 'flex-start' }}>
+                    Add satisfaction method
+                  </Button>
+                )}
 
                 <Divider />
                 <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-                  <Button variant="outlined" startIcon={<SaveIcon />} disabled={busy || selected.status !== 'pending'} onClick={saveDraft}>
-                    Save draft
-                  </Button>
-                  <Button variant="contained" startIcon={busy ? <CircularProgress size={16} /> : <PublishIcon />} disabled={busy || selected.status !== 'pending'} onClick={promote}>
-                    Promote to catalog
-                  </Button>
-                  <Box sx={{ flex: 1 }} />
-                  <Button color="error" startIcon={<BlockIcon />} disabled={busy || selected.status !== 'pending'} onClick={reject}>
-                    Reject
-                  </Button>
+                  {selected.status === 'pending' && (
+                    <>
+                      <Button variant="outlined" startIcon={<SaveIcon />} disabled={busy} onClick={saveDraft}>
+                        Save draft
+                      </Button>
+                      <Button variant="contained" startIcon={busy ? <CircularProgress size={16} /> : <PublishIcon />} disabled={busy} onClick={promote}>
+                        Promote to catalog
+                      </Button>
+                      <Box sx={{ flex: 1 }} />
+                      <Button color="error" startIcon={<BlockIcon />} disabled={busy} onClick={reject}>
+                        Reject
+                      </Button>
+                    </>
+                  )}
+                  {selected.status === 'promoted' && (
+                    <Button variant="contained" startIcon={busy ? <CircularProgress size={16} /> : <SaveIcon />} disabled={busy} onClick={saveCatalog}>
+                      Save changes to catalog
+                    </Button>
+                  )}
                 </Box>
               </Box>
             )}
