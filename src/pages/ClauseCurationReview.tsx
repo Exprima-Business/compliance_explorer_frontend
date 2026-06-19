@@ -23,6 +23,7 @@ interface FormState {
   clauseCode: string;
   title: string;
   description: string;
+  aliases: string[];
   familyId: string;
   clauseCategory: string;
   riskClassification: string;
@@ -34,7 +35,7 @@ interface FormState {
 }
 
 const blankForm = (): FormState => ({
-  clauseCode: '', title: '', description: '', familyId: '', clauseCategory: '', riskClassification: '',
+  clauseCode: '', title: '', description: '', aliases: [], familyId: '', clauseCategory: '', riskClassification: '',
   implementationGuidance: '', assessmentMethod: '', referenceUrl: '', sourceAuthorityForLink: '',
   proposedMethods: [],
 });
@@ -43,6 +44,7 @@ const fromCandidate = (c: PendingClause): FormState => ({
   clauseCode: c.clause_code ?? '',
   title: c.title ?? '',
   description: c.description ?? '',
+  aliases: Array.isArray(c.aliases) ? c.aliases : [],
   familyId: c.family_id ?? '',
   clauseCategory: c.clause_category ?? '',
   riskClassification: c.risk_classification ?? '',
@@ -57,6 +59,7 @@ const toDraft = (f: FormState): CurateDraft => ({
   clauseCode: f.clauseCode.trim() || undefined,
   title: f.title || undefined,
   description: f.description || null,
+  aliases: f.aliases,
   familyId: f.familyId || null,
   clauseCategory: f.clauseCategory || null,
   riskClassification: f.riskClassification || null,
@@ -79,7 +82,16 @@ const ClauseCurationReview: React.FC = () => {
   const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [snack, setSnack] = useState<string | null>(null);
+  const [aliasInput, setAliasInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const addAlias = () => {
+    const v = aliasInput.trim();
+    if (!v) return;
+    setForm(f => f.aliases.some(a => a.toLowerCase() === v.toLowerCase()) ? f : { ...f, aliases: [...f.aliases, v] });
+    setAliasInput('');
+  };
+  const removeAlias = (a: string) => setForm(f => ({ ...f, aliases: f.aliases.filter(x => x !== a) }));
 
   const selected = useMemo(() => queue.find(c => c.id === selectedId) ?? null, [queue, selectedId]);
 
@@ -332,6 +344,27 @@ const ClauseCurationReview: React.FC = () => {
                   <TextField label="Title" size="small" value={form.title} onChange={e => set('title', e.target.value)} sx={{ flex: 1, minWidth: 220 }} />
                 </Box>
                 <TextField label="Description" size="small" value={form.description} onChange={e => set('description', e.target.value)} fullWidth multiline minRows={2} required />
+
+                {/* Aliases — alternate references this clause is cited by, so name-cited
+                    scans match it. Auto-seeded from the detected name; add more here. */}
+                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.25 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Also cited as (aliases) — solicitations referencing any of these will match this clause
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: form.aliases.length ? 1 : 0 }}>
+                    {form.aliases.map(a => (
+                      <Chip key={a} size="small" label={a} onDelete={selected.status === 'rejected' ? undefined : () => removeAlias(a)} />
+                    ))}
+                  </Box>
+                  {selected.status !== 'rejected' && (
+                    <TextField label="Add alias" size="small" value={aliasInput} fullWidth
+                      onChange={e => setAliasInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAlias(); } }}
+                      onBlur={addAlias}
+                      helperText="e.g. NIST SP 800-88, Guidelines for Media Sanitization — press Enter to add" />
+                  )}
+                </Box>
+
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   <TextField label="Family" size="small" select required value={form.familyId} onChange={e => set('familyId', e.target.value)} sx={{ flex: 1, minWidth: 200 }}
                     helperText="Catalog family this clause belongs to">

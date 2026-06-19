@@ -26,6 +26,7 @@ export interface PendingClause {
   clause_code: string;
   title: string;
   description: string | null;
+  aliases: string[] | null;
   confidence: number | null;
   supporting_context: string | null;
   source_evaluation_id: string | null;
@@ -62,6 +63,7 @@ export interface CurateDraft {
   clauseCode?: string;
   title?: string;
   description?: string | null;
+  aliases?: string[];
   familyId?: string | null;
   family?: string | null;
   clauseCategory?: string | null;
