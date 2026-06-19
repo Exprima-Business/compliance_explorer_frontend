@@ -25,7 +25,7 @@ import {
   type ClauseCategory,
 } from '../services/evaluationService';
 import { useProject } from '../contexts/ProjectContext';
-import { useBookmarks } from '../contexts/BookmarkContext';
+import { pendingClauseService } from '../services/pendingClauseService';
 
 // The clause-row chip describes SCOPE — is this detected obligation already in
 // your ORGANIZATION's compliance baseline (covered by an activated framework or
@@ -467,7 +467,6 @@ const EvaluationDetail: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { currentProject, projects } = useProject();
-  const { refresh: refreshBookmarks } = useBookmarks();
   const program = currentProject ?? projects?.[0] ?? null;
 
   const [detail, setDetail] = useState<EvaluationDetailData | null>(null);
@@ -475,6 +474,7 @@ const EvaluationDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState<string | null>(null);
   // Phase B-3 — bulk POA&M from gaps state. Confirm dialog gate prevents
   // accidental mass creation (a 100-gap eval would spawn 100 POA&Ms).
@@ -534,28 +534,56 @@ const EvaluationDetail: React.FC = () => {
     setSelected(allSelected ? new Set() : new Set(clauses.map(c => c.id)));
   };
 
-  const handleApply = async () => {
-    if (!id || !program) return;
+  // Org-baseline (human-in-the-loop): add the SELECTED MATCHED clauses to the
+  // organization's standing baseline. Not-in-catalog selections are skipped here
+  // (they go to catalog curation via handleSubmitForReview).
+  const handleAddToOrgBaseline = async () => {
+    if (!id) return;
+    const matchedRowIds = clauses.filter(c => selected.has(c.id) && c.clauseId).map(c => c.id);
+    if (matchedRowIds.length === 0) {
+      setSnack('No catalog clauses selected. Select matched clauses to add to your baseline, or submit not-in-catalog finds for review.');
+      return;
+    }
     setApplying(true);
     setError(null);
-    const resp = await evaluationService.apply(id, program.id, Array.from(selected));
+    const resp = await evaluationService.applyToOrgBaseline(id, matchedRowIds);
     if (resp.error) {
       setApplying(false);
       setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
       return;
     }
-    const r = resp.data;
-    setSnack(
-      `Applied to ${program.name}: ${r?.appliedMatched ?? 0} tracked clause(s)` +
-      `${r?.appliedScanDetected ? `, ${r.appliedScanDetected} posture gap(s)` : ''}` +
-      `, ${r?.bookmarksCreated ?? 0} bookmark(s). Opening your compliance matrix…`,
-    );
-    // Pull the freshly-applied clauses into the bookmark cache so the matrix
-    // renders them, then route the user to their next step: activating the
-    // frameworks those clauses require and working the controls.
-    await refreshBookmarks();
+    setSnack(`Added ${resp.data?.added ?? 0} obligation${resp.data?.added === 1 ? '' : 's'} to your organization's baseline.`);
     setApplying(false);
-    setTimeout(() => navigate('/matrix'), 1800);
+  };
+
+  // Submit the SELECTED not-in-catalog finds to the catalog-curation queue, so a
+  // platform reviewer can flesh them out into authoritative, guidance-backed
+  // clauses (rather than tracking guidance-less dead-ends).
+  const handleSubmitForReview = async () => {
+    if (!id) return;
+    const unknown = clauses.filter(c => selected.has(c.id) && c.coverageStatus === 'unknown');
+    if (unknown.length === 0) {
+      setSnack('No not-in-catalog clauses selected.');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    const results = await Promise.all(unknown.map(c =>
+      pendingClauseService.submit({
+        clauseCode: c.clauseCode || c.title || 'Unnamed clause',
+        title: c.title ?? undefined,
+        description: c.supportingContext ?? null,
+        confidence: c.confidence ?? null,
+        supportingContext: c.supportingContext ?? null,
+        sourceEvaluationId: id,
+      }),
+    ));
+    const failed = results.filter(r => r.error).length;
+    setSubmitting(false);
+    setSnack(
+      `Submitted ${unknown.length - failed} clause${unknown.length - failed === 1 ? '' : 's'} for catalog review` +
+      (failed ? `, ${failed} failed` : '') + '.',
+    );
   };
 
   /**
@@ -591,6 +619,17 @@ const EvaluationDetail: React.FC = () => {
   const summary = useMemo(
     () => detail?.evaluation.coverageSummary ?? { detected: 0, covered: 0, gaps: 0, unknown: 0 },
     [detail],
+  );
+
+  // Split the current selection by what each action can act on: matched
+  // (catalog) clauses → org baseline; not-in-catalog finds → curation queue.
+  const selectedMatchedCount = useMemo(
+    () => clauses.filter(c => selected.has(c.id) && c.clauseId).length,
+    [clauses, selected],
+  );
+  const selectedUnknownCount = useMemo(
+    () => clauses.filter(c => selected.has(c.id) && c.coverageStatus === 'unknown').length,
+    [clauses, selected],
   );
 
   // Pre-bid go/no-go verdict derived from coverage + per-framework completion.
@@ -716,27 +755,50 @@ const EvaluationDetail: React.FC = () => {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {/* Apply bar */}
+      {/* Add-to-org-baseline bar (human-in-the-loop) — matched clauses only */}
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Box sx={{ flex: 1, minWidth: 220 }}>
-            <Typography variant="subtitle2">Apply clauses to your compliance program</Typography>
+            <Typography variant="subtitle2">Add to your organization baseline</Typography>
             <Typography variant="caption" color="text.secondary">
-              {program
-                ? `Selected clauses are added to "${program.name}" for tracking. The evaluation record is unchanged.`
-                : 'No compliance program found — applying is unavailable.'}
+              Adds the selected <strong>catalog</strong> clauses ({selectedMatchedCount} selected) to your
+              organization's standing requirement set. You decide what to track — nothing is added automatically.
             </Typography>
           </Box>
           <Button
             variant="contained"
-            disabled={!program || applying || selected.size === 0}
+            disabled={applying || selectedMatchedCount === 0}
             startIcon={applying ? <CircularProgress size={18} /> : undefined}
-            onClick={handleApply}
+            onClick={handleAddToOrgBaseline}
           >
-            {applying ? 'Applying…' : `Apply ${selected.size} to program`}
+            {applying ? 'Adding…' : `Add ${selectedMatchedCount} to baseline`}
           </Button>
         </CardContent>
       </Card>
+
+      {/* Submit-for-catalog-review bar — not-in-catalog finds only */}
+      {summary.unknown > 0 && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ flex: 1, minWidth: 220 }}>
+              <Typography variant="subtitle2">Submit not-in-catalog finds for review</Typography>
+              <Typography variant="caption" color="text.secondary">
+                The selected clauses we don't yet have ({selectedUnknownCount} selected) are sent to the
+                catalog-curation queue, where a reviewer fleshes them out with authoritative guidance before
+                they become trackable — rather than tracking guidance-less dead-ends.
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              disabled={submitting || selectedUnknownCount === 0}
+              startIcon={submitting ? <CircularProgress size={18} /> : undefined}
+              onClick={handleSubmitForReview}
+            >
+              {submitting ? 'Submitting…' : `Submit ${selectedUnknownCount} for review`}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Create-POA&Ms-from-gaps bar (Phase B-3) — appears only when there are
           gaps to track AND a program is available. Parallel structure to Apply

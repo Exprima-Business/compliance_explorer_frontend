@@ -157,6 +157,12 @@ export interface ApplyResult {
   bookmarksCreated: number;
 }
 
+/** Result of adding user-selected matched clauses to the org baseline. */
+export interface ApplyToOrgBaselineResult {
+  added: number;
+  skippedUnmatched: number;
+}
+
 /**
  * Phase B-3 — result of the bulk POA&M creation workflow.
  *   created          — POA&Ms inserted this call
@@ -233,6 +239,26 @@ export const evaluationService = {
       body: JSON.stringify({ programId, evaluationClauseIds }),
       requireAuth: true,
     });
+  },
+
+  /**
+   * Org-baseline (human-in-the-loop): add the user-SELECTED matched clauses to
+   * the organization's standing baseline (org_scoped_clauses). Only clauses with
+   * a real catalog id are added; selected not-in-catalog rows are skipped here
+   * (submit those for curation via pendingClauseService instead).
+   */
+  applyToOrgBaseline: async (
+    evaluationId: string,
+    evaluationClauseIds: string[],
+  ): Promise<ApiResponse<ApplyToOrgBaselineResult>> => {
+    return apiCall<ApplyToOrgBaselineResult>(
+      `/api/solicitation-evaluations/${evaluationId}/apply-to-org-baseline`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ evaluationClauseIds }),
+        requireAuth: true,
+      },
+    );
   },
 
   /**
