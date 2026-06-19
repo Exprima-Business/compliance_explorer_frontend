@@ -192,7 +192,10 @@ const ClauseCurationReview: React.FC = () => {
     const resp = await pendingClauseService.promote(selectedId, toDraft(form));
     setBusy(false);
     if (resp.error) { setError(typeof resp.error === 'string' ? resp.error : resp.error.message); return; }
-    setSnack(`Promoted to catalog (${resp.data?.methodsCreated ?? 0} satisfaction method(s) created).`);
+    const created = resp.data?.methodsCreated ?? 0;
+    setSnack(resp.data?.adopted
+      ? `That clause code already existed in the catalog — linked to it${created ? ` (${created} method(s) added)` : ''}. Edit it from the Promoted tab.`
+      : `Promoted to catalog (${created} satisfaction method(s) created).`);
     setSelectedId(null);
     loadQueue(statusTab);
   };

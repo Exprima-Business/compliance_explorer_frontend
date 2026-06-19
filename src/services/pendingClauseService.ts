@@ -178,7 +178,7 @@ export const pendingClauseService = {
     }),
 
   /** Promote a curated candidate into the authoritative catalog. */
-  promote: (id: string, edits?: CurateDraft): Promise<ApiResponse<{ clause: any; methodsCreated: number }>> =>
+  promote: (id: string, edits?: CurateDraft): Promise<ApiResponse<{ clause: any; methodsCreated: number; adopted?: boolean }>> =>
     apiCall(`/api/pending-clauses/${id}/promote`, {
       method: 'POST',
       body: JSON.stringify({ edits }),
