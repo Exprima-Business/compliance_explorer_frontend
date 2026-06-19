@@ -108,6 +108,17 @@ const ClauseCurationReview: React.FC = () => {
     })();
   }, []);
   useEffect(() => { if (selected) setForm(fromCandidate(selected)); }, [selected]);
+  // For a promoted clause, edit the LIVE catalog methods (with ids), not the
+  // frozen pre-promote draft — so reconciliation updates/deletes the real rows.
+  const loadCatalogMethods = async () => {
+    if (!selectedId) return;
+    const resp = await pendingClauseService.catalogMethods(selectedId);
+    if (!resp.error) setForm(f => ({ ...f, proposedMethods: resp.data ?? [] }));
+  };
+  useEffect(() => {
+    if (selected?.status === 'promoted') loadCatalogMethods();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm(f => ({ ...f, [k]: v }));
 
@@ -195,8 +206,15 @@ const ClauseCurationReview: React.FC = () => {
     const resp = await pendingClauseService.updateCatalog(selectedId, toDraft(form));
     setBusy(false);
     if (resp.error) { setError(typeof resp.error === 'string' ? resp.error : resp.error.message); return; }
-    setSnack('Catalog clause updated.');
+    const sum = resp.data?.methodsSummary;
+    let msg = 'Catalog clause updated.';
+    if (sum) {
+      msg = `Catalog updated — methods: ${sum.updated} updated, ${sum.inserted} added, ${sum.deleted} removed.`;
+      if (sum.retained?.length) msg += ` ${sum.retained.length} kept (in use by customers — couldn't remove).`;
+    }
+    setSnack(msg);
     setQueue(q => q.map(c => c.id === selectedId ? (resp.data as PendingClause) : c));
+    loadCatalogMethods(); // refresh ids for newly inserted methods
   };
 
   const reject = async () => {
@@ -333,34 +351,37 @@ const ClauseCurationReview: React.FC = () => {
                 <Divider textAlign="left">
                   <Typography variant="subtitle2">How to Satisfy the Clause</Typography>
                 </Divider>
-                {selected.status !== 'pending' && (
+                {selected.status === 'promoted' && (
                   <Typography variant="caption" color="text.secondary">
-                    Satisfaction methods are read-only here for a published clause — editing them can affect
-                    customers' completion tracking. Descriptive fields above can still be updated.
+                    Editing methods here updates the live catalog on save. A method that customers already
+                    track can't be deleted — it's kept and reported, never silently removed.
                   </Typography>
                 )}
+                {selected.status === 'rejected' && (
+                  <Typography variant="caption" color="text.secondary">This clause was rejected — read-only.</Typography>
+                )}
                 {form.proposedMethods.map((m, i) => (
-                  <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.25 }}>
-                    <TextField label="Mechanism" size="small" select value={m.mechanism_type_id} disabled={selected.status !== 'pending'}
+                  <Box key={m.id ?? i} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.25 }}>
+                    <TextField label="Mechanism" size="small" select value={m.mechanism_type_id} disabled={selected.status === 'rejected'}
                       onChange={e => updateMethod(i, { mechanism_type_id: e.target.value })} sx={{ width: 220 }}>
                       <MenuItem value=""><em>select…</em></MenuItem>
                       {mechTypes.map(t => <MenuItem key={t.id} value={t.id}>{t.display_label}</MenuItem>)}
                     </TextField>
-                    <TextField label="Obligation (plain English)" size="small" value={m.description} disabled={selected.status !== 'pending'}
+                    <TextField label="Obligation (plain English)" size="small" value={m.description} disabled={selected.status === 'rejected'}
                       onChange={e => updateMethod(i, { description: e.target.value })} sx={{ flex: 1, minWidth: 220 }} multiline />
-                    <TextField label="Required?" size="small" select value={m.is_required === false ? 'no' : 'yes'} disabled={selected.status !== 'pending'}
+                    <TextField label="Required?" size="small" select value={m.is_required === false ? 'no' : 'yes'} disabled={selected.status === 'rejected'}
                       onChange={e => updateMethod(i, { is_required: e.target.value === 'yes' })} sx={{ width: 110 }}>
                       <MenuItem value="yes">Required</MenuItem>
                       <MenuItem value="no">Optional</MenuItem>
                     </TextField>
-                    {selected.status === 'pending' && (
+                    {selected.status !== 'rejected' && (
                       <Tooltip title="Remove method">
                         <IconButton size="small" onClick={() => removeMethod(i)}><DeleteOutlineIcon fontSize="small" /></IconButton>
                       </Tooltip>
                     )}
                   </Box>
                 ))}
-                {selected.status === 'pending' && (
+                {selected.status !== 'rejected' && (
                   <Button size="small" startIcon={<AddIcon />} onClick={addMethod} sx={{ alignSelf: 'flex-start' }}>
                     Add satisfaction method
                   </Button>

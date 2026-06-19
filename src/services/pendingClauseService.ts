@@ -7,10 +7,18 @@ import type { ApiResponse } from '../types/api';
 // ---------------------------------------------------------------------------
 
 export interface ProposedMethod {
+  id?: string;                 // set for existing catalog methods (update-in-place)
   mechanism_type_id: string;
   description: string;
   is_required?: boolean;
   source_authority_for_link?: string | null;
+}
+
+export interface MethodReconcileSummary {
+  updated: number;
+  inserted: number;
+  deleted: number;
+  retained: Array<{ id: string; description: string }>;
 }
 
 export interface PendingClause {
@@ -157,9 +165,13 @@ export const pendingClauseService = {
       requireAuth: true,
     }),
 
+  /** The live catalog satisfaction methods (with ids) for a promoted clause. */
+  catalogMethods: (id: string): Promise<ApiResponse<ProposedMethod[]>> =>
+    apiCall<ProposedMethod[]>(`/api/pending-clauses/${id}/methods`, { requireAuth: true }),
+
   /** Edit a clause that has already been promoted — writes through to the catalog. */
-  updateCatalog: (id: string, draft: CurateDraft): Promise<ApiResponse<PendingClause>> =>
-    apiCall<PendingClause>(`/api/pending-clauses/${id}/catalog`, {
+  updateCatalog: (id: string, draft: CurateDraft): Promise<ApiResponse<PendingClause & { methodsSummary?: MethodReconcileSummary }>> =>
+    apiCall<PendingClause & { methodsSummary?: MethodReconcileSummary }>(`/api/pending-clauses/${id}/catalog`, {
       method: 'PATCH',
       body: JSON.stringify(draft),
       requireAuth: true,
