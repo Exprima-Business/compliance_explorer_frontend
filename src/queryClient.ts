@@ -102,4 +102,11 @@ export const keys = {
   // Cascade dashboard — the obligations a single move clears (drill-in)
   cascadeMove: (programId?: string, mechanismTypeId?: string) =>
     ['cascade-move', programId, mechanismTypeId] as const,
+  // Org-wide cascade (the org baseline, not a single program)
+  cascadeOrgLeverage: (orgId?: string) =>
+    ['cascade-org-leverage', orgId] as const,
+  cascadeOrgSurface: (orgId?: string) =>
+    ['cascade-org-surface', orgId] as const,
+  cascadeOrgMove: (orgId?: string, mechanismTypeId?: string) =>
+    ['cascade-org-move', orgId, mechanismTypeId] as const,
 };

@@ -9,6 +9,7 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCascadeMoveObligations } from '../hooks/useCascadeMoveObligations';
+import { useCascadeOrgMoveObligations } from '../hooks/useCascadeOrg';
 import type { CascadeMove } from '../hooks/useCascadeLeverage';
 import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
 import { useProject } from '../contexts/ProjectContext';
@@ -42,14 +43,20 @@ function howToFix(label: string): string {
  * (owner / status / affected solicitations / risk) — placeholders until wired.
  */
 export default function RemediationDrawer({
-  move, onClose,
+  move, onClose, scope = 'program',
 }: {
   move: CascadeMove | null;
   onClose: () => void;
+  /** 'org' drills in via the org baseline; 'program' via the active program. */
+  scope?: 'org' | 'program';
 }) {
   const navigate = useNavigate();
   const open = !!move;
-  const { data: obligations, isLoading } = useCascadeMoveObligations(move?.mechanismTypeId ?? null, open);
+  const isOrg = scope === 'org';
+  // Both hooks are always called (rules of hooks); the inactive one is disabled.
+  const progObs = useCascadeMoveObligations(isOrg ? null : (move?.mechanismTypeId ?? null), open && !isOrg);
+  const orgObs = useCascadeOrgMoveObligations(isOrg ? (move?.mechanismTypeId ?? null) : null, open && isOrg);
+  const { data: obligations, isLoading } = isOrg ? orgObs : progObs;
   const { currentProject } = useProject();
   const programId = currentProject?.id;
   const { data: members = [], isLoading: membersLoading } = useOrgMembers();
@@ -116,7 +123,7 @@ export default function RemediationDrawer({
               label="Owner (oversight lead)"
               value={(
                 <Stack direction="row" alignItems="center" spacing={0.5}>
-                  <FormControl size="small" fullWidth disabled={!programId || savingLead || membersLoading}>
+                  <FormControl size="small" fullWidth disabled={isOrg || !programId || savingLead || membersLoading}>
                     <Select
                       value={localLead}
                       displayEmpty

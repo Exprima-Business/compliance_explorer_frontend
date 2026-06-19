@@ -10,9 +10,10 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useCascadeSurface, obligationCoverage } from '../hooks/useCascadeSurface';
+import { obligationCoverage } from '../hooks/useCascadeSurface';
 import { useProjectSummary } from '../hooks/useProjectSummary';
-import { useCascadeLeverage, type CascadeMove } from '../hooks/useCascadeLeverage';
+import { type CascadeMove } from '../hooks/useCascadeLeverage';
+import { useCascadeOrgSurface, useCascadeOrgLeverage } from '../hooks/useCascadeOrg';
 import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
 import { evaluationService, type SolicitationEvaluation } from '../services/evaluationService';
 import RemediationDrawer from './RemediationDrawer';
@@ -117,9 +118,12 @@ export default function CommandCenter() {
   const [activeMove, setActiveMove] = useState<CascadeMove | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
-  const { data: obligations, isLoading: surfaceLoading } = useCascadeSurface();
+  // Org-wide surface + moves (the org baseline). fwPct for coverage still comes
+  // from project-summary — for a single-program org that IS the org posture;
+  // revisit when multi-program lands.
+  const { data: obligations, isLoading: surfaceLoading } = useCascadeOrgSurface();
   const { data: summary } = useProjectSummary();
-  const { data: moves } = useCascadeLeverage();
+  const { data: moves } = useCascadeOrgLeverage();
   const { data: members = [] } = useOrgMembers();
   const leadLabel = (userId: string | null) => {
     if (!userId) return null;
@@ -407,7 +411,7 @@ export default function CommandCenter() {
         while few requirements are fully satisfied.
       </Typography>
 
-      <RemediationDrawer move={activeMove} onClose={() => setActiveMove(null)} />
+      <RemediationDrawer move={activeMove} onClose={() => setActiveMove(null)} scope="org" />
       <ComplianceAssistant open={assistantOpen} onClose={() => setAssistantOpen(false)} />
       <ScopeSetupAssistant open={setupOpen} onClose={() => setSetupOpen(false)} />
     </Box>
