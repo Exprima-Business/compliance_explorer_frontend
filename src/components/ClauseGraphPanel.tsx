@@ -166,7 +166,7 @@ const ClauseGraphPanel: React.FC<Props> = ({ pendingId, defaultIdentifier, defau
             This clause isn't linked to a regulatory-graph node yet. Find the existing node for it (preferred —
             avoids duplicates), or create one only if none exists.
           </Typography>
-          {searchBox(doLink, 'Link')}
+          {searchBox(a => doLink(a.id), 'Link')}
           <Box>
             <Button size="small" onClick={() => setShowCreate(s => !s)}>
               {showCreate ? 'Cancel new node' : 'No match — create a new graph node'}
