@@ -12,7 +12,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import {
   pendingClauseService,
   type PendingClause, type MechanismType, type CurateDraft, type ProposedMethod,
-  type EnrichedDraft,
+  type EnrichedDraft, type Family,
 } from '../services/pendingClauseService';
 
 const RISK_LEVELS = ['LOW', 'MEDIUM', 'HIGH'];
@@ -22,7 +22,7 @@ interface FormState {
   clauseCode: string;
   title: string;
   description: string;
-  family: string;
+  familyId: string;
   clauseCategory: string;
   riskClassification: string;
   implementationGuidance: string;
@@ -33,7 +33,7 @@ interface FormState {
 }
 
 const blankForm = (): FormState => ({
-  clauseCode: '', title: '', description: '', family: '', clauseCategory: '', riskClassification: '',
+  clauseCode: '', title: '', description: '', familyId: '', clauseCategory: '', riskClassification: '',
   implementationGuidance: '', assessmentMethod: '', referenceUrl: '', sourceAuthorityForLink: '',
   proposedMethods: [],
 });
@@ -42,7 +42,7 @@ const fromCandidate = (c: PendingClause): FormState => ({
   clauseCode: c.clause_code ?? '',
   title: c.title ?? '',
   description: c.description ?? '',
-  family: c.family ?? '',
+  familyId: c.family_id ?? '',
   clauseCategory: c.clause_category ?? '',
   riskClassification: c.risk_classification ?? '',
   implementationGuidance: c.implementation_guidance ?? '',
@@ -56,7 +56,7 @@ const toDraft = (f: FormState): CurateDraft => ({
   clauseCode: f.clauseCode.trim() || undefined,
   title: f.title || undefined,
   description: f.description || null,
-  family: f.family || null,
+  familyId: f.familyId || null,
   clauseCategory: f.clauseCategory || null,
   riskClassification: f.riskClassification || null,
   implementationGuidance: f.implementationGuidance || null,
@@ -70,6 +70,7 @@ const ClauseCurationReview: React.FC = () => {
   const [statusTab, setStatusTab] = useState<'pending' | 'promoted' | 'rejected'>('pending');
   const [queue, setQueue] = useState<PendingClause[]>([]);
   const [mechTypes, setMechTypes] = useState<MechanismType[]>([]);
+  const [families, setFamilies] = useState<Family[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(blankForm());
   const [loading, setLoading] = useState(true);
@@ -97,8 +98,12 @@ const ClauseCurationReview: React.FC = () => {
   useEffect(() => { loadQueue(statusTab); setSelectedId(null); }, [statusTab]);
   useEffect(() => {
     (async () => {
-      const resp = await pendingClauseService.mechanismTypes();
-      if (!resp.error) setMechTypes(resp.data ?? []);
+      const [mt, fam] = await Promise.all([
+        pendingClauseService.mechanismTypes(),
+        pendingClauseService.families(),
+      ]);
+      if (!mt.error) setMechTypes(mt.data ?? []);
+      if (!fam.error) setFamilies(fam.data ?? []);
     })();
   }, []);
   useEffect(() => { if (selected) setForm(fromCandidate(selected)); }, [selected]);
@@ -124,12 +129,16 @@ const ClauseCurationReview: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = ''; // allow re-selecting the same file
     if (resp.error) { setError(typeof resp.error === 'string' ? resp.error : resp.error.message); return; }
     const d = resp.data as EnrichedDraft;
+    // The model suggests a family by name; pre-select the matching family_id if one exists.
+    const matchedFamilyId = d.family
+      ? families.find(fam => fam.name.toLowerCase() === d.family.trim().toLowerCase())?.id
+      : undefined;
     setForm(f => ({
       ...f,
       clauseCode: d.suggestedClauseCode || f.clauseCode,
       title: d.title || f.title,
       description: d.description || f.description,
-      family: d.family || f.family,
+      familyId: matchedFamilyId || f.familyId,
       clauseCategory: d.clauseCategory || f.clauseCategory,
       riskClassification: d.riskClassification || f.riskClassification,
       implementationGuidance: d.implementationGuidance || f.implementationGuidance,
@@ -153,12 +162,15 @@ const ClauseCurationReview: React.FC = () => {
 
   const promote = async () => {
     if (!selectedId) return;
-    if (!form.clauseCode.trim()) {
-      setError('Clause code is required before promoting.');
-      return;
-    }
-    if (!form.description.trim() || !form.implementationGuidance.trim()) {
-      setError('Description and implementation guidance are required before promoting.');
+    const missing: string[] = [];
+    if (!form.clauseCode.trim()) missing.push('clause code');
+    if (!form.description.trim()) missing.push('description');
+    if (!form.implementationGuidance.trim()) missing.push('implementation guidance');
+    if (!form.familyId) missing.push('family');
+    if (!form.clauseCategory.trim()) missing.push('category');
+    if (!form.riskClassification) missing.push('risk');
+    if (missing.length) {
+      setError(`Required before promoting: ${missing.join(', ')}.`);
       return;
     }
     setBusy(true); setError(null);
@@ -283,9 +295,13 @@ const ClauseCurationReview: React.FC = () => {
                 </Box>
                 <TextField label="Description" size="small" value={form.description} onChange={e => set('description', e.target.value)} fullWidth multiline minRows={2} required />
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                  <TextField label="Family" size="small" value={form.family} onChange={e => set('family', e.target.value)} sx={{ flex: 1, minWidth: 160 }} />
-                  <TextField label="Category" size="small" value={form.clauseCategory} onChange={e => set('clauseCategory', e.target.value)} sx={{ flex: 1, minWidth: 160 }} />
-                  <TextField label="Risk" size="small" select value={form.riskClassification} onChange={e => set('riskClassification', e.target.value)} sx={{ width: 140 }}>
+                  <TextField label="Family" size="small" select required value={form.familyId} onChange={e => set('familyId', e.target.value)} sx={{ flex: 1, minWidth: 200 }}
+                    helperText="Catalog family this clause belongs to">
+                    <MenuItem value=""><em>select…</em></MenuItem>
+                    {families.map(fam => <MenuItem key={fam.id} value={fam.id}>{fam.name}</MenuItem>)}
+                  </TextField>
+                  <TextField label="Category" size="small" required value={form.clauseCategory} onChange={e => set('clauseCategory', e.target.value)} sx={{ flex: 1, minWidth: 160 }} />
+                  <TextField label="Risk" size="small" select required value={form.riskClassification} onChange={e => set('riskClassification', e.target.value)} sx={{ width: 140 }}>
                     <MenuItem value=""><em>none</em></MenuItem>
                     {RISK_LEVELS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                   </TextField>

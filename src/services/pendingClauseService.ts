@@ -22,6 +22,7 @@ export interface PendingClause {
   supporting_context: string | null;
   source_evaluation_id: string | null;
   source_organization_id: string | null;
+  family_id: string | null;
   family: string | null;
   clause_category: string | null;
   risk_classification: string | null;
@@ -43,11 +44,17 @@ export interface MechanismType {
   pattern_type: string;
 }
 
+export interface Family {
+  id: string;
+  name: string;
+}
+
 /** Curator-editable draft fields (camelCase → BE maps to columns). */
 export interface CurateDraft {
   clauseCode?: string;
   title?: string;
   description?: string | null;
+  familyId?: string | null;
   family?: string | null;
   clauseCategory?: string | null;
   riskClassification?: string | null;
@@ -102,6 +109,10 @@ export const pendingClauseService = {
 
   mechanismTypes: (): Promise<ApiResponse<MechanismType[]>> =>
     apiCall<MechanismType[]>('/api/pending-clauses/mechanism-types', { requireAuth: true }),
+
+  /** Catalog families for the Family dropdown (platform reviewer). */
+  families: (): Promise<ApiResponse<Family[]>> =>
+    apiCall<Family[]>('/api/pending-clauses/families', { requireAuth: true }),
 
   saveDraft: (id: string, draft: CurateDraft): Promise<ApiResponse<PendingClause>> =>
     apiCall<PendingClause>(`/api/pending-clauses/${id}`, {
