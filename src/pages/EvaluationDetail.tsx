@@ -27,16 +27,18 @@ import {
 import { useProject } from '../contexts/ProjectContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
 
-// The clause-row chip describes SCOPE — is this detected clause already in
-// your program, or a new requirement? It is deliberately NOT a compliance
-// signal; compliance lives in the per-framework completion panel above.
+// The clause-row chip describes SCOPE — is this detected obligation already in
+// your ORGANIZATION's compliance baseline (covered by an activated framework or
+// the cascade), or a new requirement this solicitation introduces? It is
+// deliberately NOT a compliance signal (in-scope ≠ implemented); implementation
+// status lives in the per-framework completion panel above.
 const SCOPE_COLOR: Record<CoverageStatus, 'info' | 'warning' | 'default'> = {
   covered: 'info',
   gap: 'warning',
   unknown: 'default',
 };
 const SCOPE_LABEL: Record<CoverageStatus, string> = {
-  covered: 'Already in program',
+  covered: 'In baseline',
   gap: 'New requirement',
   unknown: 'Not in catalog',
 };
@@ -680,7 +682,7 @@ const EvaluationDetail: React.FC = () => {
       {/* Coverage summary */}
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 3 }}>
         <StatTile label="Detected" value={summary.detected} />
-        <StatTile label="In Program" value={summary.covered} color={theme.palette.info.main} />
+        <StatTile label="In baseline" value={summary.covered} color={theme.palette.info.main} />
         <StatTile label="New" value={summary.gaps} color={theme.palette.warning.main} />
         <StatTile label="Not in Catalog" value={summary.unknown} color={theme.palette.text.disabled} />
       </Box>

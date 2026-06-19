@@ -33,23 +33,25 @@ export interface ValidatedClause extends DetectedClause {
 /**
  * Normalise a clause code for comparison.
  *
- * Mirrors the backend logic in scanValidationService.ts:
+ * Mirrors the backend logic in scanValidationService.ts (keep in sync):
  *   - Uppercase
  *   - Replace dots, spaces, underscores with dashes
+ *   - Remove redundant "NIST" before FIPS ("NIST FIPS 140-2" → "FIPS 140-2")
  *   - Remove "SP" prefix  (e.g. "NIST SP 800-171" → "NIST-800-171")
- *   - Remove "Rev" + revision numbers
+ *   - Remove "Rev"/"Revision" + revision numbers
  *   - Strip remaining special characters
  *   - Collapse repeated dashes and trim leading/trailing dashes
  */
 export function normalizeClauseCode(code: string): string {
   return code
     .toUpperCase()
-    .replace(/[.\s_]+/g, '-')         // dots / spaces / underscores → dash
-    .replace(/\bSP\b-?/g, '')         // strip "SP" prefix
-    .replace(/\bREV\b-?\d*/gi, '')    // strip "Rev" + optional revision number
-    .replace(/[^A-Z0-9-]/g, '')       // remove anything that isn't A-Z, 0-9, dash
-    .replace(/-+/g, '-')              // collapse repeated dashes
-    .replace(/^-|-$/g, '');           // trim leading / trailing dashes
+    .replace(/[.\s_]+/g, '-')             // dots / spaces / underscores → dash
+    .replace(/\bNIST-(?=FIPS)/g, '')      // drop redundant "NIST" before FIPS (FIPS are NIST pubs)
+    .replace(/\bSP\b-?/g, '')             // strip "SP" prefix
+    .replace(/\bREV(?:ISION)?\b-?\d*/gi, '') // strip "Rev"/"Revision" + optional revision number
+    .replace(/[^A-Z0-9-]/g, '')           // remove anything that isn't A-Z, 0-9, dash
+    .replace(/-+/g, '-')                  // collapse repeated dashes
+    .replace(/^-|-$/g, '');               // trim leading / trailing dashes
 }
 
 // ---------------------------------------------------------------------------
@@ -81,14 +83,26 @@ export function matchClauseToDatabase(
     if (normMatch) return { clause: normMatch, matchType: 'normalized' };
   }
 
-  // Tier 3 — title match (both directions: detected title in DB title OR DB title in detected title)
+  // Tier 3 — title match. Require SUBSTANTIAL overlap, not a trivial substring.
+  // A bare bidirectional `includes` over-matched (e.g. "Security" inside "House
+  // Information Security Policy 15" counted as a match), making the scanner
+  // report far more matches than the authoritative backend evaluation. Demand
+  // that the shorter title be >=60% the length of the longer — i.e. the two are
+  // substantially the same title — mirroring the backend's high-similarity
+  // fuzzy threshold so the preview stops over-reporting "Matched by title".
   if (detected.title) {
     const detectedLower = detected.title.toLowerCase().trim();
-    const titleMatch = dbClauses.find(c => {
-      const dbLower = c.title.toLowerCase().trim();
-      return dbLower.includes(detectedLower) || detectedLower.includes(dbLower);
-    });
-    if (titleMatch) return { clause: titleMatch, matchType: 'title' };
+    if (detectedLower.length >= 6) {
+      const titleMatch = dbClauses.find(c => {
+        const dbLower = c.title.toLowerCase().trim();
+        if (!dbLower) return false;
+        if (!(dbLower.includes(detectedLower) || detectedLower.includes(dbLower))) return false;
+        const shorter = Math.min(dbLower.length, detectedLower.length);
+        const longer = Math.max(dbLower.length, detectedLower.length);
+        return longer > 0 && shorter / longer >= 0.6;
+      });
+      if (titleMatch) return { clause: titleMatch, matchType: 'title' };
+    }
   }
 
   return { clause: null, matchType: 'none' };
