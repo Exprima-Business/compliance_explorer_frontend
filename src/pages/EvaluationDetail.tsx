@@ -122,6 +122,11 @@ function computeVerdict(
   // controls THIS document implicates that are implemented. Framework-wide
   // posture is informative but the verdict's job is "are you ready for
   // THIS solicitation," which depends on the implicated subset.
+  // Doc-scoped implementation % — the % of controls THIS document implicates
+  // that are implemented. Often null in the org-baseline model (the matched
+  // obligations may be pubs the document names, not framework controls), so
+  // COVERAGE below is the primary signal and this only refines the verdict
+  // when per-framework data is present.
   const minActivatedPct = activated.length > 0
     ? Math.min(...activated.map(f => f.docScopedCompletionPct))
     : null;
@@ -131,51 +136,61 @@ function computeVerdict(
   let verdict: Verdict;
   let headline: string;
 
+  // Coverage rationale first — these are the org-baseline signals.
+  if (coverage.detected > 0) {
+    rationale.push(
+      `${coverage.covered} of ${coverage.detected} detected obligation${coverage.detected === 1 ? '' : 's'} ${coverage.covered === 1 ? 'is' : 'are'} already in your organization's compliance baseline.`
+    );
+  }
+  if (newClauseCount > 0) {
+    rationale.push(
+      `${newClauseCount} new requirement${newClauseCount === 1 ? '' : 's'} this document introduces beyond your current baseline.`
+    );
+  }
+  if (coverage.unknown > 0) {
+    rationale.push(
+      `${coverage.unknown} detected clause${coverage.unknown === 1 ? '' : 's'} not yet in our catalog — review before adding to your baseline.`
+    );
+  }
   if (notActivated.length > 0) {
     rationale.push(
       `${notActivated.length} required framework${notActivated.length === 1 ? '' : 's'} not activated: ${notActivated.map(f => f.name).join(', ')}.`
     );
   }
-
   if (activated.length > 0) {
     rationale.push(
       `For the controls this document implicates, completion ranges from ${Math.min(...activated.map(f => f.docScopedCompletionPct))}% to ${Math.max(...activated.map(f => f.docScopedCompletionPct))}%.`
     );
   }
 
-  if (newClauseCount > 0) {
-    rationale.push(
-      `${newClauseCount} new requirement${newClauseCount === 1 ? '' : 's'} the document introduces beyond your current program scope.`
-    );
-  }
-
-  if (coverage.unknown > 0) {
-    rationale.push(
-      `${coverage.unknown} detected clause${coverage.unknown === 1 ? '' : 's'} not yet in our catalog — manual review recommended.`
-    );
-  }
-
-  // Verdict thresholds — intentionally conservative. A "GO" recommendation
-  // implies the platform has high confidence; ambiguous cases get
-  // "EVALUATE" so the user is forced to look at the detail.
-  if (frameworks.length === 0) {
+  // Verdict — coverage-driven, refined by implementation % when available.
+  // Conservative: a "GO" needs high confidence; ambiguous cases get "EVALUATE"
+  // so the user looks at the detail.
+  const toReview = newClauseCount + coverage.unknown;
+  if (coverage.detected === 0) {
     verdict = 'EVALUATE';
-    headline = 'Document detected no tracked compliance frameworks';
+    headline = 'No compliance obligations detected in this document';
   } else if (notActivated.length > 0 && newClauseCount > 0) {
     verdict = 'NO_GO';
     headline = 'You have not activated required frameworks for this document';
   } else if (minActivatedPct !== null && minActivatedPct < 40) {
     verdict = 'NO_GO';
     headline = 'A required framework is less than 40% implemented';
+  } else if (toReview === 0) {
+    // Everything this document names is already in your baseline.
+    if (minActivatedPct !== null && minActivatedPct < 80) {
+      verdict = 'EVALUATE';
+      headline = 'All obligations are in your baseline — finish implementing the gaps';
+    } else {
+      verdict = 'GO';
+      headline = 'Your org baseline covers every obligation this document names';
+    }
   } else if (minActivatedPct !== null && minActivatedPct < 80) {
     verdict = 'EVALUATE';
     headline = 'Required frameworks are partially implemented — review the gaps';
-  } else if (minActivatedPct !== null && minActivatedPct >= 80) {
-    verdict = 'GO';
-    headline = 'Your program substantially covers this document';
   } else {
     verdict = 'EVALUATE';
-    headline = 'Review required before bidding';
+    headline = `${toReview} requirement${toReview === 1 ? '' : 's'} to review and add to your baseline before bidding`;
   }
 
   return {
