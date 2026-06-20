@@ -19,6 +19,7 @@ import { evaluationService, type SolicitationEvaluation } from '../services/eval
 import RemediationDrawer from './RemediationDrawer';
 import ComplianceAssistant from './ComplianceAssistant';
 import ScopeSetupAssistant from './ScopeSetupAssistant';
+import JourneyGuide from './JourneyGuide';
 
 const GREEN = '#15803d', AMBER = '#b45309', RED = '#b91c1c', PURPLE = '#534AB7';
 const band = (p: number) => (p >= 80 ? GREEN : p >= 50 ? AMBER : RED);
@@ -200,23 +201,21 @@ export default function CommandCenter() {
         </Stack>
       </Stack>
 
-      {/* Next Best Action */}
-      <Card sx={{ mb: 2, border: '1px solid', borderColor: 'divider', bgcolor: '#F5F4FC' }}>
-        <CardContent sx={{ p: 1.75, '&:last-child': { pb: 1.75 } }}>
-          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ flexWrap: 'wrap', gap: 1 }}>
-            <StarIcon sx={{ color: PURPLE }} />
-            <Box sx={{ flex: 1, minWidth: 220 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#3C3489' }}>Next best action</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {topMove
-                  ? `${topMove.mechanismLabel} — resolves ${topMove.obligationsCleared} requirements across ${topMove.authoritiesCount} authorities.`
-                  : 'Activate a framework to generate your remediation roadmap.'}
-              </Typography>
-            </Box>
-            <Button size="small" variant="outlined" sx={{ textTransform: 'none' }}>View priority actions</Button>
-          </Stack>
-        </CardContent>
-      </Card>
+      {/* Guided layer: journey spine + next-step hero */}
+      <JourneyGuide
+        hasFrameworks={m.totalControls > 0}
+        hasSurface={m.total > 0}
+        posture={m.posture}
+        covered={m.satisfied}
+        total={m.total}
+        gapsOpen={m.partial + m.notStarted}
+        topMove={topMove ?? null}
+        moveCount={moves?.length ?? 0}
+        onSetupScope={() => setSetupOpen(true)}
+        onStartMove={(mv) => setActiveMove(mv)}
+        onViewAllMoves={() => document.getElementById('priority-remediation')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        onGenerateReport={() => navigate('/report')}
+      />
 
       {/* KPI row */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 1.5, mb: 2 }}>
@@ -264,7 +263,7 @@ export default function CommandCenter() {
 
       {/* Priority Remediation + Solicitation Readiness */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.2fr 1fr' }, gap: 1.5, mb: 2 }}>
-        <Card sx={{ border: '1px solid', borderColor: 'divider' }}>
+        <Card id="priority-remediation" sx={{ border: '1px solid', borderColor: 'divider' }}>
           <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
             <Stack direction="row" alignItems="center" sx={{ mb: 0.25 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>Priority Remediation</Typography>
