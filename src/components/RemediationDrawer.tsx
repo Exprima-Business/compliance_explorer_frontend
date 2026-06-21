@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box, Chip, CircularProgress, Divider, Drawer, FormControl, IconButton,
   MenuItem, Select, Stack, Typography,
@@ -8,7 +8,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCascadeMoveObligations } from '../hooks/useCascadeMoveObligations';
+import { useCascadeMoveObligations, type CascadeMoveObligation } from '../hooks/useCascadeMoveObligations';
 import { useCascadeOrgMoveObligations } from '../hooks/useCascadeOrg';
 import type { CascadeMove } from '../hooks/useCascadeLeverage';
 import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
@@ -57,6 +57,22 @@ export default function RemediationDrawer({
   const progObs = useCascadeMoveObligations(isOrg ? null : (move?.mechanismTypeId ?? null), open && !isOrg);
   const orgObs = useCascadeOrgMoveObligations(isOrg ? (move?.mechanismTypeId ?? null) : null, open && isOrg);
   const { data: obligations, isLoading } = isOrg ? orgObs : progObs;
+
+  // Group what this move clears by authority (mockup B: the unlock tree). The
+  // obligations a move clears are open by construction (it satisfies them).
+  const grouped = useMemo(() => {
+    const byAuth = new Map<string, CascadeMoveObligation[]>();
+    for (const o of obligations ?? []) {
+      const k = o.sourceAuthority || 'Other';
+      const arr = byAuth.get(k) ?? [];
+      arr.push(o);
+      byAuth.set(k, arr);
+    }
+    return Array.from(byAuth.entries())
+      .map(([authority, items]) => ({ authority, items }))
+      .sort((a, b) => b.items.length - a.items.length);
+  }, [obligations]);
+
   const { currentProject } = useProject();
   const programId = currentProject?.id;
   const { data: members = [], isLoading: membersLoading } = useOrgMembers();
@@ -169,32 +185,48 @@ export default function RemediationDrawer({
 
           <Divider sx={{ mb: 1.5 }} />
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-            Requirements this resolves
+            What this clears
           </Typography>
 
           {isLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={20} /></Box>
           )}
 
-          {!isLoading && obligations && obligations.length > 0 && (
-            <Stack spacing={0.5}>
-              {obligations.map(o => (
-                <Stack key={o.artifactId} direction="row" alignItems="center" spacing={1}
-                  onClick={() => goClause(o.identifier)}
-                  sx={{ cursor: 'pointer', p: 0.75, borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500, color: PURPLE }} noWrap>{o.identifier}</Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }} title={o.title}>
-                      {o.sourceAuthority} · {o.title}
+          {!isLoading && grouped.length > 0 && (
+            <>
+              <Stack spacing={1.75}>
+                {grouped.map(({ authority, items }) => (
+                  <Box key={authority}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.75 }}>
+                      {authority}
                     </Typography>
+                    <Stack spacing={0.75}>
+                      {items.map(o => (
+                        <Stack key={o.artifactId} direction="row" alignItems="flex-start" spacing={1}
+                          onClick={() => goClause(o.identifier)}
+                          sx={{ cursor: 'pointer', borderRadius: 1, p: 0.5, '&:hover': { bgcolor: 'action.hover' } }}>
+                          <Chip label="open" size="small" variant="outlined"
+                            sx={{ height: 18, fontSize: 10, color: '#854F0B', borderColor: '#BA7517', flexShrink: 0, mt: 0.25 }} />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography component="span" variant="body2" sx={{ fontWeight: 500, color: PURPLE }}>{o.identifier}</Typography>
+                            <Typography component="span" variant="body2" color="text.secondary"> — {o.title}</Typography>
+                          </Box>
+                          <OpenInNewIcon sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0, mt: 0.4 }} />
+                        </Stack>
+                      ))}
+                    </Stack>
                   </Box>
-                  <OpenInNewIcon sx={{ fontSize: 15, color: 'text.secondary', flexShrink: 0 }} />
-                </Stack>
-              ))}
-            </Stack>
+                ))}
+              </Stack>
+              <Typography variant="caption" color="text.secondary"
+                sx={{ fontStyle: 'italic', display: 'block', mt: 1.75, borderTop: '0.5px solid', borderColor: 'divider', pt: 1.25 }}>
+                One action → {move.obligationsCleared} {move.obligationsCleared === 1 ? 'obligation' : 'obligations'} cleared
+                across {move.authoritiesCount} {move.authoritiesCount === 1 ? 'authority' : 'authorities'}.
+              </Typography>
+            </>
           )}
 
-          {!isLoading && (!obligations || obligations.length === 0) && (
+          {!isLoading && grouped.length === 0 && (
             <Typography variant="body2" color="text.secondary">No open requirements for this action.</Typography>
           )}
         </Box>
