@@ -375,12 +375,18 @@ export default function CommandCenter() {
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 1.5 }}>
         <Card sx={{ border: '1px solid', borderColor: 'divider' }}>
           <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Open gaps by type</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Open gaps</Typography>
             <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
               <Typography variant="h5" sx={{ fontWeight: 700 }}>{m.partial + m.notStarted}</Typography>
               <Typography variant="caption" color="text.secondary">open requirements</Typography>
             </Stack>
-            <Pending label="type classification coming" />
+            <Typography
+              variant="caption"
+              sx={{ color: PURPLE, cursor: 'pointer', fontWeight: 500 }}
+              onClick={() => navigate('/gaps')}
+            >
+              View all gaps by authority →
+            </Typography>
           </CardContent>
         </Card>
 

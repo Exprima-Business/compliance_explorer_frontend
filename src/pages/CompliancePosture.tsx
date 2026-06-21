@@ -3,8 +3,9 @@ import { Box, Card, CardContent, Chip, CircularProgress, Stack, Typography, Butt
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import { useCascadeOrgSurface } from '../hooks/useCascadeOrg';
-import { obligationCoverage, type CascadeObligation } from '../hooks/useCascadeSurface';
+import { obligationCoverage } from '../hooks/useCascadeSurface';
 import { useProjectSummary } from '../hooks/useProjectSummary';
+import { authorityGroup } from '../utils/obligationGrouping';
 
 /**
  * Posture deep view (mockup D): coverage across the FULL obligation surface,
@@ -16,23 +17,6 @@ import { useProjectSummary } from '../hooks/useProjectSummary';
 const GREEN = '#639922', AMBER = '#BA7517', RED = '#D85A30';
 const barColor = (p: number) => (p >= 70 ? GREEN : p >= 45 ? AMBER : RED);
 const ringColor = (p: number) => (p >= 80 ? GREEN : p >= 50 ? AMBER : RED);
-
-/** Map an obligation to a coarse authority group (famous frameworks vs long tail). */
-function authorityGroup(o: CascadeObligation): string {
-  const t = o.artifactType;
-  const id = (o.identifier || '').toUpperCase();
-  const auth = (o.sourceAuthority || '').toUpperCase();
-  if (t === 'dfars_clause' || id.startsWith('DFARS') || id.startsWith('CMMC') || auth.includes('CMMC')) return 'DoD (DFARS) / CMMC';
-  if (t === 'nist_publication' || id.startsWith('NIST') || id.startsWith('FIPS') || id.includes('800-')) return 'NIST (800-53/171/FIPS)';
-  if (t === 'far_clause' || id.startsWith('FAR ') || id.includes('FAR 52')) return 'FAR';
-  if (id.includes('36 CFR 1194') || id.includes('508')) return 'Section 508';
-  if (id.includes('45 CFR 164') || id.includes('HIPAA')) return 'HIPAA';
-  if (t === 'omb_memo' || auth.includes('OMB') || id.includes('32 CFR 2002') || id.includes('CUI') || auth.includes('NARA')) return 'OMB / CUI (NARA)';
-  if (t === 'hsar_clause' || t === 'agency_supplement_clause' || id.startsWith('HSAR') || id.startsWith('VAAR') || id.startsWith('HHSAR')) return 'Agency supplements';
-  if (t === 'statute' || id.includes('U.S.C') || id.includes('USC') || auth.includes('PRIVACY')) return 'Statutes / privacy';
-  if (t === 'executive_order' || id.startsWith('EO ') || id.includes('EXECUTIVE ORDER')) return 'Executive orders';
-  return 'Other / agency';
-}
 
 function Ring({ pct }: { pct: number }) {
   const r = 50, c = 2 * Math.PI * r; // 314
