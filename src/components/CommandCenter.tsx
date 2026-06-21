@@ -224,7 +224,13 @@ export default function CommandCenter() {
             <Typography variant="h4" sx={{ fontWeight: 700, color: band(m.posture) }}>{m.posture}%</Typography>
             <Chip label={bandLabel(m.posture)} size="small" sx={{ height: 18, fontSize: 11, bgcolor: 'rgba(0,0,0,0.06)' }} />
           </Stack>
-          <Typography variant="caption" color="text.secondary">Controls, evidence &amp; satisfied requirements</Typography>
+          <Typography
+            variant="caption"
+            sx={{ color: PURPLE, cursor: 'pointer', fontWeight: 500 }}
+            onClick={() => navigate('/posture')}
+          >
+            Full posture by authority →
+          </Typography>
         </KpiCard>
 
         <KpiCard title="Requirements">

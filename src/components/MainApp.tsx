@@ -26,6 +26,7 @@ import OrgSetupDialog from './OrgSetupDialog';
  * landing-page payload.
  */
 const Dashboard = lazyWithReload(() => import('../pages/Dashboard'));
+const CompliancePosture = lazyWithReload(() => import('../pages/CompliancePosture'));
 const Matrix = lazyWithReload(() => import('../pages/Matrix'));
 const Controls = lazyWithReload(() => import('../pages/Controls'));
 const ExecutiveReport = lazyWithReload(() => import('../pages/ExecutiveReport'));
@@ -76,6 +77,7 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/posture" element={<CompliancePosture />} />
                       <Route path="/matrix" element={<Matrix />} />
                       <Route path="/matrix/:projectId" element={<Matrix />} />
                       <Route path="/controls" element={<Controls />} />
