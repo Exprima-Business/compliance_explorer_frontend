@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
+import { Sentry } from '../config/sentry';
 
 interface Props {
   children: React.ReactNode;
@@ -24,6 +25,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[ErrorBoundary] Caught error:', error, info.componentStack);
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
   }
 
   handleReset = () => {

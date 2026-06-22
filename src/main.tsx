@@ -8,6 +8,10 @@ import { DebugErrorBoundary } from './components/DebugErrorBoundary'
 import './utils/setupDebug'
 import { supabase } from './lib/supabase';
 import { OrganizationValidationService } from './services/organizationValidationService';
+import { initSentry } from './config/sentry';
+
+// Error monitoring — no-op unless VITE_SENTRY_DSN is set.
+initSentry();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Auth debugging blocks below are gated on DEBUG_LOG (per security audit
