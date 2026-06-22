@@ -224,6 +224,14 @@ export const evaluationService = {
     });
   },
 
+  /** Delete an evaluation and its clauses (the data-deletion promise). */
+  remove: async (id: string): Promise<ApiResponse<{ deleted: boolean }>> => {
+    return apiCall<{ deleted: boolean }>(`/api/solicitation-evaluations/${id}`, {
+      method: 'DELETE',
+      requireAuth: true,
+    });
+  },
+
   /**
    * Apply selected evaluation clauses into a compliance program — the
    * additive bridge. Writes the clauses into the program's matrix +

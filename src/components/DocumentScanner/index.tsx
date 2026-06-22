@@ -6,6 +6,8 @@ import {
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SaveIcon from '@mui/icons-material/Save';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { accountService } from '../../services/accountService';
 
 import { useAuth } from '../../hooks/useAuth';
 import { useClause } from '../../contexts/ClauseContext';
@@ -70,6 +72,16 @@ export const DocumentScanner: React.FC = () => {
     localStorage.removeItem('lastScanId');
     navigate('/document-scanner', { replace: true });
   }, [scan, navigate]);
+
+  // Delete the uploaded scan (document + results), then return to a clean slate.
+  const handleDeleteScan = useCallback(async () => {
+    const sid = scan.scanId;
+    if (sid && !sid.startsWith('demo-')) {
+      if (!window.confirm('Delete this scan and its uploaded document? This cannot be undone.')) return;
+      await accountService.deleteScan(sid);
+    }
+    handleReset();
+  }, [scan.scanId, handleReset]);
 
   // -- NO conditional hooks below this line ----------------------------------
 
@@ -173,6 +185,16 @@ export const DocumentScanner: React.FC = () => {
               fullWidth={isMobile}
             >
               Scan Another Document
+            </Button>
+            <Button
+              variant="text"
+              color="error"
+              size={isMobile ? 'small' : 'medium'}
+              startIcon={<DeleteOutlineIcon />}
+              onClick={handleDeleteScan}
+              fullWidth={isMobile}
+            >
+              Delete scan
             </Button>
             {/* Save the scan as a solicitation evaluation — the full
                 pre-bid analysis record covering ALL detected clauses.

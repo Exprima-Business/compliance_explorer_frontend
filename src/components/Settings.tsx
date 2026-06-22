@@ -26,6 +26,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useProject } from '../contexts/ProjectContext';
 import { profileService } from '../services/profileService';
+import { accountService, downloadJson } from '../services/accountService';
 
 interface SettingsProps {
   open: boolean;
@@ -80,6 +81,21 @@ export const Settings = ({
     queryClient.invalidateQueries({ queryKey: ['orgMembers'] });
     setNameMsg('Saved');
     setTimeout(() => setNameMsg(null), 2400);
+  };
+
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const handleExport = async () => {
+    setExporting(true);
+    setExportMsg(null);
+    const resp = await accountService.exportOrgData();
+    setExporting(false);
+    if (resp.error) {
+      setExportMsg(typeof resp.error === 'string' ? resp.error : resp.error.message ?? 'Export failed');
+      return;
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadJson(resp.data, `clauseatlas-export-${stamp}.json`);
   };
 
   const handleDelete = async (id: string) => {
@@ -246,6 +262,24 @@ export const Settings = ({
           >
             Reset to Ask Each Time
           </Button>
+        </Box>
+
+        <Divider sx={{ mb: 3 }} />
+
+        {/* ── Your data ───────────────────────────────────── */}
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>Your data</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Download a JSON copy of your organization's data (evaluations, scans, POA&amp;M, and
+            baseline). To request deletion of specific documents, use the delete actions in the
+            Scanner and Evaluations, or email support.
+          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button variant="outlined" onClick={handleExport} disabled={exporting}>
+              {exporting ? 'Preparing…' : 'Export my data'}
+            </Button>
+            {exportMsg && <Typography variant="caption" color="error">{exportMsg}</Typography>}
+          </Stack>
         </Box>
       </DialogContent>
       <DialogActions>
