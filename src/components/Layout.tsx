@@ -23,7 +23,9 @@ import {
   Alert,
   Switch,
   FormControlLabel,
+  Link as MuiLink,
 } from '@mui/material';
+import Disclaimer from './Disclaimer';
 import {
   Settings as SettingsIcon,
   Logout as LogoutIcon,
@@ -372,6 +374,22 @@ export default function Layout({ children }: LayoutProps) {
         }}
       >
         {children}
+
+        {/* Global footer — disclaimer + legal/trust links on every page */}
+        <Box component="footer" sx={{ borderTop: '1px solid', borderColor: 'divider', mt: 4, px: { xs: 2, md: 3 }, py: 2 }}>
+          <Disclaimer compact />
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
+            {([['Security', '/security'], ['Privacy', '/privacy'], ['Terms', '/terms']] as const).map(([label, route]) => (
+              <MuiLink key={route} component="button" variant="caption" underline="hover"
+                sx={{ color: 'text.secondary' }} onClick={() => navigateTo(route)}>
+                {label}
+              </MuiLink>
+            ))}
+            <MuiLink href="mailto:support@clauseatlas.com" variant="caption" underline="hover" sx={{ color: 'text.secondary' }}>
+              Support
+            </MuiLink>
+          </Box>
+        </Box>
       </Box>
       <Settings
         open={settingsOpen}
