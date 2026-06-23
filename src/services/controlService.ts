@@ -309,6 +309,30 @@ export async function deactivateFramework(frameworkId: string): Promise<void> {
   });
 }
 
+// ── Org-tier framework activation (org-baseline). Org comes from session
+// context; these hit the /api/controls/org/* routes. ─────────────────────────
+
+export async function fetchActivatedFrameworksOrg(): Promise<ControlFramework[]> {
+  const res = await apiCall<ControlFramework[]>('/api/controls/org/activated-frameworks', {
+    requireAuth: true,
+  });
+  return res.data ?? [];
+}
+
+export async function activateFrameworkOrg(frameworkId: string): Promise<void> {
+  await apiCall(`/api/controls/org/frameworks/${frameworkId}/activate`, {
+    method: 'POST',
+    requireAuth: true,
+  });
+}
+
+export async function deactivateFrameworkOrg(frameworkId: string): Promise<void> {
+  await apiCall(`/api/controls/org/frameworks/${frameworkId}/activate`, {
+    method: 'DELETE',
+    requireAuth: true,
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SSP Parser
 // ─────────────────────────────────────────────────────────────────────────────

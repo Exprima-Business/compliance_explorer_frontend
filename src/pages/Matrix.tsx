@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   Box, Typography, CircularProgress, Alert, Card, CardContent,
   useMediaQuery, useTheme, Button, Chip, Snackbar, Tooltip,
@@ -11,17 +11,15 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { ComplianceMatrix } from '../components/ComplianceMatrix';
 import { useClause } from '../contexts/ClauseContext';
 import { useBookmarks } from '../contexts/BookmarkContext';
-import { useProject } from '../contexts/ProjectContext';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useOrg } from '../contexts/OrgContext';
+import { useNavigate } from 'react-router-dom';
 import type { Clause } from '../types/clause';
 import {
-  fetchRecommendedFrameworks, fetchActivatedFrameworks,
-  activateFramework, type FrameworkRecommendation, type ControlFramework
+  fetchFrameworks, fetchActivatedFrameworksOrg,
+  activateFrameworkOrg, deactivateFrameworkOrg, type ControlFramework
 } from '../services/controlService';
-import { apiCall } from '../services/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { keys } from '../queryClient';
-import { useProjectSummary } from '../hooks/useProjectSummary';
+import { useOrgSummary } from '../hooks/useOrgSummary';
 
 // Heatmap types
 interface FamilyHeatmapData {
@@ -70,47 +68,39 @@ const Matrix: React.FC = () => {
 
   const { clauses, loading, error } = useClause();
   const { bookmarks, loading: bookmarkLoading } = useBookmarks();
-  const { currentProject } = useProject();
-  const { projectId } = useParams<{ projectId?: string }>();
+  const { currentOrg } = useOrg();
+  const orgId = currentOrg?.id;
   const qc = useQueryClient();
 
   // Framework activation state
   const [activating, setActivating] = useState<string | null>(null);
   const [snackMsg, setSnackMsg] = useState<string | null>(null);
 
-  // If the URL contains a projectId, persist it to localStorage so that
-  // ProjectContext picks it up on its next refresh cycle. This allows
-  // direct links like /matrix/:projectId to work correctly.
-  useEffect(() => {
-    if (projectId) {
-      localStorage.setItem('projectId', projectId);
-    }
-  }, [projectId]);
-
-  // Framework recommendations + activated frameworks — single React Query
-  // entry so an activation mutation can invalidate one key. The query is
-  // disabled until the project is loaded, avoiding the spinner flash.
+  // Catalog frameworks + the org-activated set → which are available to
+  // activate vs already active. Org baseline scope; activation writes the
+  // org tier (org_frameworks + seeded org_control_status).
   const { data: frameworksData } = useQuery({
-    queryKey: keys.matrix(undefined, currentProject?.id),
+    queryKey: ['matrix-org-frameworks', orgId],
     queryFn: async () => {
-      const [recs, activated] = await Promise.all([
-        fetchRecommendedFrameworks(),
-        fetchActivatedFrameworks(),
+      const [all, activated] = await Promise.all([
+        fetchFrameworks(),
+        fetchActivatedFrameworksOrg(),
       ]);
-      return { recommendations: recs, activatedFrameworks: activated };
+      return { all, activatedFrameworks: activated };
     },
-    enabled: !!currentProject?.id,
+    enabled: !!orgId,
   });
-  const recommendations: FrameworkRecommendation[] = frameworksData?.recommendations ?? [];
+  const allFrameworks: ControlFramework[] = frameworksData?.all ?? [];
   const activatedFrameworks: ControlFramework[] = frameworksData?.activatedFrameworks ?? [];
+  const activatedIds = useMemo(() => new Set(activatedFrameworks.map(f => f.id)), [activatedFrameworks]);
+  const availableFrameworks = useMemo(
+    () => allFrameworks.filter(f => !activatedIds.has(f.id)),
+    [allFrameworks, activatedIds],
+  );
 
-  // Heatmap data — SHARED with Dashboard via the projectSummary key. Back-
-  // nav between Dashboard and Matrix is a cache hit. Status flips invalidate
-  // this key (see Controls.tsx handleStatusChange + handleObjectiveStatusChange).
-  const { data: projectSummary } = useProjectSummary();
-  // useProjectSummary returns the canonical shape; cast members the Matrix
-  // page expects (FrameworkHeatmapData) onto it — they're structurally
-  // compatible (FamilySummary ↔ FamilyHeatmapData).
+  // Heatmap data — the ORG baseline posture summary (org-baseline B1). Same
+  // response shape as the program summary, so the heatmap mapping is unchanged.
+  const { data: projectSummary } = useOrgSummary();
   const heatmapData: FrameworkHeatmapData[] = useMemo(
     () => (projectSummary?.frameworks ?? []).map(fw => ({
       id: fw.id,
@@ -123,68 +113,43 @@ const Matrix: React.FC = () => {
     [projectSummary],
   );
 
-  // Scan-detected clauses from project_matrix_data — separate key so it
-  // doesn't get invalidated by status flips. Named `matrixScanResp` (not
-  // matrixData) to avoid shadowing the existing bookmark-derived
-  // `matrixData: MatrixRow[]` further down in this component.
-  const { data: matrixScanResp } = useQuery({
-    queryKey: keys.matrixData(currentProject?.id),
-    queryFn: async () => {
-      const res = await apiCall<{
-        clauses: Array<{
-          id: string;
-          clauseId: string;
-          clauseCode?: string;
-          sourceType?: string;
-          title: string;
-          description: string;
-          confidence: number;
-          status: string;
-        }>;
-      }>(`/api/projects/${currentProject!.id}/matrix-data?limit=500`, { requireAuth: true });
-      if (!res.data) {
-        const msg = typeof res.error === 'string' ? res.error : res.error?.message;
-        throw new Error(msg || 'Failed to load matrix data');
-      }
-      return res.data;
-    },
-    enabled: !!currentProject?.id,
-    // Matrix data is a heavyweight project_matrix_data scan; cache it
-    // longer than the default since scans happen on demand, not on every flip.
-    staleTime: 5 * 60_000,
-  });
-  const scanDetectedClauses = useMemo(
-    () => (matrixScanResp?.clauses ?? [])
-      .filter(c => c.sourceType === 'scan-detected')
-      .map(c => ({
-        id: c.id,
-        clauseCode: c.clauseCode || c.clauseId || 'Unknown',
-        title: c.title,
-        description: c.description || '',
-        confidence: c.confidence,
-        status: c.status,
-      })),
-    [matrixScanResp],
-  );
+  // Scan-detected overlay is deferred at org scope: project_matrix_data was
+  // project-scoped. Org net-new clauses live in org_scoped_clauses — a
+  // follow-up surface. Empty for now so the page renders cleanly.
+  const scanDetectedClauses: Array<{
+    id: string; clauseCode: string; title: string; description: string; confidence: number; status: string;
+  }> = [];
+
+  const invalidateAfterActivation = useCallback(() => Promise.all([
+    qc.invalidateQueries({ queryKey: ['matrix-org-frameworks', orgId] }),
+    qc.invalidateQueries({ queryKey: ['org-summary', orgId] }),
+  ]), [qc, orgId]);
 
   const handleActivateFramework = useCallback(async (frameworkId: string) => {
     setActivating(frameworkId);
     try {
-      await activateFramework(frameworkId);
-      // Activation changes both the matrix activation set AND the shared
-      // project summary (the new framework appears in the heatmap). Invalidate
-      // both — refetches happen in parallel.
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: keys.matrix(undefined, currentProject?.id) }),
-        qc.invalidateQueries({ queryKey: keys.projectSummary(undefined, currentProject?.id) }),
-      ]);
+      await activateFrameworkOrg(frameworkId);
+      await invalidateAfterActivation();
       setSnackMsg('Framework activated! View controls to begin compliance tracking.');
     } catch {
       setSnackMsg('Failed to activate framework. Please try again.');
     } finally {
       setActivating(null);
     }
-  }, []);
+  }, [invalidateAfterActivation]);
+
+  const handleDeactivateFramework = useCallback(async (frameworkId: string) => {
+    setActivating(frameworkId);
+    try {
+      await deactivateFrameworkOrg(frameworkId);
+      await invalidateAfterActivation();
+      setSnackMsg('Framework deactivated.');
+    } catch {
+      setSnackMsg('Failed to deactivate framework. Please try again.');
+    } finally {
+      setActivating(null);
+    }
+  }, [invalidateAfterActivation]);
 
   // ---------------------------------------------------------------------------
   // ALL useMemo hooks MUST be above any early returns to avoid React Error #300
@@ -252,63 +217,43 @@ const Matrix: React.FC = () => {
         Compliance Matrix
       </Typography>
 
-      {/* Project Info Card */}
-      {currentProject && (
-        <Card sx={{ mb: { xs: 1.5, md: 3 } }}>
-          <CardContent sx={{ p: { xs: 1.5, md: 2 }, '&:last-child': { pb: { xs: 1.5, md: 2 } } }}>
-            <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
-              {currentProject.name}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: { xs: 1.5, md: 3 } }}>
+        Organization-wide control posture{currentOrg?.name ? ` — ${currentOrg.name}` : ''}.
+      </Typography>
+
+      {/* Available frameworks to activate (org baseline) */}
+      {availableFrameworks.length > 0 && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+              Activate a framework
             </Typography>
-            {currentProject.description && (
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                {currentProject.description}
-              </Typography>
-            )}
-            {!isMobile && (
-              <Typography variant="caption" color="text.secondary">
-                Project ID: {currentProject.id} | Created: {new Date(currentProject.createdAt).toLocaleDateString()}
-              </Typography>
-            )}
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+              Activating a framework adds its controls to your organization baseline so you can track implementation.
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {availableFrameworks.map(fw => (
+                <Box key={fw.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                  <Box sx={{ flex: 1, minWidth: 200 }}>
+                    <Typography variant="body2" fontWeight={600}>{fw.name} {fw.version}</Typography>
+                    <Typography variant="caption" color="text.secondary">{fw.total_controls} controls</Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<SecurityIcon />}
+                    disabled={activating === fw.id}
+                    onClick={() => handleActivateFramework(fw.id)}
+                    sx={{ whiteSpace: 'nowrap' }}
+                  >
+                    {activating === fw.id ? 'Activating…' : 'Activate'}
+                  </Button>
+                </Box>
+              ))}
+            </Box>
           </CardContent>
         </Card>
       )}
-
-      {/* Framework Activation Banners */}
-      {recommendations.filter(r => !r.activated).map(rec => (
-        <Card key={rec.framework.id} sx={{
-          mb: 2, border: '2px solid', borderColor: 'warning.main',
-          background: theme.palette.mode === 'dark'
-            ? 'rgba(255,167,38,0.08)' : 'rgba(255,167,38,0.05)'
-        }}>
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            <SecurityIcon color="warning" sx={{ fontSize: 36 }} />
-            <Box sx={{ flex: 1, minWidth: 200 }}>
-              <Typography variant="subtitle1" fontWeight={600}>
-                Compliance Framework Required
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Your project clauses ({rec.triggeringClauses.map(c => c.clauseCode).join(', ')}) require{' '}
-                <strong>{rec.framework.name} {rec.framework.version}</strong> compliance.
-              </Typography>
-              <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                {rec.triggeringClauses.map(c => (
-                  <Chip key={c.clauseId} label={c.clauseCode} size="small" variant="outlined" />
-                ))}
-              </Box>
-            </Box>
-            <Button
-              variant="contained"
-              color="warning"
-              startIcon={<SecurityIcon />}
-              disabled={activating === rec.framework.id}
-              onClick={() => handleActivateFramework(rec.framework.id)}
-              sx={{ whiteSpace: 'nowrap' }}
-            >
-              {activating === rec.framework.id ? 'Activating…' : 'Activate Framework'}
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
 
       {/* Activated framework banners */}
       {activatedFrameworks.map(fw => (
@@ -327,14 +272,25 @@ const Matrix: React.FC = () => {
                 Framework activated — {fw.total_controls} controls ready for compliance tracking.
               </Typography>
             </Box>
-            <Button
-              variant="outlined"
-              color="success"
-              endIcon={<ArrowForwardIcon />}
-              onClick={() => navigate('/controls')}
-            >
-              View Controls
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Button
+                variant="outlined"
+                color="success"
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => navigate('/controls')}
+              >
+                View Controls
+              </Button>
+              <Button
+                variant="text"
+                color="inherit"
+                size="small"
+                disabled={activating === fw.id}
+                onClick={() => handleDeactivateFramework(fw.id)}
+              >
+                Deactivate
+              </Button>
+            </Box>
           </CardContent>
         </Card>
       ))}
