@@ -88,7 +88,6 @@ export interface SatisfactionMethod {
 export type StructuredEvidence = Record<string, string | number | boolean | null>;
 
 export interface UpsertStatusRequest {
-  programId: string;
   status: SatisfactionStatus;
   evidenceUrl?: string | null;
   evidenceNotes?: string | null;
@@ -117,11 +116,9 @@ export const satisfactionService = {
    */
   listForClause: async (
     clauseCode: string,
-    programId?: string | null,
   ): Promise<ApiResponse<SatisfactionMethod[]>> => {
-    const qs = programId ? `?programId=${encodeURIComponent(programId)}` : '';
     return apiCall<SatisfactionMethod[]>(
-      `/api/satisfaction-methods/by-clause/${encodeURIComponent(clauseCode)}${qs}`,
+      `/api/satisfaction-methods/by-clause/${encodeURIComponent(clauseCode)}`,
       { requireAuth: true },
     );
   },
@@ -150,14 +147,13 @@ export const satisfactionService = {
    */
   setOwner: async (
     methodId: string,
-    programId: string,
     ownerUserId: string | null,
   ): Promise<ApiResponse<SatisfactionMethodStatus>> => {
     return apiCall<SatisfactionMethodStatus>(
       `/api/satisfaction-methods/${methodId}/owner`,
       {
         method: 'PUT',
-        body: JSON.stringify({ programId, ownerUserId }),
+        body: JSON.stringify({ ownerUserId }),
         requireAuth: true,
       },
     );

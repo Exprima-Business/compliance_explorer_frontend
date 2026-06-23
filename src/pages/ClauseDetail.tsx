@@ -38,7 +38,7 @@ import {
 } from '../services/clauseService';
 import { extractErrorMessage } from '../utils/errorUtils';
 import { safeHref } from '../utils/safeHref';
-import { useProject } from '../contexts/ProjectContext';
+import { useOrg } from '../contexts/OrgContext';
 import SatisfactionMethodsPanel from '../components/SatisfactionMethodsPanel';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -190,9 +190,9 @@ const ClauseDetail: React.FC = () => {
   const navigate = useNavigate();
   const { clauseCode: encoded } = useParams<{ clauseCode: string }>();
   const clauseCode = encoded ? decodeURIComponent(encoded) : '';
-  // Phase C-1: pull current program for per-program satisfaction status.
-  // Read-only fallback when no program is selected.
-  const { currentProject } = useProject();
+  // Satisfaction status is ORG posture now (org-baseline Phase C). The panel's
+  // programId/programName props carry the org id/name as the active scope.
+  const { currentOrg } = useOrg();
 
   const [data, setData] = useState<ClauseDetailResponse | null>(null);
   const [graph, setGraph] = useState<ClauseGraphResponse | null>(null);
@@ -404,8 +404,8 @@ const ClauseDetail: React.FC = () => {
       {clauseCode && data?.clause.isObligation !== false && (
         <SatisfactionMethodsPanel
           clauseCode={clauseCode}
-          programId={currentProject?.id ?? null}
-          programName={currentProject?.name ?? null}
+          programId={currentOrg?.id ?? null}
+          programName={currentOrg?.name ?? null}
         />
       )}
 

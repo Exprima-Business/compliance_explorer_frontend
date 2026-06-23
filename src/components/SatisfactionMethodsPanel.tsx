@@ -998,7 +998,7 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
     (async () => {
       setLoading(true);
       setError(null);
-      const resp = await satisfactionService.listForClause(clauseCode, programId ?? null);
+      const resp = await satisfactionService.listForClause(clauseCode);
       if (cancelled) return;
       if (resp.error) {
         setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
@@ -1040,7 +1040,7 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
     setError(null);
     const results = await Promise.all(
       assignableMethods.map((m) =>
-        satisfactionService.setOwner(m.id, programId, ownerUserId)
+        satisfactionService.setOwner(m.id, ownerUserId)
           .then((resp) => ({ id: m.id, resp })),
       ),
     );
@@ -1068,7 +1068,6 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
     setSavingMethodId(methodId);
     setError(null);
     const resp = await satisfactionService.upsertStatus(methodId, {
-      programId,
       status: newStatus,
     });
     setSavingMethodId(null);
@@ -1090,7 +1089,7 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
     if (!programId) return;
     setSavingMethodId(methodId);
     setError(null);
-    const resp = await satisfactionService.setOwner(methodId, programId, ownerUserId);
+    const resp = await satisfactionService.setOwner(methodId, ownerUserId);
     setSavingMethodId(null);
     if (resp.error) {
       setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
@@ -1138,7 +1137,6 @@ const SatisfactionMethodsPanel: React.FC<Props> = ({ clauseCode, programId, prog
     }
 
     const req: UpsertStatusRequest = {
-      programId,
       status: method.status?.status ?? 'not_started',
       ...nextPayload,
     };
