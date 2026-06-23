@@ -50,21 +50,20 @@ import CrossFrameworkCreditPanel from '../components/CrossFrameworkCreditPanel';
 import { EvidenceFileUpload } from '../components/EvidenceFileUpload';
 import { attachToControl as attachEvidenceToControl } from '../services/evidenceService';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useProject } from '../contexts/ProjectContext';
+import { useOrg } from '../contexts/OrgContext';
 import { useAuth } from '../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { keys } from '../queryClient';
 import {
   fetchFrameworks,
-  fetchFrameworkWithStatus,
-  fetchReciprocity,
-  updateControlStatus,
-  parseSSPDocument,
-  fetchActivatedFrameworks,
-  fetchRecommendedFrameworks,
-  activateFramework as activateFrameworkAPI,
-  fetchObjectiveStatuses,
-  updateObjectiveStatus,
+  fetchFrameworkWithStatusOrg as fetchFrameworkWithStatus,
+  fetchReciprocityOrg as fetchReciprocity,
+  updateControlStatusOrg as updateControlStatus,
+  parseSSPDocumentOrg as parseSSPDocument,
+  fetchActivatedFrameworksOrg as fetchActivatedFrameworks,
+  fetchRecommendedFrameworksOrg as fetchRecommendedFrameworks,
+  activateFrameworkOrg as activateFrameworkAPI,
+  fetchObjectiveStatusesOrg as fetchObjectiveStatuses,
+  updateObjectiveStatusOrg as updateObjectiveStatus,
   type ControlFramework,
   type FrameworkWithFamilies,
   type FrameworkStatusOption,
@@ -76,12 +75,12 @@ import {
   type FrameworkRecommendation,
   type ObjectiveStatusEntry,
   type ObjectiveStatusMap,
-  importAssessment,
+  importAssessmentOrg as importAssessment,
   type AssessmentImportResult,
-  fetchSPRSScore,
-  fetchFARDetail,
-  deactivateFramework as deactivateFrameworkAPI,
-  fetchScoping,
+  fetchSPRSScoreOrg as fetchSPRSScore,
+  fetchFARDetailOrg as fetchFARDetail,
+  deactivateFrameworkOrg as deactivateFrameworkAPI,
+  fetchScopingOrg as fetchScoping,
   type ProgramScoping,
   type ScopingApplyResult,
   type SPRSScore,
@@ -1555,7 +1554,7 @@ const Controls: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { currentProject } = useProject();
+  const { currentOrg } = useOrg();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const qc = useQueryClient();
 
@@ -1769,7 +1768,7 @@ const Controls: React.FC = () => {
       }
     })();
     return () => { cancelled = true; };
-  }, [isAuthenticated, authLoading, currentProject]);
+  }, [isAuthenticated, authLoading, currentOrg]);
 
   // ── Load Section 508 scoping when that framework becomes active ───
   // Only fires for Section 508 — other frameworks apply uniformly and don't
@@ -1931,8 +1930,7 @@ const Controls: React.FC = () => {
     try {
       await updateControlStatus(controlId, newStatus, evidenceNotes, evidenceUrl);
 
-      qc.invalidateQueries({ queryKey: keys.projectSummary(undefined, currentProject?.id) });
-      qc.invalidateQueries({ queryKey: keys.matrix(undefined, currentProject?.id) });
+      qc.invalidateQueries({ queryKey: ['org-summary', currentOrg?.id] });
       const visuals = resolveStatusVisuals(
         findStatusOption(activeFramework?.status_config, newStatus),
         newStatus,
@@ -1955,7 +1953,7 @@ const Controls: React.FC = () => {
       applyOptimisticStatus(controlId, previousStatus);
       throw err instanceof Error ? err : new Error(String(err));
     }
-  }, [activeFramework, applyOptimisticStatus, qc, currentProject?.id]);
+  }, [activeFramework, applyOptimisticStatus, qc, currentOrg?.id]);
 
   const handleStatusChange = useCallback(async (controlId: string, newStatus: ControlStatus) => {
     if (!activeFramework) return;
@@ -2044,8 +2042,7 @@ const Controls: React.FC = () => {
       // Objective flips roll up to a control status on the BE and trigger
       // auto-POA&M creation/closure. The shared project summary and any
       // POA&M views need to refetch — invalidate the matching keys.
-      qc.invalidateQueries({ queryKey: keys.projectSummary(undefined, currentProject?.id) });
-      qc.invalidateQueries({ queryKey: keys.matrix(undefined, currentProject?.id) });
+      qc.invalidateQueries({ queryKey: ['org-summary', currentOrg?.id] });
 
       // Optimistic update in local state
       setObjectiveStatuses(prev => {

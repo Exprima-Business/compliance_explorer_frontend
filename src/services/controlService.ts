@@ -333,6 +333,77 @@ export async function deactivateFrameworkOrg(frameworkId: string): Promise<void>
   });
 }
 
+// ── Org-tier control reads/writes (org-baseline). Org from session context;
+// these hit /api/controls/org/*. The Controls page imports them aliased to the
+// program names so its body is unchanged. ────────────────────────────────────
+
+export async function fetchFrameworkWithStatusOrg(frameworkId: string): Promise<FrameworkWithFamilies | null> {
+  const res = await apiCall<FrameworkWithFamilies>(`/api/controls/org/frameworks/${frameworkId}`, { requireAuth: true });
+  return res.data ?? null;
+}
+
+export async function fetchReciprocityOrg(frameworkId: string): Promise<ReciprocityResult[]> {
+  const res = await apiCall<ReciprocityResult[]>(`/api/controls/org/frameworks/${frameworkId}/reciprocity`, { requireAuth: true });
+  return res.data ?? [];
+}
+
+export async function updateControlStatusOrg(
+  controlId: string,
+  status: ControlStatus,
+  evidenceNotes?: string | null,
+  _evidenceUrl?: string | null,
+): Promise<void> {
+  const res = await apiCall(`/api/controls/org/${controlId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status, evidenceNotes: evidenceNotes ?? null }),
+    requireAuth: true,
+  });
+  if (res.error) {
+    const message = typeof res.error === 'string'
+      ? res.error
+      : res.error.message || 'Failed to update control status';
+    throw new Error(message);
+  }
+}
+
+export async function fetchObjectiveStatusesOrg(controlIds: string[]): Promise<ObjectiveStatusMap> {
+  if (controlIds.length === 0) return {};
+  const res = await apiCall<ObjectiveStatusMap>(
+    `/api/controls/org/objective-statuses?controlIds=${controlIds.join(',')}`,
+    { requireAuth: true },
+  );
+  return res.data ?? {};
+}
+
+export async function updateObjectiveStatusOrg(
+  objectiveId: string,
+  status: ControlStatus,
+  fields?: {
+    gap_type?: string | null;
+    justification?: string | null;
+    evidence_notes?: string | null;
+    remaining_gaps?: string | null;
+  },
+): Promise<void> {
+  await apiCall(`/api/controls/org/objectives/${objectiveId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status, ...fields }),
+    requireAuth: true,
+  });
+}
+
+// ── Org scope: secondary panels deferred. SPRS/FAR computation, Section 508
+// applicability, and the SSP/xlsx parsers are still program-scoped. These
+// stubs return empty so the org Controls page renders cleanly; tracked
+// follow-up to give each an org variant. ─────────────────────────────────────
+
+export async function fetchSPRSScoreOrg(): Promise<SPRSScore | null> { return null; }
+export async function fetchFARDetailOrg(): Promise<FARDetail | null> { return null; }
+export async function fetchRecommendedFrameworksOrg(): Promise<FrameworkRecommendation[]> { return []; }
+export async function fetchScopingOrg(_frameworkId: string): Promise<ScopingResponse | null> { return null; }
+export async function parseSSPDocumentOrg(_file: File, _autoApply = true): Promise<SSPParseResult | null> { return null; }
+export async function importAssessmentOrg(_file: File, _frameworkId: string): Promise<AssessmentImportResult | null> { return null; }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SSP Parser
 // ─────────────────────────────────────────────────────────────────────────────
