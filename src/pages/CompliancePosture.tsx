@@ -4,7 +4,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import { useCascadeOrgSurface } from '../hooks/useCascadeOrg';
 import { obligationCoverage } from '../hooks/useCascadeSurface';
-import { useProjectSummary } from '../hooks/useProjectSummary';
+import { useOrgSummary } from '../hooks/useOrgSummary';
 import { authorityGroup } from '../utils/obligationGrouping';
 
 /**
@@ -35,7 +35,7 @@ function Ring({ pct }: { pct: number }) {
 export default function CompliancePosture() {
   const navigate = useNavigate();
   const { data: obligations, isLoading } = useCascadeOrgSurface();
-  const { data: summary } = useProjectSummary();
+  const { data: summary } = useOrgSummary();
 
   const view = useMemo(() => {
     const obs = obligations ?? [];

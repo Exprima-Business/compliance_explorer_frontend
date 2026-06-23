@@ -11,7 +11,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { obligationCoverage } from '../hooks/useCascadeSurface';
-import { useProjectSummary } from '../hooks/useProjectSummary';
+import { useOrgSummary } from '../hooks/useOrgSummary';
 import { type CascadeMove } from '../hooks/useCascadeLeverage';
 import { useCascadeOrgSurface, useCascadeOrgLeverage } from '../hooks/useCascadeOrg';
 import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
@@ -119,11 +119,10 @@ export default function CommandCenter() {
   const [activeMove, setActiveMove] = useState<CascadeMove | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
-  // Org-wide surface + moves (the org baseline). fwPct for coverage still comes
-  // from project-summary — for a single-program org that IS the org posture;
-  // revisit when multi-program lands.
+  // Org-wide surface + moves + posture summary — all on the org baseline now
+  // (org-baseline Phase B1; the single-program-summary bridge is retired).
   const { data: obligations, isLoading: surfaceLoading } = useCascadeOrgSurface();
-  const { data: summary } = useProjectSummary();
+  const { data: summary } = useOrgSummary();
   const { data: moves } = useCascadeOrgLeverage();
   const { data: members = [] } = useOrgMembers();
   const leadLabel = (userId: string | null) => {

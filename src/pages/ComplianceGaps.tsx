@@ -5,7 +5,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useNavigate } from 'react-router-dom';
 import { useCascadeOrgSurface } from '../hooks/useCascadeOrg';
 import { obligationCoverage, type CascadeObligation } from '../hooks/useCascadeSurface';
-import { useProjectSummary } from '../hooks/useProjectSummary';
+import { useOrgSummary } from '../hooks/useOrgSummary';
 import { authorityGroup, provenanceOf } from '../utils/obligationGrouping';
 
 /**
@@ -20,7 +20,7 @@ interface Gap { o: CascadeObligation; cov: number; provenance: string; }
 export default function ComplianceGaps() {
   const navigate = useNavigate();
   const { data: obligations, isLoading } = useCascadeOrgSurface();
-  const { data: summary } = useProjectSummary();
+  const { data: summary } = useOrgSummary();
 
   const { groups, openCount } = useMemo(() => {
     const obs = obligations ?? [];
