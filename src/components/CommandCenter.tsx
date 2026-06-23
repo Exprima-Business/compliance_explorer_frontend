@@ -186,16 +186,28 @@ export default function CommandCenter() {
             Organization-wide GovCon readiness across your frameworks, scanned solicitations, and active requirements.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
+        {/* Key workflow actions — kept prominent. "Set up scope" is driven by
+            the next-step hero below, so it isn't repeated as a top button. */}
+        <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap" sx={{ rowGap: 1 }}>
           <Chip label="Organization Baseline" size="small" variant="outlined" sx={{ borderStyle: 'solid' }} />
-          <Button size="small" variant="outlined" sx={{ textTransform: 'none' }} onClick={() => setSetupOpen(true)}>
-            Set up scope
-          </Button>
-          <Button size="small" variant="outlined" startIcon={<StarIcon sx={{ fontSize: 16 }} />} sx={{ textTransform: 'none' }} onClick={() => setAssistantOpen(true)}>
-            Ask AI
-          </Button>
-          <Button size="small" variant="outlined" sx={{ textTransform: 'none' }} onClick={() => navigate('/document-scanner')}>
+          <Button
+            variant="contained"
+            startIcon={<CloudUpload sx={{ fontSize: 20 }} />}
+            sx={{ textTransform: 'none', fontWeight: 600, px: 2, boxShadow: 'none' }}
+            onClick={() => navigate('/document-scanner')}
+          >
             Scan Solicitation
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<StarIcon sx={{ fontSize: 18 }} />}
+            sx={{
+              textTransform: 'none', fontWeight: 600, px: 2, boxShadow: 'none',
+              bgcolor: PURPLE, '&:hover': { bgcolor: '#433a9e' },
+            }}
+            onClick={() => setAssistantOpen(true)}
+          >
+            Ask AI
           </Button>
         </Stack>
       </Stack>
