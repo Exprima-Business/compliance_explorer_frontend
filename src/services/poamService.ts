@@ -29,7 +29,8 @@ export interface PoamMilestone {
 
 export interface PoamItem {
   id: string;
-  programId: string;
+  /** Owning compliance program, or null for an org-level (baseline) item. */
+  programId: string | null;
   controlId: string | null;
   /** Human-readable identifier of the linked control (e.g. "03.01.05"). Null when controlId is null. */
   controlIdentifier: string | null;
@@ -95,6 +96,23 @@ export interface UpdatePoamItemRequest {
   completedAt?: string | null;
 }
 
+/** Org-level POA&M create — no programId required (org is the scope). */
+export interface CreateOrgPoamItemRequest {
+  controlId?: string | null;
+  objectiveId?: string | null;
+  weakness: string;
+  description?: string | null;
+  riskLevel?: PoamRiskLevel;
+  status?: PoamItemStatus;
+  remediationPlan?: string | null;
+  responsibleParty?: string | null;
+  identifiedAt?: string | null;
+  scheduledCompletion?: string | null;
+  completedAt?: string | null;
+  /** Optional bid tag — the program/solicitation this item relates to, if any. */
+  programId?: string | null;
+}
+
 export interface CreatePoamMilestoneRequest {
   description: string;
   targetDate?: string | null;
@@ -128,6 +146,25 @@ export interface ControlOption {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const poamService = {
+  /** List the organisation's POA&M items — the org baseline (org from context). */
+  listOrg: async (): Promise<ApiResponse<PoamItem[]>> => {
+    return apiCall<PoamItem[]>('/api/poam/org', { requireAuth: true });
+  },
+
+  /** List controls linkable to an org POA&M — union of org + program frameworks. */
+  listControlOptionsOrg: async (): Promise<ApiResponse<ControlOption[]>> => {
+    return apiCall<ControlOption[]>('/api/poam/org/control-options', { requireAuth: true });
+  },
+
+  /** Create an org-level POA&M item (no programId required). */
+  createOrg: async (req: CreateOrgPoamItemRequest): Promise<ApiResponse<PoamItem>> => {
+    return apiCall<PoamItem>('/api/poam/org', {
+      method: 'POST',
+      body: JSON.stringify(req),
+      requireAuth: true,
+    });
+  },
+
   /** List a compliance program's POA&M items (each with its milestones). */
   list: async (programId: string): Promise<ApiResponse<PoamItem[]>> => {
     return apiCall<PoamItem[]>(`/api/poam?programId=${encodeURIComponent(programId)}`, {

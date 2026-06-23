@@ -36,7 +36,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import FlagIcon from '@mui/icons-material/Flag';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
-import { useProject } from '../contexts/ProjectContext';
+import { useOrg } from '../contexts/OrgContext';
 import {
   ITEM_STATUSES,
   MILESTONE_STATUSES,
@@ -126,7 +126,7 @@ function addDaysToDate(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function blankItemForm(programId: string) {
+function blankItemForm() {
   // Auto-set Identified date to today on new manual entry. The field stays
   // editable for cases where the weakness was discovered earlier than today.
   // Scheduled completion seeds to today + 30 days (moderate default) so the
@@ -134,7 +134,6 @@ function blankItemForm(programId: string) {
   // risk or the date and both stay in sync until the date is touched manually.
   const today = new Date().toISOString().slice(0, 10);
   return {
-    programId,
     controlId: '' as string,
     weakness: '',
     description: '',
@@ -167,8 +166,8 @@ type MilestoneForm = ReturnType<typeof blankMilestoneForm>;
 const POAM: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { currentProject } = useProject();
-  const programId = currentProject?.id ?? null;
+  const { currentOrg } = useOrg();
+  const orgId = currentOrg?.id ?? null;
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -230,7 +229,7 @@ const POAM: React.FC = () => {
 
   // ── Load ─────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
-    if (!programId) {
+    if (!orgId) {
       setItems([]);
       setControlOptions([]);
       setLoading(false);
@@ -239,8 +238,8 @@ const POAM: React.FC = () => {
     setLoading(true);
     setError(null);
     const [itemsResp, optionsResp] = await Promise.all([
-      poamService.list(programId),
-      poamService.listControlOptions(programId),
+      poamService.listOrg(),
+      poamService.listControlOptionsOrg(),
     ]);
     if (itemsResp.error) {
       setError(extractErrorMessage(itemsResp.error));
@@ -253,7 +252,7 @@ const POAM: React.FC = () => {
       setControlOptions(optionsResp.data ?? []);
     }
     setLoading(false);
-  }, [programId]);
+  }, [orgId]);
 
   // Phase B-5: control id → ControlOption lookup. Used by:
   //   - framework filter (controlOptions[item.controlId].frameworkId)
@@ -310,7 +309,7 @@ const POAM: React.FC = () => {
   const dialogPrefilledRef = React.useRef(false);
   useEffect(() => {
     if (dialogPrefilledRef.current) return;
-    if (!programId) return;
+    if (!orgId) return;
     const action = searchParams.get('action');
     const ctrlId = searchParams.get('controlId');
     if (action !== 'create' || !ctrlId) return;
@@ -320,7 +319,7 @@ const POAM: React.FC = () => {
 
     setEditingItem(null);
     setItemForm({
-      ...blankItemForm(programId),
+      ...blankItemForm(),
       controlId: ctrlId,
       weakness: ctrlIdent ? `Control ${ctrlIdent} not yet implemented` : '',
     });
@@ -333,7 +332,7 @@ const POAM: React.FC = () => {
     next.delete('controlId');
     next.delete('controlIdentifier');
     setSearchParams(next, { replace: true });
-  }, [programId, searchParams, setSearchParams]);
+  }, [orgId, searchParams, setSearchParams]);
 
   // ── Counts ───────────────────────────────────────────────────────────────
   const counts = useMemo(() => {
@@ -511,20 +510,20 @@ const POAM: React.FC = () => {
         milestones,
       ]);
     });
-    const slug = (currentProject?.name || 'program').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const slug = (currentOrg?.name || 'org').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const today = new Date().toISOString().slice(0, 10);
     downloadCsv(`poam-${slug}-${today}.csv`, rows);
   };
 
   // ── OSCAL POA&M export ───────────────────────────────────────────────────
   /**
-   * Hits the BE endpoint GET /api/oscal/poam/:programId which streams OSCAL
-   * v1.1.2 JSON with an `attachment` Content-Disposition. Tenant scoping is
-   * done on the BE — the FE doesn't have to filter anything.
+   * Hits the BE endpoint GET /api/oscal/poam/org which streams OSCAL v1.1.2
+   * JSON for the whole org baseline with an `attachment` Content-Disposition.
+   * Org scope comes from the session context on the BE — the FE sends nothing.
    */
   const [oscalExporting, setOscalExporting] = useState(false);
   const handleExportOscal = async (includeClosed: boolean) => {
-    if (!programId) return;
+    if (!orgId) return;
     setOscalExporting(true);
     setError(null);
     try {
@@ -532,7 +531,7 @@ const POAM: React.FC = () => {
       // (credentials:include); no Bearer, and no CSRF token needed on a GET.
       // Then trigger a save-as in the browser via a blob URL — we preserve the
       // JSON formatting the BE emits, so just stringify the response data.
-      const url = `/api/oscal/poam/${encodeURIComponent(programId)}${includeClosed ? '?include_closed=true' : ''}`;
+      const url = `/api/oscal/poam/org${includeClosed ? '?include_closed=true' : ''}`;
       const resp = await fetch(
         `${import.meta.env.VITE_API_URL ?? ''}${url}`,
         {
@@ -546,7 +545,7 @@ const POAM: React.FC = () => {
       const json = await resp.text();
       const blob = new Blob([json], { type: 'application/json' });
       const blobUrl = URL.createObjectURL(blob);
-      const slug = (currentProject?.name || 'program').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const slug = (currentOrg?.name || 'org').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const today = new Date().toISOString().slice(0, 10);
       const a = document.createElement('a');
       a.href = blobUrl;
@@ -564,9 +563,9 @@ const POAM: React.FC = () => {
 
   // ── Item CRUD ────────────────────────────────────────────────────────────
   const openCreateItem = () => {
-    if (!programId) return;
+    if (!orgId) return;
     setEditingItem(null);
-    setItemForm(blankItemForm(programId));
+    setItemForm(blankItemForm());
     // Fresh create — scheduled completion is the auto-computed default
     // (today + 30d). The user hasn't touched it yet.
     setSchedManuallyEdited(false);
@@ -590,7 +589,6 @@ const POAM: React.FC = () => {
     const stagedCompletedAt =
       stagedStatus === 'completed' ? (it.completedAt ?? today) : (it.completedAt ?? '');
     setItemForm({
-      programId: it.programId,
       controlId: it.controlId ?? '',
       weakness: it.weakness,
       description: it.description ?? '',
@@ -669,10 +667,7 @@ const POAM: React.FC = () => {
         const resp = await poamService.update(editingItem.id, payload);
         if (resp.error) { setSaveError(extractErrorMessage(resp.error)); return; }
       } else {
-        const resp = await poamService.create({
-          programId: itemForm.programId,
-          ...payload,
-        });
+        const resp = await poamService.createOrg(payload);
         if (resp.error) { setSaveError(extractErrorMessage(resp.error)); return; }
       }
       closeItemDialog();
@@ -763,11 +758,11 @@ const POAM: React.FC = () => {
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
-  if (!programId) {
+  if (!orgId) {
     return (
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         <Alert severity="info">
-          Select a compliance program to view its Plan of Action &amp; Milestones.
+          Select an organization to view its Plan of Action &amp; Milestones.
         </Alert>
       </Box>
     );
@@ -923,7 +918,7 @@ const POAM: React.FC = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={openCreateItem}
-            disabled={!programId}
+            disabled={!orgId}
           >
             New POA&amp;M item
           </Button>
