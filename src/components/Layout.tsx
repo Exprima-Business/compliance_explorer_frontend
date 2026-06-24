@@ -37,7 +37,6 @@ import { AppBar } from './AppBar';
 import { Settings } from './Settings';
 import { useURLBasedNavigation } from '../hooks/useURLBasedNavigation';
 import { useAuth } from '../contexts/AuthContext';
-import ProjectSelector from './ProjectSelector';
 import ConnectionStatus from './ConnectionStatus';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import { warmUpBackend, resetDemo } from '../services/controlService';
@@ -217,15 +216,6 @@ export default function Layout({ children }: LayoutProps) {
           </Box>
         )}
         <Divider sx={{ mb: 1 }} />
-
-        {/* Project selector */}
-        <Box sx={{ px: 2, py: 1 }}>
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 0.5 }}>
-            Active Project
-          </Typography>
-          <ProjectSelector />
-        </Box>
-        <Divider sx={{ my: 1 }} />
 
         {/* Mobile nav — same structure as the desktop LeftNav, always expanded */}
         <LeftNav

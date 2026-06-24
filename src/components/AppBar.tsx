@@ -30,7 +30,6 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import ProjectSelector from './ProjectSelector';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import ConnectionStatus from './ConnectionStatus';
 import NotificationBell from './NotificationBell';
@@ -119,7 +118,6 @@ export const AppBar: React.FC<CustomAppBarProps> = ({ activeTab, onTabChange, on
           {/* Right: Controls — hidden on mobile (moved to Sidebar) */}
           {!isMobile && (
             <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, gap: 1 }}>
-              <ProjectSelector />
               <ConnectionStatus status={connectionStatus} showLabel={false} size="small" />
               {user && <NotificationBell />}
               <Tooltip title="Settings">
