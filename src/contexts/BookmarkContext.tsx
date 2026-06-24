@@ -4,7 +4,6 @@ import type { Bookmark } from '../services/bookmarkService';
 import { clauseService } from '../services/clauseService';
 import { supabase } from '../lib/supabase';
 import { useOrg } from './OrgContext';
-import { useProject } from './ProjectContext';
 import { dlog } from '../utils/debugLog';
 import { extractErrorMessage } from '../utils/errorUtils';
 
@@ -49,7 +48,6 @@ const MAX_RECONNECT_DELAY = 30000; // 30 seconds
 
 export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentOrg } = useOrg();
-  const { currentProject } = useProject();
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected' | 'error'>('disconnected');
@@ -74,7 +72,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      if (!currentOrg || !currentProject) return;
+      if (!currentOrg) return;
       const list = await bookmarkService.getBookmarks(currentOrg.id);
       setBookmarks(Array.isArray(list) ? list : []);
     } catch (err) {
@@ -82,7 +80,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setLoading(false);
     }
-  }, [currentOrg, currentProject]);
+  }, [currentOrg]);
 
   useEffect(() => {
     load();
@@ -115,7 +113,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Reconnection logic with exponential backoff
   const attemptReconnect = useCallback(() => {
-    if (isReconnectingRef.current || !currentOrg || !currentProject) return;
+    if (isReconnectingRef.current || !currentOrg) return;
 
     if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
       dlog('Max reconnection attempts reached, giving up');
@@ -137,12 +135,12 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       reconnectAttemptsRef.current++;
       setupRealtimeSubscription();
     }, delay);
-  }, [currentOrg, currentProject]);
+  }, [currentOrg]);
 
   // Setup realtime subscription with connection monitoring
   const setupRealtimeSubscription = useCallback(async () => {
-    if (!currentOrg || !currentProject) {
-      dlog('Cannot setup subscription: missing org or project');
+    if (!currentOrg) {
+      dlog('Cannot setup subscription: missing org');
       return;
     }
 
@@ -186,55 +184,28 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         (payload) => {
           dlog('Bookmark realtime event received', {
             eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old,
             filterOrg: currentOrg.id,
-            filterProject: currentProject.id,
           });
 
           if (payload.eventType === 'INSERT') {
             const b = realtimeRowToBookmark(payload.new);
-            dlog('Processing INSERT event', { bookmark: b, currentProject: currentProject.id });
-
-            // Only process changes for the current project
-            if (b.projectId !== currentProject.id) {
-              dlog('Skipping INSERT - wrong project', { bookmarkProject: b.projectId, currentProject: currentProject.id });
-              return;
-            }
-
             setBookmarks(prev => {
               // avoid duplicates by checking both id and clauseId
               const exists = prev.some(item => (item.id && item.id === b.id) || item.clauseId === b.clauseId);
-              if (exists) {
-                dlog('Skipping INSERT - bookmark already exists', { bookmarkId: b.id, clauseId: b.clauseId });
-                return prev;
-              }
-              dlog('Adding bookmark to state via realtime', { bookmark: b, newCount: prev.length + 1 });
+              if (exists) return prev;
               return [...prev, b];
             });
           } else if (payload.eventType === 'DELETE') {
-            // Handle DELETE for multi-tab synchronisation. DELETE payloads
-            // carry only the primary key in `old`, so match on id.
+            // DELETE payloads carry only the primary key in `old`, so match on id.
             const oldId = (payload.old as any)?.id;
-            dlog('Processing DELETE event', { oldId, currentProject: currentProject.id });
             if (oldId) {
               setBookmarks(prev => prev.filter(b => b.id !== oldId));
             }
           } else if (payload.eventType === 'UPDATE') {
             const b = realtimeRowToBookmark(payload.new);
-            dlog('Processing UPDATE event', { bookmark: b, currentProject: currentProject.id });
-
-            // Only process changes for the current project
-            if (b.projectId !== currentProject.id) {
-              dlog('Skipping UPDATE - wrong project', { bookmarkProject: b.projectId, currentProject: currentProject.id });
-              return;
-            }
-
             setBookmarks(prev => prev.map(item =>
               (item.id === b.id || item.clauseId === b.clauseId) ? b : item
             ));
-          } else {
-            dlog('Unknown event type', (payload as any).eventType);
           }
         }
       )
@@ -257,7 +228,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
     channelRef.current = channel;
-  }, [currentOrg, currentProject, cleanupConnection, attemptReconnect]);
+  }, [currentOrg, cleanupConnection, attemptReconnect]);
 
   // ---------------------------------------------
   // Realtime subscription: keep bookmarks in sync
@@ -315,16 +286,12 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const toggleBookmark = useCallback(async (clauseId: string) => {
     setBookmarkError(null);
 
-    if (!currentProject) {
-      setBookmarkError('No project selected');
+    if (!currentOrg) {
+      setBookmarkError('No organization selected');
       return;
     }
 
-    dlog('toggleBookmark called', {
-      clauseId,
-      currentProject: currentProject.id,
-      currentOrg: currentOrg?.id
-    });
+    dlog('toggleBookmark called', { clauseId, currentOrg: currentOrg?.id });
 
     try {
       const resp = await clauseService.bookmarkClause(clauseId);
@@ -360,7 +327,6 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               id: '',
               clauseId: responseClauseId,
               organizationId: currentOrg?.id || '',
-              projectId: currentProject.id,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             };
@@ -386,7 +352,7 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error('toggle bookmark failed', err);
       setBookmarkError(msg);
     }
-  }, [currentProject, currentOrg]);
+  }, [currentOrg]);
 
   // Helper function to check if a clause is bookmarked
   const isClauseBookmarked = useCallback((clauseId: string): boolean => {
