@@ -8,7 +8,6 @@ import { PreferencesProvider } from '../contexts/PreferencesContext';
 import { ClauseProvider } from '../contexts/ClauseContext';
 import { BookmarkProvider } from '../contexts/BookmarkContext';
 import { OrgProvider } from '../contexts/OrgContext';
-import { ProjectProvider } from '../contexts/ProjectContext';
 import ProjectGate from './ProjectGate';
 import OrgSetupDialog from './OrgSetupDialog';
 
@@ -68,8 +67,7 @@ const PageLoadingFallback: React.FC = () => (
 const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
   return (
     <OrgProvider>
-      <ProjectProvider>
-        <ProjectGate>
+      <ProjectGate>
           <PreferencesProvider>
             <ClauseProvider>
               <BookmarkProvider>
@@ -111,8 +109,7 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
               </BookmarkProvider>
             </ClauseProvider>
           </PreferencesProvider>
-        </ProjectGate>
-      </ProjectProvider>
+      </ProjectGate>
     </OrgProvider>
   );
 };

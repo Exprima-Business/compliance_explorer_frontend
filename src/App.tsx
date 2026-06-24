@@ -15,7 +15,6 @@ import { PreferencesProvider } from './contexts/PreferencesContext';
 import { ClauseProvider } from './contexts/ClauseContext';
 import { BookmarkProvider } from './contexts/BookmarkContext';
 import { OrgProvider } from './contexts/OrgContext';
-import { ProjectProvider } from './contexts/ProjectContext';
 import AuthGate from './components/AuthGate';
 import OrgSetupDialog from './components/OrgSetupDialog';
 import ProjectGate from './components/ProjectGate';
