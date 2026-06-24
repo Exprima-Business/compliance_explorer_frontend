@@ -21,10 +21,10 @@ export interface IntakeResult {
  * never changes compliance status.
  */
 export const assistantService = {
-  ask: async (programId: string, question: string): Promise<ApiResponse<AssistantAnswer>> =>
+  ask: async (question: string): Promise<ApiResponse<AssistantAnswer>> =>
     apiCall<AssistantAnswer>('/api/assistant/ask', {
       method: 'POST',
-      body: JSON.stringify({ programId, question }),
+      body: JSON.stringify({ question }),
       requireAuth: true,
     }),
 

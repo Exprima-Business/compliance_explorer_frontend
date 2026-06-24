@@ -14,7 +14,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { evaluationService } from '../../services/evaluationService';
-import { useProject } from '../../contexts/ProjectContext';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,11 +51,8 @@ const SaveAsEvaluationDialog: React.FC<SaveAsEvaluationDialogProps> = ({
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
 
-  // The org's single compliance program — passed so the backend can compute
-  // coverage (covered / gap) for each detected clause. Optional: if absent,
-  // every matched clause simply reads as a gap.
-  const { currentProject, projects } = useProject();
-  const programId = currentProject?.id ?? projects?.[0]?.id;
+  // Coverage (covered / gap) for each detected clause is computed by the
+  // backend against the org baseline (no program scope).
 
   const [title, setTitle] = useState('');
   const [solicitationNumber, setSolicitationNumber] = useState('');
@@ -96,7 +92,6 @@ const SaveAsEvaluationDialog: React.FC<SaveAsEvaluationDialogProps> = ({
     try {
       const resp = await evaluationService.create({
         scanId,
-        programId,
         title: title.trim(),
         solicitationNumber: solicitationNumber.trim() || undefined,
         agency: agency.trim() || undefined,

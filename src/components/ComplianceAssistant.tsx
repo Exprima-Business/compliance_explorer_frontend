@@ -5,7 +5,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import { useProject } from '../contexts/ProjectContext';
+import { useOrg } from '../contexts/OrgContext';
 import { assistantService } from '../services/assistantService';
 import MarkdownLite from './MarkdownLite';
 
@@ -34,8 +34,9 @@ export default function ComplianceAssistant({
   open: boolean;
   onClose: () => void;
 }) {
-  const { currentProject } = useProject();
-  const programId = currentProject?.id;
+  // Scope is the org now; programId carries the org id as the "scope present" gate.
+  const { currentOrg } = useOrg();
+  const programId = currentOrg?.id;
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -53,7 +54,7 @@ export default function ComplianceAssistant({
     setInput('');
     setTurns((prev) => [...prev, { role: 'user', text: question }]);
     setLoading(true);
-    const resp = await assistantService.ask(programId, question);
+    const resp = await assistantService.ask(question);
     setLoading(false);
     if (resp.error || !resp.data) {
       const msg = typeof resp.error === 'string' ? resp.error : resp.error?.message;

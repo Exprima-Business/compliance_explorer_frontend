@@ -1,13 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
-import { apiCall } from '../services/api';
-import { keys } from '../queryClient';
-import { useProject } from '../contexts/ProjectContext';
-
 /**
  * One ranked "move" on the cascade dashboard: a shared satisfaction mechanism
  * (e.g. "Implement Framework Controls") and the applicable-but-unsatisfied
- * obligations it would clear. Shape mirrors the backend CascadeMove
- * (GET /api/cascade/leverage/:programId, fn get_cascade_leverage / mig 131).
+ * obligations it would clear.
+ *
+ * The org moves come from useCascadeOrgLeverage (GET /api/cascade/org/leverage);
+ * the legacy program-scoped useCascadeLeverage hook was removed in org-baseline
+ * FULL-D, but the shared CascadeMove shape lives here.
  */
 export interface CascadeMove {
   mechanismTypeId: string;
@@ -24,30 +22,4 @@ export interface CascadeMove {
   /** Action-level oversight lead (PM) user id for this move, or null. */
   leadUserId: string | null;
   clearedArtifactIds: string[];
-}
-
-/**
- * Ranked cascade-leverage "moves" for the active compliance program — the
- * dashboard's Moves list. Disabled until a program is selected.
- */
-export function useCascadeLeverage() {
-  const { currentProject } = useProject();
-  const programId = currentProject?.id;
-
-  return useQuery({
-    queryKey: keys.cascadeLeverage(programId),
-    queryFn: async (): Promise<CascadeMove[]> => {
-      const res = await apiCall<CascadeMove[]>(
-        `/api/cascade/leverage/${encodeURIComponent(programId!)}`,
-        { requireAuth: true },
-      );
-      if (!res.data) {
-        const msg = typeof res.error === 'string' ? res.error : res.error?.message;
-        throw new Error(msg || 'Failed to load cascade leverage');
-      }
-      return res.data;
-    },
-    enabled: !!programId,
-    staleTime: 30_000,
-  });
 }

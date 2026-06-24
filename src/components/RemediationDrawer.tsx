@@ -8,11 +8,10 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCascadeMoveObligations, type CascadeMoveObligation } from '../hooks/useCascadeMoveObligations';
+import { type CascadeMoveObligation } from '../hooks/useCascadeMoveObligations';
 import { useCascadeOrgMoveObligations } from '../hooks/useCascadeOrg';
 import type { CascadeMove } from '../hooks/useCascadeLeverage';
 import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
-import { useProject } from '../contexts/ProjectContext';
 import { apiCall } from '../services/api';
 import { keys } from '../queryClient';
 
@@ -53,10 +52,11 @@ export default function RemediationDrawer({
   const navigate = useNavigate();
   const open = !!move;
   const isOrg = scope === 'org';
-  // Both hooks are always called (rules of hooks); the inactive one is disabled.
-  const progObs = useCascadeMoveObligations(isOrg ? null : (move?.mechanismTypeId ?? null), open && !isOrg);
-  const orgObs = useCascadeOrgMoveObligations(isOrg ? (move?.mechanismTypeId ?? null) : null, open && isOrg);
-  const { data: obligations, isLoading } = isOrg ? orgObs : progObs;
+  // Drill-in is org-scoped now (the program tier is retired).
+  const { data: obligations, isLoading } = useCascadeOrgMoveObligations(
+    move?.mechanismTypeId ?? null,
+    open,
+  );
 
   // Group what this move clears by authority (mockup B: the unlock tree). The
   // obligations a move clears are open by construction (it satisfies them).
@@ -73,8 +73,9 @@ export default function RemediationDrawer({
       .sort((a, b) => b.items.length - a.items.length);
   }, [obligations]);
 
-  const { currentProject } = useProject();
-  const programId = currentProject?.id;
+  // Lead assignment is an org-scoped follow-up (org-cascade-remediation);
+  // programId null keeps the owner control disabled here meanwhile.
+  const programId: string | null = null;
   const { data: members = [], isLoading: membersLoading } = useOrgMembers();
   const queryClient = useQueryClient();
 

@@ -24,7 +24,6 @@ import {
   type CoverageStatus,
   type ClauseCategory,
 } from '../services/evaluationService';
-import { useProject } from '../contexts/ProjectContext';
 import { pendingClauseService } from '../services/pendingClauseService';
 
 // The clause-row chip describes SCOPE — is this detected obligation already in
@@ -466,8 +465,10 @@ const EvaluationDetail: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { currentProject, projects } = useProject();
-  const program = currentProject ?? projects?.[0] ?? null;
+  // Program-scoped POA&M-from-gaps is degraded at org scope — the org bid-overlay
+  // build (FULL-D step 6) replaces it with org POA&M creation. program=null so
+  // the POA&M-from-gaps action is disabled here meanwhile.
+  const program = null as { id: string; name: string } | null;
 
   const [detail, setDetail] = useState<EvaluationDetailData | null>(null);
   const [loading, setLoading] = useState(true);

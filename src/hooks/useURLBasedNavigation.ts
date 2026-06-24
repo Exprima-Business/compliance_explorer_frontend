@@ -1,6 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useOrg, type Organization } from '../contexts/OrgContext';
-import { useProject, type Project } from '../contexts/ProjectContext';
+import { useOrg } from '../contexts/OrgContext';
 
 const ENABLE_URL_BASED_ROUTING = import.meta.env.VITE_ENABLE_URL_BASED_ROUTING === 'true';
 const IS_PRODUCTION = import.meta.env.PROD;
@@ -9,12 +8,11 @@ export const useURLBasedNavigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentOrg } = useOrg();
-  const { currentProject } = useProject();
 
   const navigateTo = (path: string) => {
-    if (ENABLE_URL_BASED_ROUTING && currentOrg && currentProject) {
-      // URL-based navigation with org/project slugs
-      navigate(`/${currentOrg.slug}/${currentProject.slug}${path}`);
+    if (ENABLE_URL_BASED_ROUTING && currentOrg) {
+      // URL-based navigation with the org slug (org is the scope now).
+      navigate(`/${currentOrg.slug}${path}`);
     } else {
       // Header-based navigation (current approach)
       navigate(path);
@@ -23,14 +21,13 @@ export const useURLBasedNavigation = () => {
 
   const getCurrentPath = () => {
     if (ENABLE_URL_BASED_ROUTING) {
-      // Extract the path after org/project slugs
+      // Extract the path after the org slug.
       const pathParts = location.pathname.split('/');
-      if (pathParts.length >= 4) {
-        return `/${pathParts.slice(3).join('/')}`;
+      if (pathParts.length >= 3) {
+        return `/${pathParts.slice(2).join('/')}`;
       }
       return '/';
     } else {
-      // Return the full path for header-based routing
       return location.pathname;
     }
   };
@@ -45,8 +42,7 @@ export const useURLBasedNavigation = () => {
     getCurrentPath,
     isActiveTab,
     currentOrg,
-    currentProject,
     isURLBasedRouting: ENABLE_URL_BASED_ROUTING,
-    isProduction: IS_PRODUCTION
+    isProduction: IS_PRODUCTION,
   };
-}; 
+};
