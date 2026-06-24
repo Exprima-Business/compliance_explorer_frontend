@@ -1,14 +1,18 @@
 import React from 'react';
 import { Box, CircularProgress } from '@mui/material';
-import ProjectSetupDialog from './ProjectSetupDialog';
 import { useProject } from '../contexts/ProjectContext';
 import { useOrg } from '../contexts/OrgContext';
 
+/**
+ * App-ready gate. Waits for the org (and, during the program-tier transition,
+ * the project) contexts to initialise, then renders the app. Org is the scope
+ * now, so we no longer force project creation — projects/bids come from scans.
+ * Collapses to an org-only gate once ProjectProvider is retired (FULL-D step 5).
+ */
 const ProjectGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { initialized: projectInitialized, currentProject } = useProject();
+  const { initialized: projectInitialized } = useProject();
   const { initialized: orgInitialized } = useOrg();
 
-  // Show a spinner while contexts are initialising (was returning null → blank screen)
   if (!orgInitialized || !projectInitialized) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -17,9 +21,7 @@ const ProjectGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
   }
 
-  if (!currentProject) return <ProjectSetupDialog />;
-
   return <>{children}</>;
 };
 
-export default ProjectGate; 
+export default ProjectGate;
