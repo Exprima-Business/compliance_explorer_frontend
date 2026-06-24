@@ -24,15 +24,15 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useProject } from '../contexts/ProjectContext';
+import { useOrg } from '../contexts/OrgContext';
 import { useAuth } from '../hooks/useAuth';
 import { useBookmarks } from '../contexts/BookmarkContext';
 import { useClause } from '../contexts/ClauseContext';
 import {
-  fetchActivatedFrameworks,
+  fetchActivatedFrameworksOrg as fetchActivatedFrameworks,
   fetchFrameworks,
-  fetchFrameworkWithStatus,
-  fetchReciprocity,
+  fetchFrameworkWithStatusOrg as fetchFrameworkWithStatus,
+  fetchReciprocityOrg as fetchReciprocity,
   type FrameworkWithFamilies,
   type ReciprocityResult,
 } from '../services/controlService';
@@ -45,7 +45,7 @@ const ExecutiveReport: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
-  const { currentProject } = useProject();
+  const { currentOrg } = useOrg();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { bookmarks } = useBookmarks();
   const { clauses } = useClause();
@@ -83,7 +83,7 @@ const ExecutiveReport: React.FC = () => {
       }
     })();
     return () => { cancelled = true; };
-  }, [isAuthenticated, authLoading, currentProject]);
+  }, [isAuthenticated, authLoading, currentOrg]);
 
   const stats = useMemo(() => {
     if (!framework) return null;
@@ -196,7 +196,7 @@ const ExecutiveReport: React.FC = () => {
           Compliance Executive Summary
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {currentProject?.name || 'Project'} — Generated {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+          {currentOrg?.name || 'Organization'} — Generated {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
         </Typography>
       </Box>
 

@@ -1,13 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
-import { apiCall } from '../services/api';
-import { keys } from '../queryClient';
-import { useProject } from '../contexts/ProjectContext';
-
 /**
  * One applicable obligation with the raw inputs for FE-derived fractional
- * coverage. Coverage is computed on the client (see obligationCoverage) by
- * combining `explicitSatisfied` + `frameworkIds` with the per-framework
- * completion % from useProjectSummary — so Posture matches Program Readiness.
+ * coverage (see obligationCoverage). Shared by the org cascade hooks
+ * (useCascadeOrg) and the Posture/Gaps/CommandCenter views.
+ *
+ * The legacy program-scoped `useCascadeSurface` hook was removed in
+ * org-baseline FULL-D — the obligation surface now comes from the org cascade
+ * (useCascadeOrgSurface, GET /api/cascade/org/surface).
  */
 export interface CascadeObligation {
   artifactId: string;
@@ -34,31 +32,4 @@ export function obligationCoverage(
   let best = 0;
   for (const id of o.frameworkIds) best = Math.max(best, fwPct[id] ?? 0);
   return best;
-}
-
-/**
- * The applicable obligation surface for the active program — raw obligations
- * for the cascade dashboard's Posture and Gaps cards (which derive coverage).
- * Backed by GET /api/cascade/surface/:programId.
- */
-export function useCascadeSurface() {
-  const { currentProject } = useProject();
-  const programId = currentProject?.id;
-
-  return useQuery({
-    queryKey: keys.cascadeSurface(programId),
-    queryFn: async (): Promise<CascadeObligation[]> => {
-      const res = await apiCall<CascadeObligation[]>(
-        `/api/cascade/surface/${encodeURIComponent(programId!)}`,
-        { requireAuth: true },
-      );
-      if (!res.data) {
-        const msg = typeof res.error === 'string' ? res.error : res.error?.message;
-        throw new Error(msg || 'Failed to load obligation surface');
-      }
-      return res.data;
-    },
-    enabled: !!programId,
-    staleTime: 30_000,
-  });
 }
