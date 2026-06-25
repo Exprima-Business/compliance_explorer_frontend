@@ -3,11 +3,7 @@ import {
   Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Stack, Typography,
 } from '@mui/material';
 import StarIcon from '@mui/icons-material/AutoAwesome';
-import {
-  Shield, Description, AccountTree, VpnKey, WorkspacePremium, School, ReportProblem,
-  MonitorHeart, DeleteSweep, LocalOffer, Gavel, Badge, Public, Block, Inventory2,
-  BugReport, CloudUpload, TaskAlt,
-} from '@mui/icons-material';
+import CloudUpload from '@mui/icons-material/CloudUpload';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { obligationCoverage } from '../hooks/useCascadeSurface';
@@ -21,16 +17,10 @@ import ComplianceAssistant from './ComplianceAssistant';
 import ScopeSetupAssistant from './ScopeSetupAssistant';
 import JourneyGuide from './JourneyGuide';
 import { PieChart, Pie, Cell } from 'recharts';
+import { GREEN, AMBER, RED, PURPLE, riskBg, riskFg, statusSx, iconFor } from './remediationVisuals';
 
-const GREEN = '#15803d', AMBER = '#b45309', RED = '#b91c1c', PURPLE = '#534AB7';
 const band = (p: number) => (p >= 80 ? GREEN : p >= 50 ? AMBER : RED);
 const bandLabel = (p: number) => (p >= 80 ? 'High' : p >= 50 ? 'Medium' : 'Low');
-const riskBg = (l: string) => (l === 'High' ? 'rgba(163,45,45,0.12)' : l === 'Medium' ? 'rgba(180,83,9,0.12)' : 'rgba(0,0,0,0.06)');
-const riskFg = (l: string) => (l === 'High' ? '#A32D2D' : l === 'Medium' ? '#854d0e' : '#5f5e5a');
-const statusSx = (s: string) =>
-  s === 'Complete' ? { bgcolor: 'rgba(21,128,61,0.12)', color: '#15803d' }
-    : s === 'In progress' ? { bgcolor: 'rgba(180,83,9,0.12)', color: '#854d0e' }
-      : { bgcolor: 'rgba(0,0,0,0.06)', color: '#5f5e5a' };
 
 /** Derive a solicitation doc type from the title/number — evals don't store one. */
 function deriveType(title: string, num: string | null): string {
@@ -71,34 +61,6 @@ function sourceOf(identifier: string, authority: string): string {
   if (id.startsWith('FIPS')) return 'NIST 800-53';
   if (authority?.startsWith('NIST')) return 'NIST';
   return 'Agency / other';
-}
-
-/**
- * Map a remediation (satisfaction-mechanism) label to an icon. Keyed off the
- * label text for now; a mechanism_type → icon mapping in the catalog would be
- * more robust (open question with the team).
- */
-function iconFor(label: string) {
-  const l = label.toLowerCase();
-  const sx = { fontSize: 18, color: '#534AB7' };
-  if (l.includes('framework control')) return <Shield sx={sx} />;
-  if (l.includes('flowdown') || l.includes('subcontract')) return <AccountTree sx={sx} />;
-  if (l.includes('policy') || l.includes('procedure') || l.includes('conformance')) return <Description sx={sx} />;
-  if (l.includes('access') || l.includes('restriction')) return <VpnKey sx={sx} />;
-  if (l.includes('authorization') || l.includes('assessment') || l.includes('certification')) return <WorkspacePremium sx={sx} />;
-  if (l.includes('training')) return <School sx={sx} />;
-  if (l.includes('incident')) return <ReportProblem sx={sx} />;
-  if (l.includes('monitoring')) return <MonitorHeart sx={sx} />;
-  if (l.includes('sanitization') || l.includes('media')) return <DeleteSweep sx={sx} />;
-  if (l.includes('marking') || l.includes('handling')) return <LocalOffer sx={sx} />;
-  if (l.includes('agreement') || l.includes('statut') || l.includes('attestation') || l.includes('role')) return <Gavel sx={sx} />;
-  if (l.includes('personnel') || l.includes('credential')) return <Badge sx={sx} />;
-  if (l.includes('residency')) return <Public sx={sx} />;
-  if (l.includes('prohibition')) return <Block sx={sx} />;
-  if (l.includes('evidence') || l.includes('preservation')) return <Inventory2 sx={sx} />;
-  if (l.includes('vulnerability')) return <BugReport sx={sx} />;
-  if (l.includes('post') || l.includes('government system')) return <CloudUpload sx={sx} />;
-  return <TaskAlt sx={sx} />;
 }
 
 /** A subtle "not tracked yet" marker so placeholders never read as real data. */
@@ -345,7 +307,7 @@ export default function CommandCenter() {
         moveCount={moves?.length ?? 0}
         onSetupScope={() => setSetupOpen(true)}
         onStartMove={(mv) => setActiveMove(mv)}
-        onViewAllMoves={() => document.getElementById('priority-remediation')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        onViewAllMoves={() => navigate('/actions')}
         onGenerateReport={() => navigate('/report')}
       />
 
@@ -420,7 +382,7 @@ export default function CommandCenter() {
           <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
             <Stack direction="row" alignItems="center" sx={{ mb: 0.25 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>Priority Remediation</Typography>
-              <Button size="small" sx={{ textTransform: 'none' }}>View all actions</Button>
+              <Button size="small" sx={{ textTransform: 'none' }} onClick={() => navigate('/actions')}>View all actions</Button>
             </Stack>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
               Highest-impact actions, ranked by requirements resolved. Click an action to start it.
