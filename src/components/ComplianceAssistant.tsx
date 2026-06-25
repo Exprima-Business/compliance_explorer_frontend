@@ -25,7 +25,7 @@ const SUGGESTIONS = [
 
 /**
  * Grounded compliance assistant — a read-only Q&A slide-over. Answers come from
- * the program's real activated scope (BE assembles the context); the assistant
+ * the org's real activated scope (BE assembles the context); the assistant
  * explains scope and next steps, it does not change compliance status.
  */
 export default function ComplianceAssistant({
@@ -34,9 +34,8 @@ export default function ComplianceAssistant({
   open: boolean;
   onClose: () => void;
 }) {
-  // Scope is the org now; programId carries the org id as the "scope present" gate.
   const { currentOrg } = useOrg();
-  const programId = currentOrg?.id;
+  const orgId = currentOrg?.id;
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,7 +48,7 @@ export default function ComplianceAssistant({
 
   const send = async (q: string) => {
     const question = q.trim();
-    if (!question || !programId || loading) return;
+    if (!question || !orgId || loading) return;
     setError(null);
     setInput('');
     setTurns((prev) => [...prev, { role: 'user', text: question }]);
@@ -122,9 +121,9 @@ export default function ComplianceAssistant({
 
       {/* Input */}
       <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-        {!programId && (
+        {!orgId && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-            Select a program to ask about your scope.
+            Set up your organization to ask about your scope.
           </Typography>
         )}
         <Stack direction="row" spacing={1} alignItems="flex-end">
@@ -132,13 +131,13 @@ export default function ComplianceAssistant({
             size="small" fullWidth multiline maxRows={4}
             placeholder="Ask about your compliance scope…"
             value={input}
-            disabled={!programId || loading}
+            disabled={!orgId || loading}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); }
             }}
           />
-          <IconButton color="primary" disabled={!programId || loading || !input.trim()} onClick={() => send(input)} aria-label="Send">
+          <IconButton color="primary" disabled={!orgId || loading || !input.trim()} onClick={() => send(input)} aria-label="Send">
             <SendIcon />
           </IconButton>
         </Stack>

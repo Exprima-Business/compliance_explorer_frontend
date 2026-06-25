@@ -17,7 +17,6 @@ import { BookmarkProvider } from './contexts/BookmarkContext';
 import { OrgProvider } from './contexts/OrgContext';
 import AuthGate from './components/AuthGate';
 import OrgSetupDialog from './components/OrgSetupDialog';
-import ProjectGate from './components/ProjectGate';
 import { useUserState } from './hooks/useUserState';
 import MainApp from './components/MainApp';
 

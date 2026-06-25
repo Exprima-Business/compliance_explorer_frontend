@@ -16,7 +16,7 @@ export interface IntakeResult {
 }
 
 /**
- * Grounded compliance assistant — read-only Q&A over the active program's scope.
+ * Grounded compliance assistant — read-only Q&A over the org's activated scope.
  * The backend answers strictly from the org's curated obligations/frameworks and
  * never changes compliance status.
  */

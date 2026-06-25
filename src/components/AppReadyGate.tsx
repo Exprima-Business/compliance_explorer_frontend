@@ -4,10 +4,9 @@ import { useOrg } from '../contexts/OrgContext';
 
 /**
  * App-ready gate. Waits for the org context to initialise, then renders the
- * app. Org is the only scope now — ProjectProvider was retired in org-baseline
- * FULL-D, so there is no project to wait on or create.
+ * app. Org is the only scope — there is no project to wait on or create.
  */
-const ProjectGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const AppReadyGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { initialized: orgInitialized } = useOrg();
 
   if (!orgInitialized) {
@@ -21,4 +20,4 @@ const ProjectGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
-export default ProjectGate;
+export default AppReadyGate;

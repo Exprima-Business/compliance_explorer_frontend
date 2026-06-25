@@ -8,7 +8,7 @@ import { PreferencesProvider } from '../contexts/PreferencesContext';
 import { ClauseProvider } from '../contexts/ClauseContext';
 import { BookmarkProvider } from '../contexts/BookmarkContext';
 import { OrgProvider } from '../contexts/OrgContext';
-import ProjectGate from './ProjectGate';
+import AppReadyGate from './AppReadyGate';
 import OrgSetupDialog from './OrgSetupDialog';
 
 /**
@@ -67,7 +67,7 @@ const PageLoadingFallback: React.FC = () => (
 const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
   return (
     <OrgProvider>
-      <ProjectGate>
+      <AppReadyGate>
           <PreferencesProvider>
             <ClauseProvider>
               <BookmarkProvider>
@@ -83,7 +83,6 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
                       <Route path="/privacy" element={<Legal doc="privacy" />} />
                       <Route path="/terms" element={<Legal doc="terms" />} />
                       <Route path="/matrix" element={<Matrix />} />
-                      <Route path="/matrix/:projectId" element={<Matrix />} />
                       <Route path="/controls" element={<Controls />} />
                       <Route path="/report" element={<ExecutiveReport />} />
                       <Route path="/evaluations" element={<Evaluations />} />
@@ -109,7 +108,7 @@ const MainApp: React.FC<MainAppProps> = ({ enableScanner }) => {
               </BookmarkProvider>
             </ClauseProvider>
           </PreferencesProvider>
-      </ProjectGate>
+      </AppReadyGate>
     </OrgProvider>
   );
 };
