@@ -7,7 +7,10 @@ import {
 /** Shared remediation-move visuals — used by the dashboard's Priority
  *  Remediation card and the full All Remediation Actions page. */
 
-export const GREEN = '#15803d', AMBER = '#b45309', RED = '#b91c1c', PURPLE = '#534AB7';
+// Status palette. AMBER pushed toward yellow + RED kept vivid so the two warm
+// states read distinctly; GRAY is the neutral "not started". Legends pair these
+// as colored dots with gray text, so vividness matters more than text contrast.
+export const GREEN = '#15803d', AMBER = '#f59e0b', RED = '#dc2626', GRAY = '#94a3b8', PURPLE = '#534AB7';
 
 export const riskBg = (l: string) =>
   l === 'High' ? 'rgba(163,45,45,0.12)' : l === 'Medium' ? 'rgba(180,83,9,0.12)' : 'rgba(0,0,0,0.06)';

@@ -17,7 +17,7 @@ import ComplianceAssistant from './ComplianceAssistant';
 import ScopeSetupAssistant from './ScopeSetupAssistant';
 import JourneyGuide from './JourneyGuide';
 import { PieChart, Pie, Cell } from 'recharts';
-import { GREEN, AMBER, RED, PURPLE, riskBg, riskFg, statusSx, iconFor } from './remediationVisuals';
+import { GREEN, AMBER, RED, GRAY, PURPLE, riskBg, riskFg, statusSx, iconFor } from './remediationVisuals';
 
 const band = (p: number) => (p >= 80 ? GREEN : p >= 50 ? AMBER : RED);
 const bandLabel = (p: number) => (p >= 80 ? 'High' : p >= 50 ? 'Medium' : 'Low');
@@ -104,6 +104,18 @@ function Donut({ data, size = 72, inner = 24, center }: {
   );
 }
 
+/** Legend row: a vivid color dot + readable gray label + bold value. Decouples
+ *  the color-coding (dot) from the text so labels stay legible at any hue. */
+function LegendRow({ color, label, value }: { color: string; label: string; value: number }) {
+  return (
+    <Stack direction="row" alignItems="center" spacing={0.75}>
+      <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
+      <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }} noWrap>{label}</Typography>
+      <Typography variant="caption" sx={{ fontWeight: 600 }}>{value}</Typography>
+    </Stack>
+  );
+}
+
 function KpiCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card sx={{ border: '1px solid', borderColor: 'divider', height: '100%' }}>
@@ -182,22 +194,7 @@ export default function CommandCenter() {
       .map(([source, count]) => ({ source, count, pct: total ? Math.round((count / total) * 100) : 0 }))
       .sort((a, b) => b.count - a.count);
 
-    // Open gaps (unsatisfied obligations) bucketed by source authority — drives
-    // the Open-gaps donut so you can see where the gaps concentrate.
-    const GAP_PALETTE = ['#534AB7', '#b45309', '#0e7490', '#b91c1c', '#15803d', '#7c3aed', '#9ca3af'];
-    const openBySrc = new Map<string, number>();
-    obs.forEach((o, i) => {
-      if (covs[i] < 100) {
-        const s = sourceOf(o.identifier, o.sourceAuthority);
-        openBySrc.set(s, (openBySrc.get(s) || 0) + 1);
-      }
-    });
-    const openBySource = Array.from(openBySrc.entries())
-      .map(([source, count]) => ({ source, count }))
-      .sort((a, b) => b.count - a.count)
-      .map((x, i) => ({ ...x, color: GAP_PALETTE[i % GAP_PALETTE.length] }));
-
-    return { total, posture, satisfied, partial, notStarted, implemented, totalControls, controlPct, bySource, openBySource };
+    return { total, posture, satisfied, partial, notStarted, implemented, totalControls, controlPct, bySource };
   }, [obligations, summary]);
 
   const evalList: SolicitationEvaluation[] = evals ?? [];
@@ -220,6 +217,13 @@ export default function CommandCenter() {
     notReady: solRows.filter(r => r.status === 'Not ready').length,
   };
   const topMove = moves?.[0];
+  const riskMoves = moves ?? [];
+  const riskCounts = {
+    high: riskMoves.filter(mv => mv.riskLevel === 'High').length,
+    medium: riskMoves.filter(mv => mv.riskLevel === 'Medium').length,
+    low: riskMoves.filter(mv => mv.riskLevel !== 'High' && mv.riskLevel !== 'Medium').length,
+  };
+  const openActions = riskMoves.length;
 
   const handleGenerateReport = async () => {
     setGeneratingReport(true);
@@ -331,13 +335,13 @@ export default function CommandCenter() {
           <Stack direction="row" alignItems="center" spacing={1.25}>
             <Donut
               size={66} inner={21}
-              data={[{ value: m.satisfied, color: GREEN }, { value: m.partial, color: AMBER }, { value: m.notStarted, color: RED }]}
+              data={[{ value: m.satisfied, color: GREEN }, { value: m.partial, color: AMBER }, { value: m.notStarted, color: GRAY }]}
               center={<Typography sx={{ fontSize: 17, fontWeight: 700, lineHeight: 1 }}>{m.total}</Typography>}
             />
-            <Stack spacing={0.25}>
-              <Typography variant="caption" sx={{ color: GREEN }}>● {m.satisfied} satisfied</Typography>
-              <Typography variant="caption" sx={{ color: AMBER }}>● {m.partial} partial</Typography>
-              <Typography variant="caption" sx={{ color: RED }}>● {m.notStarted} not started</Typography>
+            <Stack spacing={0.4} sx={{ flex: 1, minWidth: 0 }}>
+              <LegendRow color={GREEN} label="Satisfied" value={m.satisfied} />
+              <LegendRow color={AMBER} label="Partial" value={m.partial} />
+              <LegendRow color={GRAY} label="Not started" value={m.notStarted} />
             </Stack>
           </Stack>
         </KpiCard>
@@ -367,10 +371,10 @@ export default function CommandCenter() {
               data={[{ value: solCounts.bidReady, color: GREEN }, { value: solCounts.atRisk, color: AMBER }, { value: solCounts.notReady, color: RED }]}
               center={<Typography sx={{ fontSize: 17, fontWeight: 700, lineHeight: 1 }}>{evalList.length}</Typography>}
             />
-            <Stack spacing={0.25}>
-              <Typography variant="caption" sx={{ color: GREEN }}>● {solCounts.bidReady} bid-ready</Typography>
-              <Typography variant="caption" sx={{ color: AMBER }}>● {solCounts.atRisk} at risk</Typography>
-              <Typography variant="caption" sx={{ color: RED }}>● {solCounts.notReady} not ready</Typography>
+            <Stack spacing={0.4} sx={{ flex: 1, minWidth: 0 }}>
+              <LegendRow color={GREEN} label="Bid-ready" value={solCounts.bidReady} />
+              <LegendRow color={AMBER} label="At risk" value={solCounts.atRisk} />
+              <LegendRow color={RED} label="Not ready" value={solCounts.notReady} />
             </Stack>
           </Stack>
         </KpiCard>
@@ -512,38 +516,37 @@ export default function CommandCenter() {
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 1.5 }}>
         <Card sx={{ border: '1px solid', borderColor: 'divider' }}>
           <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Open gaps by authority</Typography>
-            {(m.partial + m.notStarted) === 0 ? (
-              <Typography variant="body2" color="text.secondary">No open gaps — every surfaced requirement is covered.</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.25 }}>Open gaps by risk</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Open remediation actions by risk priority.
+            </Typography>
+            {openActions === 0 ? (
+              <Typography variant="body2" color="text.secondary">No open actions — every surfaced requirement is covered.</Typography>
             ) : (
               <Stack direction="row" alignItems="center" spacing={1.75}>
                 <Donut
                   size={96} inner={31}
-                  data={m.openBySource.map(s => ({ value: s.count, color: s.color }))}
+                  data={[{ value: riskCounts.high, color: RED }, { value: riskCounts.medium, color: AMBER }, { value: riskCounts.low, color: GRAY }]}
                   center={(
                     <>
-                      <Typography sx={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{m.partial + m.notStarted}</Typography>
-                      <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>open</Typography>
+                      <Typography sx={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{openActions}</Typography>
+                      <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>actions</Typography>
                     </>
                   )}
                 />
                 <Stack spacing={0.4} sx={{ flex: 1, minWidth: 0 }}>
-                  {m.openBySource.slice(0, 5).map(s => (
-                    <Stack key={s.source} direction="row" alignItems="center" spacing={0.75}>
-                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: s.color, flexShrink: 0 }} />
-                      <Typography variant="caption" noWrap sx={{ flex: 1 }}>{s.source}</Typography>
-                      <Typography variant="caption" color="text.secondary">{s.count}</Typography>
-                    </Stack>
-                  ))}
+                  <LegendRow color={RED} label="High risk" value={riskCounts.high} />
+                  <LegendRow color={AMBER} label="Medium risk" value={riskCounts.medium} />
+                  <LegendRow color={GRAY} label="Low risk" value={riskCounts.low} />
                 </Stack>
               </Stack>
             )}
             <Typography
               variant="caption"
               sx={{ color: PURPLE, cursor: 'pointer', fontWeight: 500, display: 'block', mt: 1 }}
-              onClick={() => navigate('/gaps')}
+              onClick={() => navigate('/actions')}
             >
-              View all gaps by authority →
+              View all remediation actions →
             </Typography>
           </CardContent>
         </Card>
