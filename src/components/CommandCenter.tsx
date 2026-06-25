@@ -20,6 +20,7 @@ import RemediationDrawer from './RemediationDrawer';
 import ComplianceAssistant from './ComplianceAssistant';
 import ScopeSetupAssistant from './ScopeSetupAssistant';
 import JourneyGuide from './JourneyGuide';
+import { PieChart, Pie, Cell } from 'recharts';
 
 const GREEN = '#15803d', AMBER = '#b45309', RED = '#b91c1c', PURPLE = '#534AB7';
 const band = (p: number) => (p >= 80 ? GREEN : p >= 50 ? AMBER : RED);
@@ -83,6 +84,35 @@ function Pending({ label = 'computing' }: { label?: string }) {
       variant="outlined"
       sx={{ height: 18, fontSize: 10, color: 'text.secondary', borderStyle: 'dashed' }}
     />
+  );
+}
+
+/** A compact donut (recharts) with optional centered content. */
+function Donut({ data, size = 72, inner = 24, center }: {
+  data: { value: number; color: string }[];
+  size?: number;
+  inner?: number;
+  center?: React.ReactNode;
+}) {
+  const total = data.reduce((a, b) => a + b.value, 0);
+  const slices = total > 0 ? data.filter(d => d.value > 0) : [{ value: 1, color: '#e5e7eb' }];
+  return (
+    <Box sx={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <PieChart width={size} height={size}>
+        <Pie
+          data={slices} dataKey="value" cx="50%" cy="50%"
+          innerRadius={inner} outerRadius={size / 2 - 2}
+          startAngle={90} endAngle={-270} stroke="none" isAnimationActive={false}
+        >
+          {slices.map((d, i) => <Cell key={i} fill={d.color} />)}
+        </Pie>
+      </PieChart>
+      {center && (
+        <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          {center}
+        </Box>
+      )}
+    </Box>
   );
 }
 
@@ -163,7 +193,22 @@ export default function CommandCenter() {
       .map(([source, count]) => ({ source, count, pct: total ? Math.round((count / total) * 100) : 0 }))
       .sort((a, b) => b.count - a.count);
 
-    return { total, posture, satisfied, partial, notStarted, implemented, totalControls, controlPct, bySource };
+    // Open gaps (unsatisfied obligations) bucketed by source authority — drives
+    // the Open-gaps donut so you can see where the gaps concentrate.
+    const GAP_PALETTE = ['#534AB7', '#b45309', '#0e7490', '#b91c1c', '#15803d', '#7c3aed', '#9ca3af'];
+    const openBySrc = new Map<string, number>();
+    obs.forEach((o, i) => {
+      if (covs[i] < 100) {
+        const s = sourceOf(o.identifier, o.sourceAuthority);
+        openBySrc.set(s, (openBySrc.get(s) || 0) + 1);
+      }
+    });
+    const openBySource = Array.from(openBySrc.entries())
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count)
+      .map((x, i) => ({ ...x, color: GAP_PALETTE[i % GAP_PALETTE.length] }));
+
+    return { total, posture, satisfied, partial, notStarted, implemented, totalControls, controlPct, bySource, openBySource };
   }, [obligations, summary]);
 
   const evalList: SolicitationEvaluation[] = evals ?? [];
@@ -245,11 +290,17 @@ export default function CommandCenter() {
         </KpiCard>
 
         <KpiCard title="Requirements">
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>{m.total}</Typography>
-          <Stack spacing={0.25} sx={{ mt: 0.5 }}>
-            <Typography variant="caption" sx={{ color: GREEN }}>● {m.satisfied} satisfied</Typography>
-            <Typography variant="caption" sx={{ color: AMBER }}>● {m.partial} partial</Typography>
-            <Typography variant="caption" sx={{ color: RED }}>● {m.notStarted} not started</Typography>
+          <Stack direction="row" alignItems="center" spacing={1.25}>
+            <Donut
+              size={66} inner={21}
+              data={[{ value: m.satisfied, color: GREEN }, { value: m.partial, color: AMBER }, { value: m.notStarted, color: RED }]}
+              center={<Typography sx={{ fontSize: 17, fontWeight: 700, lineHeight: 1 }}>{m.total}</Typography>}
+            />
+            <Stack spacing={0.25}>
+              <Typography variant="caption" sx={{ color: GREEN }}>● {m.satisfied} satisfied</Typography>
+              <Typography variant="caption" sx={{ color: AMBER }}>● {m.partial} partial</Typography>
+              <Typography variant="caption" sx={{ color: RED }}>● {m.notStarted} not started</Typography>
+            </Stack>
           </Stack>
         </KpiCard>
 
@@ -386,14 +437,35 @@ export default function CommandCenter() {
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 1.5 }}>
         <Card sx={{ border: '1px solid', borderColor: 'divider' }}>
           <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Open gaps</Typography>
-            <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>{m.partial + m.notStarted}</Typography>
-              <Typography variant="caption" color="text.secondary">open requirements</Typography>
-            </Stack>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Open gaps by authority</Typography>
+            {(m.partial + m.notStarted) === 0 ? (
+              <Typography variant="body2" color="text.secondary">No open gaps — every surfaced requirement is covered.</Typography>
+            ) : (
+              <Stack direction="row" alignItems="center" spacing={1.75}>
+                <Donut
+                  size={96} inner={31}
+                  data={m.openBySource.map(s => ({ value: s.count, color: s.color }))}
+                  center={(
+                    <>
+                      <Typography sx={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{m.partial + m.notStarted}</Typography>
+                      <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>open</Typography>
+                    </>
+                  )}
+                />
+                <Stack spacing={0.4} sx={{ flex: 1, minWidth: 0 }}>
+                  {m.openBySource.slice(0, 5).map(s => (
+                    <Stack key={s.source} direction="row" alignItems="center" spacing={0.75}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: s.color, flexShrink: 0 }} />
+                      <Typography variant="caption" noWrap sx={{ flex: 1 }}>{s.source}</Typography>
+                      <Typography variant="caption" color="text.secondary">{s.count}</Typography>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Stack>
+            )}
             <Typography
               variant="caption"
-              sx={{ color: PURPLE, cursor: 'pointer', fontWeight: 500 }}
+              sx={{ color: PURPLE, cursor: 'pointer', fontWeight: 500, display: 'block', mt: 1 }}
               onClick={() => navigate('/gaps')}
             >
               View all gaps by authority →
