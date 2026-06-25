@@ -15,7 +15,7 @@ import { useOrgSummary } from '../hooks/useOrgSummary';
 import { type CascadeMove } from '../hooks/useCascadeLeverage';
 import { useCascadeOrgSurface, useCascadeOrgLeverage } from '../hooks/useCascadeOrg';
 import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
-import { evaluationService, type SolicitationEvaluation } from '../services/evaluationService';
+import { evaluationService, type SolicitationEvaluation, type CoverageSummary } from '../services/evaluationService';
 import RemediationDrawer from './RemediationDrawer';
 import ComplianceAssistant from './ComplianceAssistant';
 import ScopeSetupAssistant from './ScopeSetupAssistant';
@@ -31,6 +31,32 @@ const statusSx = (s: string) =>
   s === 'Complete' ? { bgcolor: 'rgba(21,128,61,0.12)', color: '#15803d' }
     : s === 'In progress' ? { bgcolor: 'rgba(180,83,9,0.12)', color: '#854d0e' }
       : { bgcolor: 'rgba(0,0,0,0.06)', color: '#5f5e5a' };
+
+/** Derive a solicitation doc type from the title/number — evals don't store one. */
+function deriveType(title: string, num: string | null): string {
+  const s = `${title} ${num ?? ''}`.toUpperCase();
+  if (/\bRFP\b|REQUEST FOR PROPOSAL/.test(s)) return 'RFP';
+  if (/\bRFQ\b|REQUEST FOR QUOT/.test(s)) return 'RFQ';
+  if (/\bRFI\b|REQUEST FOR INFORMATION/.test(s)) return 'RFI';
+  if (/\bBPA\b|BLANKET PURCHASE/.test(s)) return 'BPA';
+  if (/\bIDIQ\b/.test(s)) return 'IDIQ';
+  if (/TASK ORDER/.test(s)) return 'Task Order';
+  if (/\bSOW\b|STATEMENT OF WORK/.test(s)) return 'SOW';
+  return '—';
+}
+/** Readiness = share of detected obligations already covered by the baseline. */
+function readinessOf(c: CoverageSummary): number {
+  return c.detected > 0 ? Math.round((c.covered / c.detected) * 100) : 0;
+}
+/** Bid status bands: 0 blocking gaps → Bid-ready; ≥50% covered → At risk; else Not ready. */
+function solStatus(c: CoverageSummary): 'Bid-ready' | 'At risk' | 'Not ready' {
+  if (c.detected > 0 && c.gaps === 0) return 'Bid-ready';
+  return readinessOf(c) >= 50 ? 'At risk' : 'Not ready';
+}
+const solStatusSx = (s: string) =>
+  s === 'Bid-ready' ? { bgcolor: 'rgba(21,128,61,0.12)', color: GREEN }
+    : s === 'At risk' ? { bgcolor: 'rgba(180,83,9,0.12)', color: AMBER }
+      : { bgcolor: 'rgba(185,28,28,0.12)', color: RED };
 
 /** Map an obligation identifier to a clean "source" bucket for the by-source chart. */
 function sourceOf(identifier: string, authority: string): string {
@@ -149,6 +175,7 @@ export default function CommandCenter() {
   const [activeMove, setActiveMove] = useState<CascadeMove | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
   // Org-wide surface + moves + posture summary — all on the org baseline now
   // (org-baseline Phase B1; the single-program-summary bridge is retired).
   const { data: obligations, isLoading: surfaceLoading } = useCascadeOrgSurface();
@@ -212,8 +239,57 @@ export default function CommandCenter() {
   }, [obligations, summary]);
 
   const evalList: SolicitationEvaluation[] = evals ?? [];
-  const totalSolicitationGaps = evalList.reduce((a, e) => a + (e.coverageSummary?.gaps ?? 0), 0);
+  const solRows = evalList.map(e => {
+    const c = e.coverageSummary ?? { detected: 0, covered: 0, gaps: 0, unknown: 0 };
+    return {
+      id: e.id,
+      title: e.title,
+      type: deriveType(e.title, e.solicitationNumber),
+      customer: e.agency ?? '—',
+      scanDate: e.createdAt,
+      status: solStatus(c),
+      gaps: c.gaps,
+      readiness: readinessOf(c),
+    };
+  });
+  const solCounts = {
+    bidReady: solRows.filter(r => r.status === 'Bid-ready').length,
+    atRisk: solRows.filter(r => r.status === 'At risk').length,
+    notReady: solRows.filter(r => r.status === 'Not ready').length,
+  };
   const topMove = moves?.[0];
+
+  const handleGenerateReport = async () => {
+    setGeneratingReport(true);
+    try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text('Bid Readiness Report', 14, 18);
+      doc.setFontSize(10);
+      doc.setTextColor(110);
+      doc.text(`Organization baseline readiness: ${m.posture}%  ·  ${m.satisfied}/${m.total} requirements covered`, 14, 26);
+      doc.text(`Generated ${new Date().toLocaleString()}`, 14, 31);
+      autoTable(doc, {
+        startY: 38,
+        head: [['Opportunity', 'Type', 'Customer', 'Scan date', 'Status', 'Blocking gaps', 'Readiness']],
+        body: solRows.map(r => [
+          r.title, r.type, r.customer, new Date(r.scanDate).toLocaleDateString(),
+          r.status, String(r.gaps), `${r.readiness}%`,
+        ]),
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [83, 74, 183] },
+      });
+      doc.save(`bid-readiness-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      // best-effort export; the button re-enables on failure
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
 
   if (surfaceLoading) {
     return (
@@ -323,9 +399,18 @@ export default function CommandCenter() {
         </KpiCard>
 
         <KpiCard title="Solicitations">
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>{evalList.length}</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{totalSolicitationGaps} open gaps across scans</Typography>
-          <Box sx={{ mt: 0.5 }}><Pending label="bid-ready scoring coming" /></Box>
+          <Stack direction="row" alignItems="center" spacing={1.25}>
+            <Donut
+              size={66} inner={21}
+              data={[{ value: solCounts.bidReady, color: GREEN }, { value: solCounts.atRisk, color: AMBER }, { value: solCounts.notReady, color: RED }]}
+              center={<Typography sx={{ fontSize: 17, fontWeight: 700, lineHeight: 1 }}>{evalList.length}</Typography>}
+            />
+            <Stack spacing={0.25}>
+              <Typography variant="caption" sx={{ color: GREEN }}>● {solCounts.bidReady} bid-ready</Typography>
+              <Typography variant="caption" sx={{ color: AMBER }}>● {solCounts.atRisk} at risk</Typography>
+              <Typography variant="caption" sx={{ color: RED }}>● {solCounts.notReady} not ready</Typography>
+            </Stack>
+          </Stack>
         </KpiCard>
       </Box>
 
@@ -401,33 +486,61 @@ export default function CommandCenter() {
               <Button size="small" sx={{ textTransform: 'none' }} onClick={() => navigate('/evaluations')}>View all scans</Button>
             </Stack>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              Recent solicitation scans and bid-readiness.
+              Bid-readiness for each scanned opportunity, against your baseline.
             </Typography>
-            <Stack spacing={1}>
-              {evalList.slice(0, 4).map(e => {
-                const gaps = e.coverageSummary?.gaps ?? 0;
-                return (
-                  <Stack key={e.id} direction="row" alignItems="center" spacing={1}
-                    onClick={() => navigate(`/evaluations/${e.id}`)}
-                    sx={{ cursor: 'pointer', p: 0.5, borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 500, color: '#3C3489' }} noWrap title={e.title}>{e.title}</Typography>
-                      <Typography variant="caption" color="text.secondary">{relTime(e.createdAt)}</Typography>
-                    </Box>
-                    <Typography variant="caption" sx={{ color: gaps > 0 ? RED : GREEN, fontWeight: 500, whiteSpace: 'nowrap' }}>
-                      {gaps} blocking {gaps === 1 ? 'gap' : 'gaps'}
-                    </Typography>
-                  </Stack>
-                );
-              })}
-              {evalList.length === 0 && (
-                <Typography variant="body2" color="text.secondary">No solicitations scanned yet.</Typography>
-              )}
-            </Stack>
+            {solRows.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">No solicitations scanned yet.</Typography>
+            ) : (
+              <Box sx={{ overflowX: 'auto' }}>
+                <Box
+                  component="table"
+                  sx={{
+                    width: '100%', borderCollapse: 'collapse', minWidth: 540,
+                    '& th': { textAlign: 'left', fontSize: 11, color: 'text.secondary', fontWeight: 500, py: 0.5, px: 1, whiteSpace: 'nowrap' },
+                    '& td': { py: 1, px: 1, borderTop: '0.5px solid', borderColor: 'divider', fontSize: 12.5, verticalAlign: 'middle', whiteSpace: 'nowrap' },
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <th>Opportunity</th><th>Type</th><th>Customer</th><th>Scan date</th><th>Status</th><th>Gaps</th><th>Readiness</th><th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {solRows.slice(0, 6).map(r => (
+                      <Box
+                        component="tr" key={r.id}
+                        onClick={() => navigate(`/evaluations/${r.id}`)}
+                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                      >
+                        <td><Typography variant="body2" sx={{ fontWeight: 500, color: '#3C3489', maxWidth: 150 }} noWrap title={r.title}>{r.title}</Typography></td>
+                        <td>{r.type}</td>
+                        <td><Typography variant="body2" noWrap sx={{ maxWidth: 100 }} title={r.customer}>{r.customer}</Typography></td>
+                        <td>{new Date(r.scanDate).toLocaleDateString()}</td>
+                        <td><Chip label={r.status} size="small" sx={{ height: 20, fontSize: 11, ...solStatusSx(r.status) }} /></td>
+                        <td><Typography variant="body2" sx={{ color: r.gaps > 0 ? RED : GREEN, fontWeight: 600, textAlign: 'center' }}>{r.gaps}</Typography></td>
+                        <td><Typography variant="body2" sx={{ fontWeight: 600, color: band(r.readiness) }}>{r.readiness}%</Typography></td>
+                        <td>
+                          <Button size="small" sx={{ textTransform: 'none', minWidth: 0, px: 1 }}
+                            onClick={(ev) => { ev.stopPropagation(); navigate(`/evaluations/${r.id}`); }}>
+                            {r.status === 'Bid-ready' ? 'Export' : 'Review'}
+                          </Button>
+                        </td>
+                      </Box>
+                    ))}
+                  </tbody>
+                </Box>
+              </Box>
+            )}
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1.25 }}>
-              <Pending label="readiness % coming" />
               <Box sx={{ flex: 1 }} />
-              <Button size="small" variant="contained" sx={{ textTransform: 'none', bgcolor: PURPLE }}>Generate bid readiness report</Button>
+              <Button
+                size="small" variant="contained"
+                sx={{ textTransform: 'none', bgcolor: PURPLE }}
+                disabled={solRows.length === 0 || generatingReport}
+                onClick={handleGenerateReport}
+              >
+                {generatingReport ? 'Generating…' : 'Generate bid readiness report'}
+              </Button>
             </Stack>
           </CardContent>
         </Card>
