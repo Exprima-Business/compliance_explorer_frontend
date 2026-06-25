@@ -281,14 +281,13 @@ export const evaluationService = {
    */
   createPoamsFromGaps: async (
     evaluationId: string,
-    programId: string,
     frameworkId?: string | null,
   ): Promise<ApiResponse<CreatePoamsFromGapsResult>> => {
     return apiCall<CreatePoamsFromGapsResult>(
       `/api/solicitation-evaluations/${evaluationId}/create-poams-from-gaps`,
       {
         method: 'POST',
-        body: JSON.stringify({ programId, frameworkId: frameworkId ?? null }),
+        body: JSON.stringify({ frameworkId: frameworkId ?? null }),
         requireAuth: true,
         timeout: 120_000,
       },

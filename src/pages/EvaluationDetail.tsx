@@ -465,10 +465,6 @@ const EvaluationDetail: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  // Program-scoped POA&M-from-gaps is degraded at org scope — the org bid-overlay
-  // build (FULL-D step 6) replaces it with org POA&M creation. program=null so
-  // the POA&M-from-gaps action is disabled here meanwhile.
-  const program = null as { id: string; name: string } | null;
 
   const [detail, setDetail] = useState<EvaluationDetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -593,10 +589,10 @@ const EvaluationDetail: React.FC = () => {
    * about to spawn. Per-clause dedup on the BE means re-running is safe.
    */
   const handleCreatePoams = async () => {
-    if (!id || !program) return;
+    if (!id) return;
     setCreatingPoams(true);
     setError(null);
-    const resp = await evaluationService.createPoamsFromGaps(id, program.id);
+    const resp = await evaluationService.createPoamsFromGaps(id);
     if (resp.error) {
       setCreatingPoams(false);
       setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
@@ -801,11 +797,11 @@ const EvaluationDetail: React.FC = () => {
         </Card>
       )}
 
-      {/* Create-POA&Ms-from-gaps bar (Phase B-3) — appears only when there are
-          gaps to track AND a program is available. Parallel structure to Apply
-          bar so the two bulk actions read as siblings: Apply = adds clauses to
-          program tracking; Create POA&Ms = opens remediation items for the new
-          requirements. Re-running is safe (per-clause dedup on the BE). */}
+      {/* Create-POA&Ms-from-gaps bar (Phase B-3) — appears whenever there are
+          gaps to track. Parallel structure to the Apply bar so the two bulk
+          actions read as siblings: Apply = adds clauses to the org baseline;
+          Create POA&Ms = opens remediation items for the new requirements.
+          Re-running is safe (per-clause dedup on the BE). */}
       {summary.gaps > 0 && (
         <Card sx={{ mb: 2 }}>
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
@@ -814,14 +810,14 @@ const EvaluationDetail: React.FC = () => {
                 Track gaps as POA&amp;Ms
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {program
-                  ? `Creates one POA&M per gap clause in "${program.name}". Each row links back to this evaluation. Already-tracked gaps are skipped.`
-                  : 'No compliance program found — POA&M creation is unavailable.'}
+                Creates one POA&amp;M per gap clause and adds it to your organization's
+                remediation plan. Each row links back to this evaluation. Already-tracked
+                gaps are skipped.
               </Typography>
             </Box>
             <Button
               variant="outlined"
-              disabled={!program || creatingPoams}
+              disabled={creatingPoams}
               startIcon={creatingPoams ? <CircularProgress size={18} /> : <PendingIcon />}
               onClick={() => setPoamDialogOpen(true)}
             >
@@ -838,7 +834,7 @@ const EvaluationDetail: React.FC = () => {
         <DialogTitle>Create POA&amp;Ms from gaps</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This will create one POA&amp;M in <strong>{program?.name ?? 'your program'}</strong>{' '}
+            This will create one POA&amp;M in <strong>your organization's POA&amp;M register</strong>{' '}
             for each of the <strong>{summary.gaps}</strong> gap clause{summary.gaps === 1 ? '' : 's'} in
             this evaluation. Each POA&amp;M will:
           </DialogContentText>
