@@ -12,6 +12,7 @@ import { type CascadeMoveObligation } from '../hooks/useCascadeMoveObligations';
 import { useCascadeOrgMoveObligations } from '../hooks/useCascadeOrg';
 import type { CascadeMove } from '../hooks/useCascadeLeverage';
 import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
+import { useOrg } from '../contexts/OrgContext';
 import { apiCall } from '../services/api';
 import { keys } from '../queryClient';
 
@@ -42,16 +43,14 @@ function howToFix(label: string): string {
  * (owner / status / affected solicitations / risk) — placeholders until wired.
  */
 export default function RemediationDrawer({
-  move, onClose, scope = 'program',
+  move, onClose,
 }: {
   move: CascadeMove | null;
   onClose: () => void;
-  /** 'org' drills in via the org baseline; 'program' via the active program. */
-  scope?: 'org' | 'program';
 }) {
   const navigate = useNavigate();
+  const { currentOrg } = useOrg();
   const open = !!move;
-  const isOrg = scope === 'org';
   // Drill-in is org-scoped now (the program tier is retired).
   const { data: obligations, isLoading } = useCascadeOrgMoveObligations(
     move?.mechanismTypeId ?? null,
@@ -73,9 +72,6 @@ export default function RemediationDrawer({
       .sort((a, b) => b.items.length - a.items.length);
   }, [obligations]);
 
-  // Lead assignment is an org-scoped follow-up (org-cascade-remediation);
-  // programId null keeps the owner control disabled here meanwhile.
-  const programId: string | null = null;
   const { data: members = [], isLoading: membersLoading } = useOrgMembers();
   const queryClient = useQueryClient();
 
@@ -89,17 +85,17 @@ export default function RemediationDrawer({
   }, [move?.mechanismTypeId, move?.leadUserId]);
 
   const handleSetLead = async (leadUserId: string | null) => {
-    if (!programId || !move) return;
+    if (!move) return;
     setSavingLead(true);
     const res = await apiCall<{ leadUserId: string | null }>(
-      `/api/cascade/lead/${encodeURIComponent(programId)}/${encodeURIComponent(move.mechanismTypeId)}`,
+      `/api/cascade/org/lead/${encodeURIComponent(move.mechanismTypeId)}`,
       { method: 'PUT', body: JSON.stringify({ leadUserId }), requireAuth: true },
     );
     setSavingLead(false);
     if (res.error) return;
     setLocalLead(leadUserId ?? '');
     // Refresh the dashboard card's Owner column.
-    queryClient.invalidateQueries({ queryKey: keys.cascadeLeverage(programId) });
+    queryClient.invalidateQueries({ queryKey: keys.cascadeOrgLeverage(currentOrg?.id) });
   };
 
   const goClause = (identifier: string) => {
@@ -140,7 +136,7 @@ export default function RemediationDrawer({
               label="Owner (oversight lead)"
               value={(
                 <Stack direction="row" alignItems="center" spacing={0.5}>
-                  <FormControl size="small" fullWidth disabled={isOrg || !programId || savingLead || membersLoading}>
+                  <FormControl size="small" fullWidth disabled={savingLead || membersLoading}>
                     <Select
                       value={localLead}
                       displayEmpty

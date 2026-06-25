@@ -433,7 +433,7 @@ export default function CommandCenter() {
         while few requirements are fully satisfied.
       </Typography>
 
-      <RemediationDrawer move={activeMove} onClose={() => setActiveMove(null)} scope="org" />
+      <RemediationDrawer move={activeMove} onClose={() => setActiveMove(null)} />
       <ComplianceAssistant open={assistantOpen} onClose={() => setAssistantOpen(false)} />
       <ScopeSetupAssistant open={setupOpen} onClose={() => setSetupOpen(false)} />
     </Box>
