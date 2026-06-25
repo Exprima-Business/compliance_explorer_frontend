@@ -402,7 +402,20 @@ export async function fetchFARDetailOrg(): Promise<FARDetail | null> { return nu
 export async function fetchRecommendedFrameworksOrg(): Promise<FrameworkRecommendation[]> { return []; }
 export async function fetchScopingOrg(_frameworkId: string): Promise<ScopingResponse | null> { return null; }
 export async function parseSSPDocumentOrg(_file: File, _autoApply = true): Promise<SSPParseResult | null> { return null; }
-export async function importAssessmentOrg(_file: File, _frameworkId: string): Promise<AssessmentImportResult | null> { return null; }
+export async function importAssessmentOrg(file: File, frameworkId: string): Promise<AssessmentImportResult | null> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('frameworkId', frameworkId);
+
+  const res = await apiCall<AssessmentImportResult>('/api/controls/org/import-assessment', {
+    method: 'POST',
+    body: formData,
+    requireAuth: true,
+    timeout: 120_000, // 2 min for large xlsx
+  });
+
+  return res.data ?? null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SSP Parser
