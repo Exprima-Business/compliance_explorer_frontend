@@ -401,6 +401,20 @@ export async function fetchSPRSScoreOrg(): Promise<SPRSScore | null> { return nu
 export async function fetchFARDetailOrg(): Promise<FARDetail | null> { return null; }
 export async function fetchRecommendedFrameworksOrg(): Promise<FrameworkRecommendation[]> { return []; }
 export async function fetchScopingOrg(_frameworkId: string): Promise<ScopingResponse | null> { return null; }
+
+export interface OrgEvidenceSummary {
+  /** Controls being worked on (status IN_PROGRESS or IMPLEMENTED). */
+  worked: number;
+  /** Of those, how many have evidence attached. */
+  withEvidence: number;
+  /** Of those, how many still lack evidence. */
+  missing: number;
+}
+/** Dashboard Evidence card: controls in flight + how many lack evidence. */
+export async function fetchEvidenceSummaryOrg(): Promise<OrgEvidenceSummary | null> {
+  const res = await apiCall<OrgEvidenceSummary>('/api/controls/org/evidence-summary', { requireAuth: true });
+  return res.data ?? null;
+}
 export async function parseSSPDocumentOrg(file: File, autoApply = true): Promise<SSPParseResult | null> {
   const formData = new FormData();
   formData.append('file', file);

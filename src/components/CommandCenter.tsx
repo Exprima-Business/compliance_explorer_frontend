@@ -12,6 +12,8 @@ import { type CascadeMove } from '../hooks/useCascadeLeverage';
 import { useCascadeOrgSurface, useCascadeOrgLeverage } from '../hooks/useCascadeOrg';
 import { useOrgMembers, memberLabel } from '../hooks/useOrgMembers';
 import { evaluationService, type SolicitationEvaluation, type CoverageSummary } from '../services/evaluationService';
+import { activityService } from '../services/activityService';
+import { fetchEvidenceSummaryOrg } from '../services/controlService';
 import RemediationDrawer from './RemediationDrawer';
 import ComplianceAssistant from './ComplianceAssistant';
 import ScopeSetupAssistant from './ScopeSetupAssistant';
@@ -48,6 +50,25 @@ const solStatusSx = (s: string) =>
     : s === 'At risk' ? { bgcolor: 'rgba(180,83,9,0.12)', color: AMBER }
       : { bgcolor: 'rgba(185,28,28,0.12)', color: RED };
 
+/** Friendly labels for audit-log actions shown in the Recent activity feed. */
+const ACTION_LABEL: Record<string, string> = {
+  'poam.create': 'POA&M opened',
+  'poam.update': 'POA&M updated',
+  'poam.close': 'POA&M closed',
+  'satisfaction.status': 'Requirement updated',
+  'satisfaction.owner': 'Owner assigned',
+  'framework_status.update': 'Framework status changed',
+  'evidence.upload': 'Evidence uploaded',
+  'evidence.delete': 'Evidence removed',
+  'obligation_instance.create': 'Obligation added',
+  'obligation_instance.update_status': 'Obligation updated',
+  'obligation_instance.complete': 'Obligation completed',
+  'obligation_instance.upload_evidence': 'Evidence uploaded',
+};
+function actionLabel(a: string): string {
+  return ACTION_LABEL[a] ?? a.replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /** Map an obligation identifier to a clean "source" bucket for the by-source chart. */
 function sourceOf(identifier: string, authority: string): string {
   const id = identifier.toUpperCase();
@@ -61,18 +82,6 @@ function sourceOf(identifier: string, authority: string): string {
   if (id.startsWith('FIPS')) return 'NIST 800-53';
   if (authority?.startsWith('NIST')) return 'NIST';
   return 'Agency / other';
-}
-
-/** A subtle "not tracked yet" marker so placeholders never read as real data. */
-function Pending({ label = 'computing' }: { label?: string }) {
-  return (
-    <Chip
-      label={label}
-      size="small"
-      variant="outlined"
-      sx={{ height: 18, fontSize: 10, color: 'text.secondary', borderStyle: 'dashed' }}
-    />
-  );
 }
 
 /** A compact donut (recharts) with optional centered content. */
@@ -170,6 +179,16 @@ export default function CommandCenter() {
     },
     staleTime: 60_000,
   });
+  const { data: activity } = useQuery({
+    queryKey: ['activity', 'recent'],
+    queryFn: () => activityService.recent(),
+    staleTime: 60_000,
+  });
+  const { data: evidence } = useQuery({
+    queryKey: ['evidence', 'summary'],
+    queryFn: async () => (await fetchEvidenceSummaryOrg()) ?? { worked: 0, withEvidence: 0, missing: 0 },
+    staleTime: 60_000,
+  });
 
   const m = useMemo(() => {
     const obs = obligations ?? [];
@@ -224,6 +243,11 @@ export default function CommandCenter() {
     low: riskMoves.filter(mv => mv.riskLevel !== 'High' && mv.riskLevel !== 'Medium').length,
   };
   const openActions = riskMoves.length;
+  const ev = evidence ?? { worked: 0, withEvidence: 0, missing: 0 };
+  const feed = [
+    ...(activity ?? []).map(a => ({ label: actionLabel(a.action), detail: a.notes ?? undefined, at: a.createdAt })),
+    ...evalList.map(e => ({ label: `${e.title} scanned`, detail: `${e.coverageSummary?.detected ?? 0} obligations detected`, at: e.createdAt })),
+  ].sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime()).slice(0, 5);
 
   const handleGenerateReport = async () => {
     setGeneratingReport(true);
@@ -357,11 +381,15 @@ export default function CommandCenter() {
         </KpiCard>
 
         <KpiCard title="Evidence">
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.secondary' }}>—</Typography>
-            <Pending label="not tracked yet" />
-          </Stack>
-          <Typography variant="caption" color="text.secondary">Evidence mapping coming next</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 700, color: PURPLE }}>
+            {ev.withEvidence}<Box component="span" sx={{ fontSize: 16, color: 'text.secondary', fontWeight: 400 }}> / {ev.worked}</Box>
+          </Typography>
+          <Box sx={{ height: 6, bgcolor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden', my: 0.75 }}>
+            <Box sx={{ width: `${ev.worked ? Math.round((ev.withEvidence / ev.worked) * 100) : 0}%`, height: '100%', bgcolor: PURPLE }} />
+          </Box>
+          <Typography variant="caption" sx={{ color: ev.missing > 0 ? AMBER : 'text.secondary' }}>
+            {ev.missing} missing evidence
+          </Typography>
         </KpiCard>
 
         <KpiCard title="Solicitations">
@@ -571,7 +599,21 @@ export default function CommandCenter() {
         <Card sx={{ border: '1px solid', borderColor: 'divider' }}>
           <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Recent activity</Typography>
-            <Pending label="activity feed coming" />
+            {feed.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">No recent activity yet.</Typography>
+            ) : (
+              <Stack spacing={1.25}>
+                {feed.map((it, i) => (
+                  <Stack key={i} direction="row" alignItems="flex-start" spacing={1}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap title={it.label}>{it.label}</Typography>
+                      {it.detail && <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>{it.detail}</Typography>}
+                    </Box>
+                    <Typography variant="caption" color="text.disabled" sx={{ whiteSpace: 'nowrap', mt: 0.25 }}>{relTime(it.at)}</Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
           </CardContent>
         </Card>
       </Box>
