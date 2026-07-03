@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
 import { useAuth } from '../hooks/useAuth';
-import { getCsrfToken } from '../services/sessionBridge';
+import { getCsrfToken, ensureCookieSession } from '../services/sessionBridge';
 
 interface OrganizationSetupData {
   organizationName: string;
@@ -141,6 +141,18 @@ const OrganizationSetup: React.FC = () => {
           } catch (refreshError) {
             dlog('OrganizationSetup: Error refreshing session (non-fatal)', { error: refreshError });
           }
+        }
+
+        // Re-mint the BE cookie session (ca_session) so it carries the new org
+        // claims. The supabase-js refresh above only updates the *client*
+        // session; the API authenticates against the HttpOnly cookie, which must
+        // be re-established here or org endpoints 401 (MISSING_CLAIMS) on the
+        // first post-setup load (CS2 cold-start bug).
+        try {
+          await ensureCookieSession({ force: true });
+          dlog('OrganizationSetup: cookie session re-minted with org claims');
+        } catch (err) {
+          dlog('OrganizationSetup: cookie session re-mint failed (non-fatal)', { err });
         }
 
         // Use a full page reload rather than client-side navigation so that
