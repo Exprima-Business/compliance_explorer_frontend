@@ -4,7 +4,7 @@ import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiResponse, ApiError as ApiErrorObj } from '../types/api';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
-import { getCsrfToken, ensureCsrfToken, hasCookieSession, refreshCookieSession } from './sessionBridge';
+import { getCsrfToken, ensureCsrfToken, hasCookieSession, refreshCookieSession, handleSessionExpired } from './sessionBridge';
 
 // API configuration
 const API_URL = environment.api.url;
@@ -216,6 +216,11 @@ export const apiCall = async <T>(endpoint: string, options: ApiOptions = {}): Pr
       const refreshed = await refreshCookieSession();
       if (refreshed) {
         response = await doFetch();
+      } else {
+        // Refresh rejected → the cookie session is definitively gone. Redirect
+        // to /login so the shell (and its interval pollers) unmount, instead of
+        // sitting here 401-flooding a dead session. Guarded to fire once.
+        handleSessionExpired();
       }
     }
 

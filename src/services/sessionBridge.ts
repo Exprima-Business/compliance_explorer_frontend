@@ -183,6 +183,37 @@ export async function refreshCookieSession(): Promise<boolean> {
   }
 }
 
+// Fires at most once per page life so a burst of concurrent 401s (several
+// pollers hitting a just-expired session in the same tick) produces ONE
+// redirect, not a stampede.
+let sessionExpiredHandled = false;
+
+/**
+ * Handle a definitively-dead session: the BE rejected a cookie refresh, so the
+ * HttpOnly session is gone (natural expiry, revoked elsewhere, or logout in
+ * another tab). Redirect to /login, which unmounts the app shell and thereby
+ * every interval poller (NotificationBell's 60s count, in-flight scan polls).
+ * Without this the shell stays mounted and 401-floods forever.
+ *
+ * Guarded: only redirects when a session actually existed (caller checks
+ * hasCookieSession() before the refresh) and never loops on /login itself. A
+ * hard navigation is intentional — it guarantees all timers/EventSources die.
+ */
+export function handleSessionExpired(): void {
+  if (sessionExpiredHandled) return;
+  sessionExpiredHandled = true;
+  setCsrfToken(null);
+  try {
+    const base = import.meta.env.PROD ? '/app' : '';
+    const loginPath = `${base}/login`;
+    if (!window.location.pathname.startsWith(loginPath)) {
+      window.location.href = loginPath;
+    }
+  } catch {
+    // window unavailable (non-browser) — nothing to redirect.
+  }
+}
+
 /** Revoke the cookie session server-side and clear local CSRF state (logout). */
 export async function clearCookieSession(): Promise<void> {
   try {
