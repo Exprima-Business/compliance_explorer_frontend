@@ -421,6 +421,24 @@ export async function fetchEvidenceSummaryOrg(): Promise<OrgEvidenceSummary | nu
   const res = await apiCall<OrgEvidenceSummary>('/api/controls/org/evidence-summary', { requireAuth: true });
   return res.data ?? null;
 }
+
+export interface GeneratePoamsResult {
+  /** POA&Ms newly created (excludes gaps that already had an open POA&M). */
+  created: number;
+  /** Open control/objective statuses considered. */
+  scanned: number;
+}
+/**
+ * Build POA&Ms from the org's current control/objective gaps — no scan needed
+ * (CS6). Idempotent: only creates rows for gaps lacking an open POA&M.
+ */
+export async function generateOrgPoamsFromGaps(): Promise<GeneratePoamsResult | null> {
+  const res = await apiCall<GeneratePoamsResult>('/api/controls/org/generate-poams-from-gaps', {
+    method: 'POST',
+    requireAuth: true,
+  });
+  return res.data ?? null;
+}
 export async function parseSSPDocumentOrg(file: File, autoApply = true): Promise<SSPParseResult | null> {
   const formData = new FormData();
   formData.append('file', file);

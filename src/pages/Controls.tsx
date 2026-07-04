@@ -45,6 +45,7 @@ import {
   Hub as HubIcon,
   Add as AddIcon,
   LightbulbOutlined as LightbulbIcon,
+  PlaylistAddCheck as PoamIcon,
 } from '@mui/icons-material';
 import CrossFrameworkCreditPanel from '../components/CrossFrameworkCreditPanel';
 import { EvidenceFileUpload } from '../components/EvidenceFileUpload';
@@ -79,6 +80,7 @@ import {
   type AssessmentImportResult,
   fetchSPRSScoreOrg as fetchSPRSScore,
   fetchFARDetailOrg as fetchFARDetail,
+  generateOrgPoamsFromGaps,
   deactivateFrameworkOrg as deactivateFrameworkAPI,
   fetchScopingOrg as fetchScoping,
   type ProgramScoping,
@@ -1632,6 +1634,34 @@ const Controls: React.FC = () => {
     open: false, message: '', severity: 'success',
   });
 
+  // "Generate POA&Ms from gaps" (CS6) in-flight guard.
+  const [generatingPoams, setGeneratingPoams] = useState(false);
+
+  const handleGeneratePoams = useCallback(async () => {
+    if (generatingPoams) return;
+    setGeneratingPoams(true);
+    try {
+      const result = await generateOrgPoamsFromGaps();
+      if (result) {
+        setFeedbackSnack({
+          open: true,
+          message: result.created > 0
+            ? `Created ${result.created} POA&M${result.created === 1 ? '' : 's'} from ${result.scanned} open requirement${result.scanned === 1 ? '' : 's'}.`
+            : result.scanned > 0
+              ? `All ${result.scanned} open requirement${result.scanned === 1 ? '' : 's'} already have a POA&M — nothing new to create.`
+              : 'No gaps found. Mark requirements as not met (or import an assessment) first.',
+          severity: result.created > 0 ? 'success' : 'info',
+        });
+      } else {
+        setFeedbackSnack({ open: true, message: 'Could not generate POA&Ms.', severity: 'error' });
+      }
+    } catch (err: any) {
+      setFeedbackSnack({ open: true, message: err?.message || 'Could not generate POA&Ms.', severity: 'error' });
+    } finally {
+      setGeneratingPoams(false);
+    }
+  }, [generatingPoams]);
+
   // Evidence-required modal state (D-1.2 / D-1.3). Holds the pending
   // status transition until the user supplies evidence / justification.
   // Modal is shown only for IMPLEMENTED (any is_completed status) and
@@ -2652,6 +2682,38 @@ const Controls: React.FC = () => {
             <UploadFileIcon sx={{ fontSize: isMobile ? 32 : 36, color: '#22c55e' }} />
             <Typography variant={isMobile ? 'body2' : 'body1'} sx={{ fontWeight: 600, color: '#22c55e' }}>
               Import Assessment
+            </Typography>
+          </CardContent>
+        </Card>
+        <Card
+          variant="outlined"
+          onClick={generatingPoams ? undefined : handleGeneratePoams}
+          sx={{
+            cursor: generatingPoams ? 'default' : 'pointer',
+            borderColor: '#f59e0b',
+            borderStyle: 'dashed',
+            borderWidth: 2,
+            opacity: generatingPoams ? 0.6 : 1,
+            transition: 'all 0.2s',
+            '&:hover': generatingPoams ? {} : { boxShadow: 2, borderStyle: 'solid', bgcolor: 'rgba(245,158,11,0.04)' },
+          }}
+        >
+          <CardContent sx={{
+            p: isMobile ? 1.5 : 2,
+            '&:last-child': { pb: isMobile ? 1.5 : 2 },
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.75,
+            minHeight: isMobile ? 80 : 90,
+          }}>
+            {generatingPoams
+              ? <CircularProgress size={isMobile ? 30 : 34} sx={{ color: '#f59e0b' }} />
+              : <PoamIcon sx={{ fontSize: isMobile ? 32 : 36, color: '#f59e0b' }} />}
+            <Typography variant={isMobile ? 'body2' : 'body1'} sx={{ fontWeight: 600, color: '#f59e0b' }}>
+              {generatingPoams ? 'Generating…' : 'Generate POA&Ms'}
             </Typography>
           </CardContent>
         </Card>
