@@ -392,12 +392,18 @@ export async function updateObjectiveStatusOrg(
   });
 }
 
-// ── Org scope: secondary panels deferred. SPRS/FAR computation, Section 508
-// applicability, and the SSP/xlsx parsers are still program-scoped. These
-// stubs return empty so the org Controls page renders cleanly; tracked
-// follow-up to give each an org variant. ─────────────────────────────────────
+// ── Org scope: secondary panels. FAR computation, Section 508 applicability,
+// and framework recommendation/scoping are still program-scoped and stubbed
+// below; SPRS is wired to its org variant. ───────────────────────────────────
 
-export async function fetchSPRSScoreOrg(): Promise<SPRSScore | null> { return null; }
+/** Org-scope SPRS score (org-baseline). Returns null when 800-171 isn't
+ *  activated (BE replies { score: null }) so the caller's card hides. */
+export async function fetchSPRSScoreOrg(): Promise<SPRSScore | null> {
+  const res = await apiCall<SPRSScore | { score: null }>('/api/controls/org/sprs-score', { requireAuth: true });
+  // BE sends { score: null } when 800-171 isn't activated — treat as "no card".
+  if (!res.data || res.data.score === null || res.data.score === undefined) return null;
+  return res.data as SPRSScore;
+}
 export async function fetchFARDetailOrg(): Promise<FARDetail | null> { return null; }
 export async function fetchRecommendedFrameworksOrg(): Promise<FrameworkRecommendation[]> { return []; }
 export async function fetchScopingOrg(_frameworkId: string): Promise<ScopingResponse | null> { return null; }
