@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Stack, Typography,
 } from '@mui/material';
@@ -18,6 +18,7 @@ import RemediationDrawer from './RemediationDrawer';
 import ComplianceAssistant from './ComplianceAssistant';
 import ScopeSetupAssistant from './ScopeSetupAssistant';
 import JourneyGuide from './JourneyGuide';
+import WelcomeDialog, { isWelcomeDismissed } from './WelcomeDialog';
 import { PieChart, Pie, Cell } from 'recharts';
 import { GREEN, AMBER, RED, GRAY, PURPLE, riskBg, riskFg, statusSx, iconFor } from './remediationVisuals';
 
@@ -159,6 +160,10 @@ export default function CommandCenter() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
+  // First-run onboarding (CS3). Considered once per mount so closing it without
+  // "don't show again" doesn't immediately reopen it.
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const [welcomeConsidered, setWelcomeConsidered] = useState(false);
   // Org-wide surface + moves + posture summary — all on the org baseline now
   // (org-baseline Phase B1; the single-program-summary bridge is retired).
   const { data: obligations, isLoading: surfaceLoading } = useCascadeOrgSurface();
@@ -215,6 +220,15 @@ export default function CommandCenter() {
 
     return { total, posture, satisfied, partial, notStarted, implemented, totalControls, controlPct, bySource };
   }, [obligations, summary]);
+
+  // Auto-open the welcome once, only for a fresh org (no frameworks yet) that
+  // hasn't dismissed it. Established orgs never see it. `summary` gating ensures
+  // we don't flash it before posture data lands and misjudge totalControls.
+  useEffect(() => {
+    if (welcomeConsidered || surfaceLoading || summary === undefined) return;
+    setWelcomeConsidered(true);
+    if (m.totalControls === 0 && !isWelcomeDismissed()) setWelcomeOpen(true);
+  }, [welcomeConsidered, surfaceLoading, summary, m.totalControls]);
 
   const evalList: SolicitationEvaluation[] = evals ?? [];
   const solRows = evalList.map(e => {
@@ -322,6 +336,13 @@ export default function CommandCenter() {
           </Button>
         </Stack>
       </Stack>
+
+      {/* First-run onboarding (CS3) */}
+      <WelcomeDialog
+        open={welcomeOpen}
+        onGetStarted={() => { setWelcomeOpen(false); setSetupOpen(true); }}
+        onClose={() => setWelcomeOpen(false)}
+      />
 
       {/* Guided layer: journey spine + next-step hero */}
       <JourneyGuide
