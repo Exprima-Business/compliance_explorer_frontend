@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import environment from '../config/environment';
 import { dlog } from '../utils/debugLog';
 import { useAuth } from '../hooks/useAuth';
-import { getCsrfToken, ensureCookieSession } from '../services/sessionBridge';
+import { getCsrfToken, ensureCookieSession, ensureCsrfToken } from '../services/sessionBridge';
 
 interface OrganizationSetupData {
   organizationName: string;
@@ -73,6 +73,11 @@ const OrganizationSetup: React.FC = () => {
         projectName: formData.projectName,
       });
 
+      // Recover the double-submit CSRF token from the surviving ca_csrf cookie
+      // if localStorage has none (fresh signup in a browser that still holds a
+      // stale api-origin cookie). Without this the setup POST sends no
+      // x-csrf-token header and csrfMiddleware 403s it (CSRF_TOKEN_INVALID).
+      await ensureCsrfToken();
       const csrf = getCsrfToken();
       const response = await fetch(`${environment.api.url}/api/organizations/setup`, {
         method: 'POST',

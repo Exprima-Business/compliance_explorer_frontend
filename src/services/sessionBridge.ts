@@ -143,10 +143,19 @@ export async function ensureCookieSession(opts?: { force?: boolean }): Promise<v
       await ensureCsrfToken();
       return;
     }
+    // POST /session is a state-changing request, so csrfMiddleware enforces the
+    // double-submit token WHENEVER a ca_session cookie is present — which it is
+    // on a *re-mint* (e.g. after org setup) or when a stale cookie survives a
+    // fresh signup in the same browser. Recover/echo the token first, mirroring
+    // refreshCookieSession; otherwise the mint 403s with CSRF_TOKEN_INVALID and
+    // no fresh token is ever captured, cascading into the org-setup 403 (the
+    // cold-start signup failure in the Railway logs). The very first mint on a
+    // truly cookieless browser skips CSRF (no session cookie) and is unaffected.
+    await ensureCsrfToken();
     const resp = await fetch(`${API_URL}/api/auth/session`, {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
       body: JSON.stringify({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
@@ -158,12 +167,15 @@ export async function ensureCookieSession(opts?: { force?: boolean }): Promise<v
   }
 }
 
-/**
- * Rotate the cookie session server-side. Called by api.ts on a 401 before
- * retrying once. Stores the rotated CSRF token from the response. Returns true
- * on success.
- */
-export async function refreshCookieSession(): Promise<boolean> {
+// Shared in-flight refresh so concurrent 401s (several pollers / queued
+// requests hitting an expired session in the same tick) await ONE POST
+// /refresh. The BE rotates the refresh token on every call and treats a second
+// use of the old token as a reuse attack — revoking ALL of the user's sessions
+// ("[SESSION] Reuse detected on rotate" in the logs). De-duping to a single
+// in-flight rotation is what prevents that self-inflicted mass revocation.
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function doRefreshCookieSession(): Promise<boolean> {
   try {
     const resp = await fetch(`${API_URL}/api/auth/refresh`, {
       method: 'POST',
@@ -181,6 +193,20 @@ export async function refreshCookieSession(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Rotate the cookie session server-side. Called by api.ts on a 401 before
+ * retrying once. Stores the rotated CSRF token from the response. Returns true
+ * on success. Concurrent callers share ONE rotation (see refreshInFlight).
+ */
+export async function refreshCookieSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = doRefreshCookieSession().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
 }
 
 // Fires at most once per page life so a burst of concurrent 401s (several
