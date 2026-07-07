@@ -5,6 +5,7 @@ import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import { DEBUG_LOG } from './config/debug'
 import { DebugErrorBoundary } from './components/DebugErrorBoundary'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import './utils/setupDebug'
 import { supabase } from './lib/supabase';
 import { OrganizationValidationService } from './services/organizationValidationService';
@@ -151,7 +152,13 @@ createRoot(document.getElementById('root')!).render(
           <App />
         </DebugErrorBoundary>
       ) : (
-        <App />
+        // Production top-level boundary: catches render errors anywhere in the
+        // tree (previously only the scanner in MainApp was wrapped, so any
+        // other render error was a white screen). Shows a recoverable fallback
+        // AND reports to Sentry via componentDidCatch → captureException.
+        <ErrorBoundary fallbackMessage="Something went wrong loading the app. Try again, or reload the page.">
+          <App />
+        </ErrorBoundary>
       )}
     </AuthProvider>
   </StrictMode>,
