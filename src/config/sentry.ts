@@ -20,6 +20,21 @@ export function initSentry(): void {
       if (event.request) {
         delete (event.request as any).cookies;
         delete (event.request as any).data;
+        // Strip query + fragment from the URL. The /auth/callback URL carries
+        // Supabase access/refresh tokens in the hash (detectSessionInUrl) until
+        // supabase-js strips it — never let that reach the error store.
+        if (typeof event.request.url === 'string') {
+          event.request.url = event.request.url.split('#')[0].split('?')[0];
+        }
+      }
+      // Same scrub for navigation/fetch breadcrumb URLs.
+      if (event.breadcrumbs) {
+        for (const b of event.breadcrumbs) {
+          const u = (b as { data?: { url?: unknown } }).data?.url;
+          if (typeof u === 'string') {
+            (b as { data: { url: string } }).data.url = u.split('#')[0].split('?')[0];
+          }
+        }
       }
       return event;
     },

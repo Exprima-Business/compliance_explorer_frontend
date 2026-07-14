@@ -1,4 +1,3 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Clause, ClauseFamily, ClauseFamilyGroup } from '../types/clause';
 import type { ApiResponse, ApiError as ApiErrorObj } from '../types/api';
@@ -93,44 +92,6 @@ async function handleApiResponse<T>(response: Response): Promise<T> {
   } catch (e) {
     throw new ApiError('Failed to parse API response', response.status);
   }
-}
-
-export async function getAuthToken(): Promise<string | null> {
-  try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error) {
-      dlog('[api] Failed to get auth session:', error.message);
-      return null;
-    }
-    return session?.access_token ?? null;
-  } catch (error) {
-    dlog('[api] Error getting auth token:', error);
-    return null;
-  }
-}
-
-async function getCommonHeaders(requireAuth: boolean = false): Promise<HeadersInit> {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Origin': window.location.origin,
-  };
-
-  if (requireAuth) {
-    const token = await getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    } else {
-      dlog('[api] Auth token not available for protected endpoint');
-    }
-  }
-
-  headers['x-org-id'] = getCurrentOrgId();
-  if (getCurrentProjectId()) {
-    headers['x-project-id'] = getCurrentProjectId()!;
-  }
-
-  return headers;
 }
 
 interface ApiOptions extends RequestInit {
