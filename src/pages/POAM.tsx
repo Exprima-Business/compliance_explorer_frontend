@@ -159,6 +159,274 @@ function blankMilestoneForm() {
 
 type MilestoneForm = ReturnType<typeof blankMilestoneForm>;
 
+// Payload shape shared by createOrg + update (they take the same object).
+type ItemPayload = Parameters<typeof poamService.createOrg>[0];
+
+interface PoamItemDialogProps {
+  open: boolean;
+  editingItem: PoamItem | null;
+  initialForm: ItemForm | null;
+  controlOptions: ControlOption[];
+  onClose: () => void;
+  onSubmit: (payload: ItemPayload) => Promise<{ error?: unknown }>;
+}
+
+/**
+ * Create/edit dialog for a POA&M item. Holds the form in LOCAL state so typing
+ * — especially in the multiline Remediation plan — never re-renders the
+ * parent's large POA&M item list. When the form lived on the page, each
+ * keystroke re-rendered hundreds of rows and blocked the main thread ~1s per
+ * character. Seeds from `initialForm` once each time the dialog opens.
+ */
+const PoamItemDialog: React.FC<PoamItemDialogProps> = ({
+  open, editingItem, initialForm, controlOptions, onClose, onSubmit,
+}) => {
+  const [form, setForm] = useState<ItemForm | null>(null);
+  // Tracks whether the user has manually overridden the auto-computed scheduled
+  // completion. While false, changing the risk level recomputes scheduled =
+  // identified + days_for(risk). Flips true once the user edits the date
+  // directly (per user direction 2026-05-29: keep a user-modified close date
+  // when the risk level later changes).
+  const [schedManuallyEdited, setSchedManuallyEdited] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Seed local state from the parent-supplied form ONCE per open. Deliberately
+  // keyed on `open` only — depending on `initialForm` (a fresh object on every
+  // parent render) would clobber the user's typing on each parent re-render.
+  useEffect(() => {
+    if (!open || !initialForm) return;
+    setForm(initialForm);
+    setSaveError(null);
+    // Treat the scheduled date as manually edited when it diverges from the
+    // auto value (identified + days_for(risk)); a fresh/default seed matches
+    // and stays auto-tracking.
+    const expected = initialForm.identifiedAt
+      ? addDaysToDate(initialForm.identifiedAt, DEFAULT_REMEDIATION_DAYS[initialForm.riskLevel])
+      : null;
+    setSchedManuallyEdited(
+      !!initialForm.scheduledCompletion && initialForm.scheduledCompletion !== expected,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const save = async () => {
+    if (!form) return;
+    if (!form.weakness.trim()) {
+      setSaveError('Weakness summary is required.');
+      return;
+    }
+    if (!form.remediationPlan.trim()) {
+      setSaveError('Remediation Plan is required — describe the steps that will close this weakness.');
+      return;
+    }
+    if (!form.scheduledCompletion) {
+      setSaveError('Scheduled Completion is required — pick a target date for remediation.');
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      // When marking completed with no Completed date, stamp today. When moving
+      // back out of completed, clear it so the column doesn't lie.
+      const today = new Date().toISOString().slice(0, 10);
+      const completedAt = form.status === 'completed' ? (form.completedAt || today) : null;
+      const payload: ItemPayload = {
+        controlId: form.controlId || null,
+        weakness: form.weakness.trim(),
+        description: form.description.trim() || null,
+        riskLevel: form.riskLevel,
+        status: form.status,
+        remediationPlan: form.remediationPlan.trim(),
+        responsibleParty: form.responsibleParty.trim() || null,
+        identifiedAt: form.identifiedAt || today,
+        scheduledCompletion: form.scheduledCompletion,
+        completedAt,
+      };
+      const resp = await onSubmit(payload);
+      if (resp?.error) { setSaveError(extractErrorMessage(resp.error)); return; }
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>{editingItem ? 'Edit POA&M item' : 'New POA&M item'}</DialogTitle>
+      <DialogContent dividers>
+        {form && (
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              select
+              label="Linked control"
+              value={form.controlId}
+              onChange={e => setForm({ ...form, controlId: e.target.value })}
+              fullWidth
+              helperText={
+                controlOptions.length === 0
+                  ? 'No frameworks activated — link will appear once a framework is activated.'
+                  : 'The control this weakness applies to. Leave blank for cross-cutting findings.'
+              }
+              disabled={controlOptions.length === 0}
+            >
+              <MenuItem value=""><em>None</em></MenuItem>
+              {controlOptions.map(c => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.identifier}{c.title ? ` — ${c.title}` : ''}
+                  {c.frameworkName ? ` (${c.frameworkName})` : ''}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Weakness *"
+              value={form.weakness}
+              onChange={e => setForm({ ...form, weakness: e.target.value })}
+              fullWidth
+              autoFocus
+              helperText="Short summary of the finding (e.g. 'MFA not enforced for privileged accounts')"
+            />
+            <TextField
+              label="Description"
+              value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              fullWidth
+              multiline
+              minRows={2}
+              maxRows={6}
+            />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                select
+                label="Risk level"
+                value={form.riskLevel}
+                onChange={e => {
+                  const newRisk = e.target.value as PoamRiskLevel;
+                  // If the user hasn't manually overridden the scheduled date,
+                  // slide it to identified + days_for(newRisk) so the
+                  // remediation window always matches the risk.
+                  if (!schedManuallyEdited && form.identifiedAt) {
+                    setForm({
+                      ...form,
+                      riskLevel: newRisk,
+                      scheduledCompletion: addDaysToDate(
+                        form.identifiedAt,
+                        DEFAULT_REMEDIATION_DAYS[newRisk],
+                      ),
+                    });
+                  } else {
+                    setForm({ ...form, riskLevel: newRisk });
+                  }
+                }}
+                fullWidth
+                helperText={
+                  schedManuallyEdited
+                    ? 'Scheduled date is locked to your manual value.'
+                    : `Scheduled date auto-tracks to identified + ${DEFAULT_REMEDIATION_DAYS[form.riskLevel]}d for this risk.`
+                }
+              >
+                {RISK_LEVELS.map(r => (
+                  <MenuItem key={r} value={r}>{riskLabel(r)}</MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Status"
+                value={form.status}
+                onChange={e => setForm({ ...form, status: e.target.value as PoamItemStatus })}
+                fullWidth
+              >
+                {ITEM_STATUSES.map(s => (
+                  <MenuItem key={s} value={s}>{itemStatusLabel(s)}</MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+            <TextField
+              label="Remediation plan"
+              value={form.remediationPlan}
+              onChange={e => setForm({ ...form, remediationPlan: e.target.value })}
+              fullWidth
+              multiline
+              minRows={2}
+              maxRows={6}
+              required
+              error={!form.remediationPlan.trim() && saveError?.toLowerCase().includes('remediation')}
+              helperText="How will this be fixed? (Required)"
+            />
+            <TextField
+              label="Responsible party"
+              value={form.responsibleParty}
+              onChange={e => setForm({ ...form, responsibleParty: e.target.value })}
+              fullWidth
+              helperText="Owner or team accountable for remediation"
+            />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                label="Identified"
+                type="date"
+                value={form.identifiedAt}
+                onChange={e => setForm({ ...form, identifiedAt: e.target.value })}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                helperText="Auto-set to today; editable for historical findings"
+              />
+              <TextField
+                label="Scheduled completion"
+                type="date"
+                value={form.scheduledCompletion}
+                onChange={e => {
+                  const newValue = e.target.value;
+                  // Mark manually edited the moment the value differs from the
+                  // auto-computed one. Setting it to the auto value (or
+                  // clearing) is a no-op and does NOT trip the flag.
+                  const expected = form.identifiedAt
+                    ? addDaysToDate(form.identifiedAt, DEFAULT_REMEDIATION_DAYS[form.riskLevel])
+                    : null;
+                  if (newValue && newValue !== expected) {
+                    setSchedManuallyEdited(true);
+                  }
+                  setForm({ ...form, scheduledCompletion: newValue });
+                }}
+                fullWidth
+                required
+                error={!form.scheduledCompletion && saveError?.toLowerCase().includes('scheduled')}
+                InputLabelProps={{ shrink: true }}
+                helperText={
+                  schedManuallyEdited
+                    ? 'Manual value — won’t change when risk level changes.'
+                    : 'Auto-tracks risk level (Required)'
+                }
+              />
+            </Stack>
+            {saveError && <Alert severity="error">{saveError}</Alert>}
+          </Stack>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button
+          onClick={save}
+          variant="contained"
+          disabled={saving}
+          color={
+            editingItem && form?.status === 'completed' && editingItem.status !== 'completed'
+              ? 'success'
+              : 'primary'
+          }
+        >
+          {saving
+            ? 'Saving…'
+            : !editingItem
+              ? 'Create'
+              : form?.status === 'completed' && editingItem.status !== 'completed'
+                ? 'Save & Close'
+                : 'Save'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
@@ -177,12 +445,12 @@ const POAM: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // Item dialog (create or edit)
+  // Item dialog (create or edit). The form itself lives in PoamItemDialog's
+  // local state so typing doesn't re-render this page's item list; the page
+  // only holds the seed handed to the dialog when it opens.
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PoamItem | null>(null);
-  const [itemForm, setItemForm] = useState<ItemForm | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [itemSeed, setItemSeed] = useState<ItemForm | null>(null);
 
   // Filter + group state — multiple filters compose with AND; "all" disables.
   // Persisted only in component state (not URL) since they're cheap to set.
@@ -211,14 +479,6 @@ const POAM: React.FC = () => {
     setActiveFilters(new Set());
     setFrameworkFilter('all');
   };
-  // Tracks whether the user has manually overridden the auto-computed
-  // scheduled completion. While false, changing the risk level recomputes
-  // scheduled = identified + days_for(risk). Flips to true the moment the
-  // user types directly into the Scheduled completion field. Per user
-  // direction (2026-05-29): "if the scheduled close has been modified by
-  // the user prior to the risk level changing, keep the modified value."
-  const [schedManuallyEdited, setSchedManuallyEdited] = useState(false);
-
   // Milestone dialog
   const [msDialogOpen, setMsDialogOpen] = useState(false);
   const [msItemId, setMsItemId] = useState<string | null>(null);
@@ -318,12 +578,11 @@ const POAM: React.FC = () => {
     dialogPrefilledRef.current = true;
 
     setEditingItem(null);
-    setItemForm({
+    setItemSeed({
       ...blankItemForm(),
       controlId: ctrlId,
       weakness: ctrlIdent ? `Control ${ctrlIdent} not yet implemented` : '',
     });
-    setSaveError(null);
     setItemDialogOpen(true);
 
     // Consume — clear so a page refresh doesn't re-open the dialog.
@@ -565,11 +824,9 @@ const POAM: React.FC = () => {
   const openCreateItem = () => {
     if (!orgId) return;
     setEditingItem(null);
-    setItemForm(blankItemForm());
     // Fresh create — scheduled completion is the auto-computed default
-    // (today + 30d). The user hasn't touched it yet.
-    setSchedManuallyEdited(false);
-    setSaveError(null);
+    // (today + 30d); the dialog seeds schedManuallyEdited=false from it.
+    setItemSeed(blankItemForm());
     setItemDialogOpen(true);
   };
 
@@ -588,7 +845,9 @@ const POAM: React.FC = () => {
         : it.status;
     const stagedCompletedAt =
       stagedStatus === 'completed' ? (it.completedAt ?? today) : (it.completedAt ?? '');
-    setItemForm({
+    // The dialog derives schedManuallyEdited from this seed (manual override
+    // when the scheduled date diverges from identified + days_for(risk)).
+    setItemSeed({
       controlId: it.controlId ?? '',
       weakness: it.weakness,
       description: it.description ?? '',
@@ -600,81 +859,25 @@ const POAM: React.FC = () => {
       scheduledCompletion: it.scheduledCompletion ?? '',
       completedAt: stagedCompletedAt,
     });
-    // Detect whether the existing scheduled date matches what we'd auto-
-    // compute (identified + days_for(risk)). If they match, treat as
-    // still-using-default — future risk-level changes will recompute.
-    // If they don't match (user manually adjusted, or BE used an
-    // org-specific override we don't know about), preserve the manual
-    // override and stop auto-recomputing.
-    const expected =
-      it.identifiedAt
-        ? addDaysToDate(it.identifiedAt, DEFAULT_REMEDIATION_DAYS[it.riskLevel])
-        : null;
-    setSchedManuallyEdited(
-      it.scheduledCompletion !== null
-        && it.scheduledCompletion !== ''
-        && it.scheduledCompletion !== expected,
-    );
-    setSaveError(null);
     setItemDialogOpen(true);
   };
 
   const closeItemDialog = () => {
     setItemDialogOpen(false);
     setEditingItem(null);
-    setItemForm(null);
-    setSaveError(null);
+    setItemSeed(null);
   };
 
-  const saveItem = async () => {
-    if (!itemForm) return;
-    if (!itemForm.weakness.trim()) {
-      setSaveError('Weakness summary is required.');
-      return;
-    }
-    if (!itemForm.remediationPlan.trim()) {
-      setSaveError('Remediation Plan is required — describe the steps that will close this weakness.');
-      return;
-    }
-    if (!itemForm.scheduledCompletion) {
-      setSaveError('Scheduled Completion is required — pick a target date for remediation.');
-      return;
-    }
-    setSaving(true);
-    setSaveError(null);
-    try {
-      // When the row is being marked completed and no Completed date is
-      // set, stamp today. When the row is being moved BACK out of completed,
-      // clear the Completed date so the column doesn't lie.
-      const today = new Date().toISOString().slice(0, 10);
-      const completedAt =
-        itemForm.status === 'completed'
-          ? (itemForm.completedAt || today)
-          : null;
-      const payload = {
-        controlId: itemForm.controlId || null,
-        weakness: itemForm.weakness.trim(),
-        description: itemForm.description.trim() || null,
-        riskLevel: itemForm.riskLevel,
-        status: itemForm.status,
-        remediationPlan: itemForm.remediationPlan.trim(),
-        responsibleParty: itemForm.responsibleParty.trim() || null,
-        identifiedAt: itemForm.identifiedAt || today,
-        scheduledCompletion: itemForm.scheduledCompletion,
-        completedAt,
-      };
-      if (editingItem) {
-        const resp = await poamService.update(editingItem.id, payload);
-        if (resp.error) { setSaveError(extractErrorMessage(resp.error)); return; }
-      } else {
-        const resp = await poamService.createOrg(payload);
-        if (resp.error) { setSaveError(extractErrorMessage(resp.error)); return; }
-      }
-      closeItemDialog();
+  // Persist the payload the dialog built (create vs update by editingItem) and
+  // refresh the list on success. The dialog owns validation + saving/error UI.
+  const submitItem = async (payload: ItemPayload) => {
+    const resp = editingItem
+      ? await poamService.update(editingItem.id, payload)
+      : await poamService.createOrg(payload);
+    if (!resp.error) {
       await load();
-    } finally {
-      setSaving(false);
     }
+    return resp;
   };
 
   const deleteItem = async (it: PoamItem) => {
@@ -1181,183 +1384,16 @@ const POAM: React.FC = () => {
         </TableContainer>
       )}
 
-      {/* Item dialog */}
-      <Dialog open={itemDialogOpen} onClose={closeItemDialog} maxWidth="md" fullWidth>
-        <DialogTitle>{editingItem ? 'Edit POA&M item' : 'New POA&M item'}</DialogTitle>
-        <DialogContent dividers>
-          {itemForm && (
-            <Stack spacing={2} sx={{ pt: 1 }}>
-              <TextField
-                select
-                label="Linked control"
-                value={itemForm.controlId}
-                onChange={e => setItemForm({ ...itemForm, controlId: e.target.value })}
-                fullWidth
-                helperText={
-                  controlOptions.length === 0
-                    ? 'No frameworks activated — link will appear once a framework is activated.'
-                    : 'The control this weakness applies to. Leave blank for cross-cutting findings.'
-                }
-                disabled={controlOptions.length === 0}
-              >
-                <MenuItem value=""><em>None</em></MenuItem>
-                {controlOptions.map(c => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.identifier}{c.title ? ` — ${c.title}` : ''}
-                    {c.frameworkName ? ` (${c.frameworkName})` : ''}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Weakness *"
-                value={itemForm.weakness}
-                onChange={e => setItemForm({ ...itemForm, weakness: e.target.value })}
-                fullWidth
-                autoFocus
-                helperText="Short summary of the finding (e.g. 'MFA not enforced for privileged accounts')"
-              />
-              <TextField
-                label="Description"
-                value={itemForm.description}
-                onChange={e => setItemForm({ ...itemForm, description: e.target.value })}
-                fullWidth
-                multiline
-                minRows={2}
-                maxRows={6}
-              />
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <TextField
-                  select
-                  label="Risk level"
-                  value={itemForm.riskLevel}
-                  onChange={e => {
-                    const newRisk = e.target.value as PoamRiskLevel;
-                    // If the user hasn't manually overridden the scheduled
-                    // date, slide it to identified + days_for(newRisk) so
-                    // the remediation window always matches the risk.
-                    // Critical=7d / High=14d / Moderate=30d / Low=60d.
-                    if (!schedManuallyEdited && itemForm.identifiedAt) {
-                      setItemForm({
-                        ...itemForm,
-                        riskLevel: newRisk,
-                        scheduledCompletion: addDaysToDate(
-                          itemForm.identifiedAt,
-                          DEFAULT_REMEDIATION_DAYS[newRisk],
-                        ),
-                      });
-                    } else {
-                      setItemForm({ ...itemForm, riskLevel: newRisk });
-                    }
-                  }}
-                  fullWidth
-                  helperText={
-                    schedManuallyEdited
-                      ? 'Scheduled date is locked to your manual value.'
-                      : `Scheduled date auto-tracks to identified + ${DEFAULT_REMEDIATION_DAYS[itemForm.riskLevel]}d for this risk.`
-                  }
-                >
-                  {RISK_LEVELS.map(r => (
-                    <MenuItem key={r} value={r}>{riskLabel(r)}</MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  select
-                  label="Status"
-                  value={itemForm.status}
-                  onChange={e => setItemForm({ ...itemForm, status: e.target.value as PoamItemStatus })}
-                  fullWidth
-                >
-                  {ITEM_STATUSES.map(s => (
-                    <MenuItem key={s} value={s}>{itemStatusLabel(s)}</MenuItem>
-                  ))}
-                </TextField>
-              </Stack>
-              <TextField
-                label="Remediation plan"
-                value={itemForm.remediationPlan}
-                onChange={e => setItemForm({ ...itemForm, remediationPlan: e.target.value })}
-                fullWidth
-                multiline
-                minRows={2}
-                maxRows={6}
-                required
-                error={!itemForm.remediationPlan.trim() && saveError?.toLowerCase().includes('remediation')}
-                helperText="How will this be fixed? (Required)"
-              />
-              <TextField
-                label="Responsible party"
-                value={itemForm.responsibleParty}
-                onChange={e => setItemForm({ ...itemForm, responsibleParty: e.target.value })}
-                fullWidth
-                helperText="Owner or team accountable for remediation"
-              />
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <TextField
-                  label="Identified"
-                  type="date"
-                  value={itemForm.identifiedAt}
-                  onChange={e => setItemForm({ ...itemForm, identifiedAt: e.target.value })}
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  helperText="Auto-set to today; editable for historical findings"
-                />
-                <TextField
-                  label="Scheduled completion"
-                  type="date"
-                  value={itemForm.scheduledCompletion}
-                  onChange={e => {
-                    const newValue = e.target.value;
-                    // Mark as manually edited the moment the user types a
-                    // value that differs from what we'd auto-compute. From
-                    // then on, risk-level changes leave this date alone.
-                    // Setting it to the auto value (or clearing it) does
-                    // NOT trip the flag — that's a no-op from the user's
-                    // perspective.
-                    const expected = itemForm.identifiedAt
-                      ? addDaysToDate(itemForm.identifiedAt, DEFAULT_REMEDIATION_DAYS[itemForm.riskLevel])
-                      : null;
-                    if (newValue && newValue !== expected) {
-                      setSchedManuallyEdited(true);
-                    }
-                    setItemForm({ ...itemForm, scheduledCompletion: newValue });
-                  }}
-                  fullWidth
-                  required
-                  error={!itemForm.scheduledCompletion && saveError?.toLowerCase().includes('scheduled')}
-                  InputLabelProps={{ shrink: true }}
-                  helperText={
-                    schedManuallyEdited
-                      ? 'Manual value — won’t change when risk level changes.'
-                      : 'Auto-tracks risk level (Required)'
-                  }
-                />
-              </Stack>
-              {saveError && <Alert severity="error">{saveError}</Alert>}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeItemDialog} disabled={saving}>Cancel</Button>
-          <Button
-            onClick={saveItem}
-            variant="contained"
-            disabled={saving}
-            color={
-              editingItem && itemForm?.status === 'completed' && editingItem.status !== 'completed'
-                ? 'success'
-                : 'primary'
-            }
-          >
-            {saving
-              ? 'Saving…'
-              : !editingItem
-                ? 'Create'
-                : itemForm?.status === 'completed' && editingItem.status !== 'completed'
-                  ? 'Save & Close'
-                  : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Item dialog — form state lives inside the dialog so typing doesn't
+          re-render this page's item list. */}
+      <PoamItemDialog
+        open={itemDialogOpen}
+        editingItem={editingItem}
+        initialForm={itemSeed}
+        controlOptions={controlOptions}
+        onClose={closeItemDialog}
+        onSubmit={submitItem}
+      />
 
       {/* Milestone dialog */}
       <Dialog open={msDialogOpen} onClose={closeMsDialog} maxWidth="sm" fullWidth>
